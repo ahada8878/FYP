@@ -1,7 +1,11 @@
+import 'package:fyp/HomePage.dart';
+import 'package:fyp/LoadingPage.dart';
+
 import 'EatingStylePage.dart';
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'dart:math' as math;
+import 'HomePage.dart';
 
 class MealTimingPage extends StatefulWidget {
   const MealTimingPage({super.key});
@@ -10,7 +14,7 @@ class MealTimingPage extends StatefulWidget {
   State<MealTimingPage> createState() => _MealTimingPageState();
 }
 
-class _MealTimingPageState extends State<MealTimingPage> 
+class _MealTimingPageState extends State<MealTimingPage>
     with SingleTickerProviderStateMixin {
   String? _startTime;
   String? _endTime;
@@ -42,7 +46,8 @@ class _MealTimingPageState extends State<MealTimingPage>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
   }
 
   @override
@@ -57,15 +62,15 @@ class _MealTimingPageState extends State<MealTimingPage>
       if (isStartTime) {
         _startTime = time;
         _isDayTime = _startTimes.firstWhere(
-          (t) => t['time'] + t['period'] == time)['isDay'] as bool;
+            (t) => t['time'] + t['period'] == time)['isDay'] as bool;
       } else {
         _endTime = time;
       }
-      
+
       if (_startTime != null && _endTime != null) {
         _confettiController.play();
       }
-      
+
       _controller.reset();
       _controller.forward();
     });
@@ -103,7 +108,8 @@ class _MealTimingPageState extends State<MealTimingPage>
                 child: Icon(
                   Icons.star,
                   size: math.Random().nextDouble() * 3 + 1,
-                  color: Colors.white.withOpacity(math.Random().nextDouble() * 0.5 + 0.5),
+                  color: Colors.white
+                      .withOpacity(math.Random().nextDouble() * 0.5 + 0.5),
                 ),
               ),
           ],
@@ -114,9 +120,13 @@ class _MealTimingPageState extends State<MealTimingPage>
             top: 100,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 500),
-              child: _isDayTime 
-                  ? Icon(Icons.wb_sunny, key: const ValueKey('sun'), size: 60, color: Colors.amber)
-                  : Icon(Icons.nightlight_round, key: const ValueKey('moon'), size: 60, color: Colors.white),
+              child: _isDayTime
+                  ? Icon(Icons.wb_sunny,
+                      key: const ValueKey('sun'), size: 60, color: Colors.amber)
+                  : Icon(Icons.nightlight_round,
+                      key: const ValueKey('moon'),
+                      size: 60,
+                      color: Colors.white),
             ),
           ),
 
@@ -139,7 +149,8 @@ class _MealTimingPageState extends State<MealTimingPage>
                       // Title
                       ScaleTransition(
                         scale: Tween<double>(begin: 0.95, end: 1.0).animate(
-                          CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+                          CurvedAnimation(
+                              parent: _controller, curve: Curves.elasticOut),
                         ),
                         child: Text(
                           'Your Meal Times',
@@ -152,7 +163,8 @@ class _MealTimingPageState extends State<MealTimingPage>
                                 color: colorScheme.primary.withOpacity(0.2),
                                 blurRadius: 10,
                                 offset: const Offset(0, 2),
-                          )],
+                              )
+                            ],
                           ),
                         ),
                       ),
@@ -181,9 +193,12 @@ class _MealTimingPageState extends State<MealTimingPage>
                             height: 120,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: _isDayTime ? Colors.amber[100] : Colors.indigo[800],
+                              color: _isDayTime
+                                  ? Colors.amber[100]
+                                  : Colors.indigo[800],
                               border: Border.all(
-                                color: _isDayTime ? Colors.amber : Colors.indigo,
+                                color:
+                                    _isDayTime ? Colors.amber : Colors.indigo,
                                 width: 4,
                               ),
                             ),
@@ -191,7 +206,9 @@ class _MealTimingPageState extends State<MealTimingPage>
                               child: Icon(
                                 Icons.access_time,
                                 size: 60,
-                                color: _isDayTime ? Colors.amber[800] : Colors.white,
+                                color: _isDayTime
+                                    ? Colors.amber[800]
+                                    : Colors.white,
                               ),
                             ),
                           ),
@@ -227,7 +244,10 @@ class _MealTimingPageState extends State<MealTimingPage>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(30),
                           gradient: _startTime != null && _endTime != null
-                              ? LinearGradient(colors: [colorScheme.primary, colorScheme.secondary])
+                              ? LinearGradient(colors: [
+                                  colorScheme.primary,
+                                  colorScheme.secondary
+                                ])
                               : LinearGradient(colors: [
                                   colorScheme.onSurface.withOpacity(0.1),
                                   colorScheme.onSurface.withOpacity(0.1),
@@ -250,7 +270,13 @@ class _MealTimingPageState extends State<MealTimingPage>
                             onTap: _startTime != null && _endTime != null
                                 ? () {
                                     _confettiController.play();
-                                    // Add navigation logic here
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const FoodieAnalysisPage(),
+                                      ),
+                                    );
                                   }
                                 : null,
                             child: Center(
@@ -283,7 +309,12 @@ class _MealTimingPageState extends State<MealTimingPage>
             child: ConfettiWidget(
               confettiController: _confettiController,
               blastDirectionality: BlastDirectionality.explosive,
-              colors: const [Colors.green, Colors.blue, Colors.orange, Colors.yellow],
+              colors: const [
+                Colors.green,
+                Colors.blue,
+                Colors.orange,
+                Colors.yellow
+              ],
             ),
           ),
         ],
@@ -326,27 +357,35 @@ class _TimeSelectionSection extends StatelessWidget {
           children: times.map((timeData) {
             final timeStr = timeData['time'] + timeData['period'];
             final isSelected = selectedTime == timeStr;
-            
+
             return GestureDetector(
               onTap: () => onTimeSelected(timeStr),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isSelected 
-                      ? (isDay ? Colors.amber.withOpacity(0.2) : Colors.indigo.withOpacity(0.2))
+                  color: isSelected
+                      ? (isDay
+                          ? Colors.amber.withOpacity(0.2)
+                          : Colors.indigo.withOpacity(0.2))
                       : Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected 
+                    color: isSelected
                         ? (isDay ? Colors.amber : Colors.indigo)
-                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                        : Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.2),
                     width: 2,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: isSelected
-                          ? (isDay ? Colors.amber.withOpacity(0.3) : Colors.indigo.withOpacity(0.3))
+                          ? (isDay
+                              ? Colors.amber.withOpacity(0.3)
+                              : Colors.indigo.withOpacity(0.3))
                           : Colors.transparent,
                       blurRadius: 10,
                       offset: const Offset(0, 3),
@@ -359,9 +398,12 @@ class _TimeSelectionSection extends StatelessWidget {
                     Icon(
                       isDay ? Icons.sunny : Icons.nightlight,
                       size: 16,
-                      color: isSelected 
+                      color: isSelected
                           ? (isDay ? Colors.amber[800] : Colors.indigo[100])
-                          : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.5),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -369,7 +411,7 @@ class _TimeSelectionSection extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: isSelected 
+                        color: isSelected
                             ? (isDay ? Colors.amber[800] : Colors.indigo[100])
                             : Theme.of(context).colorScheme.onSurface,
                       ),
@@ -379,9 +421,12 @@ class _TimeSelectionSection extends StatelessWidget {
                       timeData['period'],
                       style: TextStyle(
                         fontSize: 14,
-                        color: isSelected 
+                        color: isSelected
                             ? (isDay ? Colors.amber[800] : Colors.indigo[100])
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7),
                       ),
                     ),
                   ],
