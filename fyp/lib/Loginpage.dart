@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'package:fyp/NamePage.dart';
+import 'package:fyp/ProfilePage.dart';
 import 'package:fyp/SignUpPage.dart';
+import 'package:fyp/main.dart';
 import 'HomePage.dart';
+import 'ProfilePage.dart';
 
 class CreativeLoginPage extends StatefulWidget {
   const CreativeLoginPage({super.key});
@@ -197,9 +200,8 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const CreativeHomePage(
-                                    userName: "Abdul Ahad",
-                                    userGoal: "Weight loss",
+                                  builder: (context) => const MealTrackingPage(
+                                   
                                   ),
                                 ),
                               );

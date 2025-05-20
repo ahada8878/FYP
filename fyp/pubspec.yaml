@@ -32,6 +32,8 @@ dependencies:
   flutter:
     sdk: flutter
   confetti: ^0.7.0
+  flutter_svg: ^2.0.9
+
   
 
 
