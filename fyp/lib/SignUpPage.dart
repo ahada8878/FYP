@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'package:fyp/NamePage.dart';
+import '../services/auth_service.dart'; // Import your auth service
 
 class CreativeSignupPage extends StatefulWidget {
   const CreativeSignupPage({super.key});
@@ -17,12 +18,52 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
   late Animation<Color?> _bgColorAnimation;
 
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService(); // Initialize auth service
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   bool _isPasswordVisible = false;
   bool _isRobot = true;
+  bool _isLoading = false; // Added loading state
+
+  Future<void> _signup() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_isRobot) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final token = await _authService.register(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (token != null) {
+        // Navigate to NamePage after successful registration
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const NamePage()),
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Signup successful! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -227,9 +268,7 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                _isRobot
-                                    ? 'I’m a robot 🤖'
-                                    : 'I’m human! 👩‍🍳',
+                                _isRobot ? 'I\'m a robot 🤖' : 'I\'m human! 👩‍🍳',
                                 style: textTheme.bodyLarge?.copyWith(
                                   color: _isRobot ? Colors.red : Colors.green,
                                   fontWeight: FontWeight.bold,
@@ -246,36 +285,13 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                             elevation: 5,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(30),
-                              onTap: _isRobot
-                                  ? null
-                                  : () {
-                                      Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) =>
-                                                  NamePage()),
-                                        );
-                                      if (_formKey.currentState!.validate()) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content:
-                                                Text('Signup successful! 🎉'),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                        _emailController.clear();
-                                        _passwordController.clear();
-                                        _confirmPasswordController.clear();
-                                        
-                                      }
-                                    },
+                              onTap: _isRobot || _isLoading ? null : _signup,
                               child: Container(
                                 width: double.infinity,
                                 height: 60,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(30),
-                                  gradient: _isRobot
+                                  gradient: _isRobot || _isLoading
                                       ? LinearGradient(
                                           colors: [
                                             Colors.grey,
@@ -290,15 +306,19 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                                         ),
                                 ),
                                 child: Center(
-                                  child: Text(
-                                    _isRobot
-                                        ? 'ROBOTS NOT ALLOWED ❌'
-                                        : 'SIGN UP',
-                                    style: textTheme.titleLarge?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  child: _isLoading
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                      : Text(
+                                          _isRobot
+                                              ? 'ROBOTS NOT ALLOWED ❌'
+                                              : 'SIGN UP',
+                                          style: textTheme.titleLarge?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
@@ -314,8 +334,7 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                               text: TextSpan(
                                 text: 'Already have an account? ',
                                 style: textTheme.bodyMedium?.copyWith(
-                                  color:
-                                      colorScheme.onBackground.withOpacity(0.7),
+                                  color: colorScheme.onBackground.withOpacity(0.7),
                                 ),
                                 children: [
                                   TextSpan(
