@@ -48,7 +48,7 @@ class DaySection extends StatelessWidget {
               TextButton(
                 onPressed: () => _handleAddMeal(context),
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.green,
+                  foregroundColor: const Color.fromRGBO(106, 79, 153, 1),
                   padding: EdgeInsets.zero,
                 ),
                 child: const Text('+ Add',

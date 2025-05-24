@@ -1,6 +1,8 @@
 // calorie_summary_carousel.dart
 import 'package:flutter/material.dart';
+import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:fyp/calorie_tracker_controller.dart';
+import 'package:fyp/models/activity_model.dart';
 import 'package:provider/provider.dart';
 
 class CalorieSummaryCarousel extends StatefulWidget {
@@ -131,8 +133,10 @@ class _CalorieIntakeCard extends StatelessWidget {
   }
 
   void _showEditGoalDialog(BuildContext context) {
-    final tracker = Provider.of<CalorieTrackerController>(context, listen: false);
-    TextEditingController textController = TextEditingController(text: tracker.dailyGoal.toString());
+    final tracker =
+        Provider.of<CalorieTrackerController>(context, listen: false);
+    TextEditingController textController =
+        TextEditingController(text: tracker.dailyGoal.toString());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -149,7 +153,8 @@ class _CalorieIntakeCard extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              final newGoal = int.tryParse(textController.text) ?? tracker.dailyGoal;
+              final newGoal =
+                  int.tryParse(textController.text) ?? tracker.dailyGoal;
               tracker.setDailyGoal(newGoal);
               Navigator.pop(context);
             },
@@ -166,83 +171,101 @@ class _CalorieBurnCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _HeaderSection(
-                  title: 'Daily Calorie Burn',
-                  value: '0 cal',
-                  valueColor: Colors.orange,
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: _CircularProgressRing(
-                    progress: 0.0,
-                    fillColor: const Color.fromRGBO(106, 79, 153, 1),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '0',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        Text(
-                          'calories burned',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(fontSize: 10),
-                        ),
-                      ],
+    return Consumer<CalorieTrackerController>(builder: (context, tracker, _) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HeaderSection(
+                    title: 'Daily Calorie Burn',
+                    value: '${tracker.totalBurnedCalories} cal',
+                    valueColor: Colors.orange,
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: _CircularProgressRing(
+                      progress: tracker.totalBurnedCalories / 400,
+                      fillColor: const Color.fromRGBO(106, 79, 153, 1),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${tracker.totalBurnedCalories}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          Text(
+                            'calories burned',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontSize: 10),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: SizedBox(
-                    width: 80,
-                    child: ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Log'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: SizedBox(
+                      width: 80,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final selectedActivity =
+                              await showModalBottomSheet<Activity>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const ActivityLogSheet(),
+                          );
+
+                          if (selectedActivity != null) {
+                            // Handle selected activity
+                            print('Selected: ${selectedActivity.name} '
+                                '(${selectedActivity.caloriesPerMin} cal/5min)');
+                          }
+                        },
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Log'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          const _SideWidgets(),
-        ],
-      ),
-    );
+            const SizedBox(width: 12),
+            const _SideWidgets(),
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -421,22 +444,132 @@ class _SideWidgets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        SizedBox(
-          height: 30,
-        ),
-        _InfoBox(
-          icon: Icons.directions_walk,
-          text: 'Sync with Health',
-          buttonLabel: 'Connect →',
-        ),
-        SizedBox(height: 12),
-        _InfoBox(
-          icon: Icons.sentiment_dissatisfied,
-          text: 'No logged activity',
-        ),
-      ],
+    return Consumer<CalorieTrackerController>(builder: (context, tracker, _) {
+      return Column(
+        children: [
+          const SizedBox(
+            height: 30,
+          ),
+          const _InfoBox(
+            icon: Icons.directions_walk,
+            text: 'Sync with Health',
+            buttonLabel: 'Connect →',
+          ),
+          const SizedBox(height: 12),
+          tracker.latestActivity != null
+              ? _LatestActivityBox(
+                  activity: tracker.latestActivity!,
+                  duration: tracker.latestDuration!,
+                  calories: tracker.latestCalories!,
+                )
+              : const _InfoBox(
+                  icon: Icons.sentiment_dissatisfied,
+                  text: 'No logged activity',
+                ),
+        ],
+      );
+    });
+  }
+}
+
+class _LatestActivityBox extends StatelessWidget {
+  final String activity;
+  final int duration;
+  final int calories;
+
+  const _LatestActivityBox({
+    required this.activity,
+    required this.duration,
+    required this.calories,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // Activity Name and Icon
+          Row(
+            children: [
+              const Icon(Icons.fitness_center, 
+                color: Color.fromRGBO(106, 79, 153, 1), 
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  activity,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          // Duration and Calories
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Column(
+                children: [
+                  Text(
+                    '$duration',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromRGBO(106, 79, 153, 1),
+                    ),
+                  ),
+                  const Text(
+                    'mins',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                height: 30,
+                width: 1,
+                color: Colors.grey[300],
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+              Column(
+                children: [
+                  Text(
+                    '$calories',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromRGBO(106, 79, 153, 1),
+                    ),
+                  ),
+                  const Text(
+                    'cal',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

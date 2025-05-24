@@ -11,7 +11,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => CameraOverlayController()),
         ChangeNotifierProvider(create: (_) => WaterTrackerController()),
-        ChangeNotifierProvider(create: (_) => CalorieTrackerController()), // Add this
+        ChangeNotifierProvider(create: (_) => CalorieTrackerController()),
       ],
       child: const MyApp(),
     ),
