@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/Loginpage.dart';
+import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/camera_overlay_controller.dart';
+import 'package:fyp/water_tracker_controller.dart';
 import 'package:provider/provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => CameraOverlayController(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CameraOverlayController()),
+        ChangeNotifierProvider(create: (_) => WaterTrackerController()),
+        ChangeNotifierProvider(create: (_) => CalorieTrackerController()), // Add this
+      ],
       child: const MyApp(),
     ),
   );
@@ -18,6 +24,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'NutriWise',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/Widgets/day_section.dart';
 import 'package:fyp/Widgets/week_progress_widget.dart';
+import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/data/daily_meals.dart';
+import 'package:provider/provider.dart';
 
 
 class MealPlanScreen extends StatefulWidget {
@@ -21,12 +23,29 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
       _loggedMeals[day] ??= {};
       _loggedMeals[day]!.add(mealId);
     });
+    _updateTotalCalories();
   }
 
   void _handleMealUnlogged(int day, String mealId) {
     setState(() {
       _loggedMeals[day]?.remove(mealId);
     });
+    _updateTotalCalories();
+  }
+
+  void _updateTotalCalories() {
+    int total = 0;
+    _loggedMeals.forEach((day, mealIds) {
+      mealIds.forEach((mealId) {
+        final originalMeal = getDayMeals(day).firstWhere((m) => m.id == mealId);
+        final replacementMeal = _mealReplacements[day]?[mealId];
+        final meal = replacementMeal ?? originalMeal;
+        total += meal.calories;
+      });
+    });
+
+    final calorieTracker = Provider.of<CalorieTrackerController>(context, listen: false);
+    calorieTracker.setTotalCalories(total);
   }
 
   void _handleMealReplacement(int day, String originalMealId, Meal newMeal) {
