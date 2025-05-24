@@ -1,5 +1,7 @@
 // calorie_summary_carousel.dart
 import 'package:flutter/material.dart';
+import 'package:fyp/calorie_tracker_controller.dart';
+import 'package:provider/provider.dart';
 
 class CalorieSummaryCarousel extends StatefulWidget {
   const CalorieSummaryCarousel({super.key});
@@ -28,7 +30,7 @@ class _CalorieSummaryCarouselState extends State<CalorieSummaryCarousel>
         curve: Curves.easeInOut,
       ),
     )..addListener(() => setState(() {}));
-    
+
     _animationController.forward();
   }
 
@@ -69,67 +71,74 @@ class _CalorieIntakeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _HeaderSection(
-            title: 'Calorie Intake',
-            subtitle: 'Daily Goal',
-            value: '2239 cal',
-            valueColor: Colors.red,
-            onEdit: () => _showEditGoalDialog(context),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: _CircularProgressRing(
-              progress: 0.65,
-              fillColor: const Color.fromRGBO(106, 79, 153, 1),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '2239',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  Text(
-                    'calories left',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+    return Consumer<CalorieTrackerController>(
+        builder: (context, tracker, child) {
+      final caloriesLeft = tracker.dailyGoal - tracker.totalCalories;
+      final progress = tracker.totalCalories / tracker.dailyGoal;
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HeaderSection(
+              title: 'Calorie Intake',
+              subtitle: 'Daily Goal',
+              value: '${tracker.dailyGoal} cal',
+              valueColor: Colors.red,
+              onEdit: () => _showEditGoalDialog(context),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: _CircularProgressRing(
+                progress: progress,
+                fillColor: const Color.fromRGBO(106, 79, 153, 1),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$caloriesLeft',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    Text(
+                      'calories left',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          const _ProLockSection(),
-        ],
-      ),
-    );
+            const SizedBox(height: 12),
+            const _ProLockSection(),
+          ],
+        ),
+      );
+    });
   }
 
   void _showEditGoalDialog(BuildContext context) {
+    final tracker = Provider.of<CalorieTrackerController>(context, listen: false);
+    TextEditingController textController = TextEditingController(text: tracker.dailyGoal.toString());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Daily Goal'),
         content: TextFormField(
-          initialValue: '2239',
+          controller: textController,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Calories'),
         ),
@@ -139,7 +148,11 @@ class _CalorieIntakeCard extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              final newGoal = int.tryParse(textController.text) ?? tracker.dailyGoal;
+              tracker.setDailyGoal(newGoal);
+              Navigator.pop(context);
+            },
             child: const Text('Save'),
           ),
         ],
@@ -189,15 +202,17 @@ class _CalorieBurnCard extends StatelessWidget {
                       children: [
                         Text(
                           '0',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         Text(
                           'calories burned',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 10
-                          ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontSize: 10),
                         ),
                       ],
                     ),
@@ -361,7 +376,10 @@ class _ProLockSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color.fromRGBO(106, 79, 153, 1), Color.fromRGBO(106, 79, 153, 0.5)],
+          colors: [
+            Color.fromRGBO(106, 79, 153, 1),
+            Color.fromRGBO(106, 79, 153, 0.5)
+          ],
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -405,7 +423,9 @@ class _SideWidgets extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       children: [
-        SizedBox(height: 30,),
+        SizedBox(
+          height: 30,
+        ),
         _InfoBox(
           icon: Icons.directions_walk,
           text: 'Sync with Health',
@@ -443,7 +463,7 @@ class _InfoBox extends StatelessWidget {
       ),
       child: Row(
         children: [
-           Icon(icon, color: const Color.fromRGBO(106, 79, 153, 1), size: 40),
+          Icon(icon, color: const Color.fromRGBO(106, 79, 153, 1), size: 40),
           Column(
             children: [
               // Purple icon
@@ -494,7 +514,9 @@ class _PageIndicator extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: i == index ? const Color.fromRGBO(106, 79, 153, 1) : Colors.grey[300],
+                color: i == index
+                    ? const Color.fromRGBO(106, 79, 153, 1)
+                    : Colors.grey[300],
               ),
             );
           }),

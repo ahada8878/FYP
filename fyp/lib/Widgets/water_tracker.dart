@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:fyp/water_tracker_controller.dart';
+import 'package:provider/provider.dart';
 
-class WaterTracker extends StatefulWidget {
+class WaterTracker extends StatelessWidget {
   const WaterTracker({super.key});
 
   @override
-  State<WaterTracker> createState() => _WaterTrackerState();
-}
-
-class _WaterTrackerState extends State<WaterTracker> {
-  int _maxIndex = -1; // Tracks the highest selected glass index
-  final double _glassCapacity = 0.20; // Each glass holds 0.20L
-  final int _totalGlasses = 12; // 12 glasses total
-
-  @override
   Widget build(BuildContext context) {
-    final currentLiters = (_maxIndex + 1) * _glassCapacity;
+    final waterController = Provider.of<WaterTrackerController>(context);
+    final currentGlasses = waterController.filledGlasses;
+    final currentLiters = currentGlasses * 0.2;
     const totalLiters = 2.00;
 
     return Column(
@@ -41,12 +36,12 @@ class _WaterTrackerState extends State<WaterTracker> {
             ],
           ),
         ),
-        _buildGlassGrid(),
+        _buildGlassGrid(waterController, currentGlasses),
       ],
     );
   }
 
-  Widget _buildGlassGrid() {
+  Widget _buildGlassGrid(WaterTrackerController controller, int filledGlasses) {
     return Card(
       color: Colors.white,
       elevation: 4,
@@ -55,17 +50,17 @@ class _WaterTrackerState extends State<WaterTracker> {
         child: Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: List.generate(_totalGlasses, (index) => _buildWaterGlass(index)),
+          children: List.generate(12, (index) => _buildWaterGlass(index, filledGlasses, controller)),
         ),
       ),
     );
   }
 
-  Widget _buildWaterGlass(int index) {
-    final isFilled = index <= _maxIndex;
+  Widget _buildWaterGlass(int index, int filledGlasses, WaterTrackerController controller) {
+    final isFilled = index < filledGlasses;
     
     return GestureDetector(
-      onTap: () => _handleGlassTap(index),
+      onTap: () => controller.updateGlasses(index + 1),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -88,17 +83,5 @@ class _WaterTrackerState extends State<WaterTracker> {
         ),
       ),
     );
-  }
-
-  void _handleGlassTap(int index) {
-    setState(() {
-      if (index > _maxIndex) {
-        // Select this glass and all previous ones
-        _maxIndex = index;
-      } else {
-        // Unselect this glass and all subsequent ones
-        _maxIndex = index - 1;
-      }
-    });
   }
 }

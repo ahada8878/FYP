@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/Widgets/calorie_summary_carousel.dart';
+import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/water_tracker.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +18,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -284,7 +284,14 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                       subtitle: 'Track your daily water intake',
                       color: Colors.lightBlue,
                       delay: 300,
-                      onTap: () {},
+                      onTap: () {
+                        // Only hide the camera overlay, don't use Navigator
+                        Provider.of<CameraOverlayController>(context,
+                                listen: false)
+                            .hide();
+                        // Show water overlay
+                        showLogWaterOverlay(context);
+                      },
                     ),
                     AnimatedScannerButton(
                       icon: Icons.monitor_weight_outlined,
