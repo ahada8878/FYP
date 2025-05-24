@@ -35,6 +35,8 @@ dependencies:
   flutter_svg: ^2.0.9
   percent_indicator: ^4.2.5
   persistent_bottom_nav_bar: ^6.2.1
+  http: ^0.13.5
+  shared_preferences: ^2.0.15
 
   
 

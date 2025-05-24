@@ -1,12 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
-import 'package:fyp/NamePage.dart';
-import 'package:fyp/ProfilePage.dart';
 import 'package:fyp/SignUpPage.dart';
-import 'package:fyp/main.dart';
 import 'package:fyp/main_navigation.dart';
-import 'HomePage.dart';
-import 'ProfilePage.dart';
+import '../services/auth_service.dart';
 
 class CreativeLoginPage extends StatefulWidget {
   const CreativeLoginPage({super.key});
@@ -22,9 +21,57 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
   late Animation<double> _opacityAnimation;
   late Animation<Color?> _bgColorAnimation;
 
+  final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final token = await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (token != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MainNavigationWrapper(),
+          ),
+        );
+      }
+    } on TimeoutException catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection timeout. Please try again.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } on SocketException catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -75,7 +122,6 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
         builder: (context, child) {
           return Stack(
             children: [
-              // Background gradient animation
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -88,8 +134,6 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                   ),
                 ),
               ),
-
-              // Floating emojis
               Positioned(
                 top: 100,
                 left: 30,
@@ -108,198 +152,201 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                   child: const Text('🍩', style: TextStyle(fontSize: 50)),
                 ),
               ),
-
               SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 80),
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: Text(
-                          'Welcome Back!',
-                          style: textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.primary,
-                            shadows: [
-                              Shadow(
-                                blurRadius: 8,
-                                color: colorScheme.primary.withOpacity(0.2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      AnimatedOpacity(
-                        opacity: _opacityAnimation.value,
-                        duration: const Duration(milliseconds: 500),
-                        child: Text(
-                          'Log in to track your meals & moods 🍽️',
-                          style: textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onBackground.withOpacity(0.7),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Email Field
-                      _buildAnimatedField(
-                        child: TextField(
-                          controller: _emailController,
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Email',
-                            prefixIcon:
-                                Icon(Icons.email, color: colorScheme.primary),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Password Field
-                      _buildAnimatedField(
-                        child: TextField(
-                          controller: _passwordController,
-                          obscureText: !_isPasswordVisible,
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Password',
-                            prefixIcon:
-                                Icon(Icons.lock, color: colorScheme.primary),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: colorScheme.primary,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Login Button
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: Material(
-                          borderRadius: BorderRadius.circular(30),
-                          elevation: 5,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(30),
-                            onTap: () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const MainNavigationWrapper(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(30),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    colorScheme.primary,
-                                    colorScheme.secondary,
-                                  ],
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'LOG IN',
-                                  style: textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      Center(
-                        child: Text(
-                          'Or log in with...',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onBackground.withOpacity(0.6),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _SocialLoginButton(
-                            icon: '🍎',
-                            color: Colors.red[100]!,
-                            onTap: () {},
-                          ),
-                          const SizedBox(width: 20),
-                          _SocialLoginButton(
-                            icon: '🍕',
-                            color: Colors.blue[100]!,
-                            onTap: () {},
-                          ),
-                          const SizedBox(width: 20),
-                          _SocialLoginButton(
-                            icon: '🍏',
-                            color: Colors.green[100]!,
-                            onTap: () {},
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      Center(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CreativeSignupPage(),
-                              ),
-                            );
-                          },
-                          child: RichText(
-                            text: TextSpan(
-                              text: 'New here? ',
-                              style: textTheme.bodyMedium?.copyWith(
-                                color:
-                                    colorScheme.onBackground.withOpacity(0.7),
-                              ),
-                              children: [
-                                TextSpan(
-                                  text: 'Sign up',
-                                  style: TextStyle(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 80),
+                        ScaleTransition(
+                          scale: _scaleAnimation,
+                          child: Text(
+                            'Welcome Back!',
+                            style: textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 8,
+                                  color: colorScheme.primary.withOpacity(0.2),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        AnimatedOpacity(
+                          opacity: _opacityAnimation.value,
+                          duration: const Duration(milliseconds: 500),
+                          child: Text(
+                            'Log in to track your meals & moods 🍽️',
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onBackground.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        _buildAnimatedField(
+                          child: TextFormField(
+                            controller: _emailController,
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Email',
+                              prefixIcon:
+                                  Icon(Icons.email, color: colorScheme.primary),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your email';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Please enter a valid email';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildAnimatedField(
+                          child: TextFormField(
+                            controller: _passwordController,
+                            obscureText: !_isPasswordVisible,
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Password',
+                              prefixIcon:
+                                  Icon(Icons.lock, color: colorScheme.primary),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                  color: colorScheme.primary,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your password';
+                              }
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ScaleTransition(
+                          scale: _scaleAnimation,
+                          child: Material(
+                            borderRadius: BorderRadius.circular(30),
+                            elevation: 5,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(30),
+                              onTap: _isLoading ? null : _login,
+                              child: Container(
+                                width: double.infinity,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(30),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      colorScheme.primary,
+                                      colorScheme.secondary,
+                                    ],
+                                  ),
+                                ),
+                                child: Center(
+                                  child: _isLoading
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                      : Text(
+                                          'LOG IN',
+                                          style: textTheme.titleLarge?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Center(
+                          child: Text(
+                            'Or log in with...',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onBackground.withOpacity(0.6),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _SocialLoginButton(
+                              icon: '🍎',
+                              color: Colors.red[100]!,
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 20),
+                            _SocialLoginButton(
+                              icon: '🍕',
+                              color: Colors.blue[100]!,
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 20),
+                            _SocialLoginButton(
+                              icon: '🍏',
+                              color: Colors.green[100]!,
+                              onTap: () {},
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+                        Center(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreativeSignupPage(),
+                                ),
+                              );
+                            },
+                            child: RichText(
+                              text: TextSpan(
+                                text: 'New here? ',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color:
+                                      colorScheme.onBackground.withOpacity(0.7),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: 'Sign up',
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
