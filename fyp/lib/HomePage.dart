@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
+import 'package:fyp/Widgets/calorie_summary_carousel.dart';
+import 'package:fyp/Widgets/water_tracker.dart';
+import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
+import 'package:provider/provider.dart';
+import 'camera_overlay_controller.dart';
 import 'dart:math' as math;
 
 class MealTrackingPage extends StatefulWidget {
@@ -9,12 +13,11 @@ class MealTrackingPage extends StatefulWidget {
   State<MealTrackingPage> createState() => _MealTrackingPageState();
 }
 
-class _MealTrackingPageState extends State<MealTrackingPage> 
+class _MealTrackingPageState extends State<MealTrackingPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   int _currentIndex = 0;
-  bool _showCameraPage = false;
 
   @override
   void initState() {
@@ -23,7 +26,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-    
+
     _scaleAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
       CurvedAnimation(
         parent: _animationController,
@@ -40,6 +43,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 
   @override
   Widget build(BuildContext context) {
+    final overlayController = Provider.of<CameraOverlayController>(context);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -48,7 +52,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       body: Stack(
         children: [
           CustomScrollView(
-            physics: _showCameraPage ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+            physics: overlayController.showOverlay
+                ? const NeverScrollableScrollPhysics()
+                : const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
                 expandedHeight: 200,
@@ -57,7 +63,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 backgroundColor: Colors.transparent,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'NutriTrack',
+                    'NutriWise',
                     style: textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -65,7 +71,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                         Shadow(
                           blurRadius: 10,
                           color: Colors.black.withOpacity(0.3),
-                        ),
+                        )
                       ],
                     ),
                   ),
@@ -111,73 +117,26 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      AnimatedBuilder(
-                        animation: _animationController,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            scale: _scaleAnimation.value,
-                            child: Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 20,
-                                    spreadRadius: 5,
-                                  ),
-                                ],
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white,
-                                    Colors.grey[50]!,
-                                  ],
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _buildAnimatedMetricCircle(
-                                    value: 0,
-                                    label: 'Consumed',
-                                    color: Colors.red[400]!,
-                                    icon: Icons.local_fire_department,
-                                    size: 90,
-                                  ),
-                                  _buildAnimatedMetricCircle(
-                                    value: 2764,
-                                    label: 'Remaining',
-                                    color: Colors.green[400]!,
-                                    icon: Icons.energy_savings_leaf,
-                                    size: 110,
-                                    isMain: true,
-                                  ),
-                                  _buildAnimatedMetricCircle(
-                                    value: 0,
-                                    label: 'Burned',
-                                    color: Colors.orange[400]!,
-                                    icon: Icons.directions_run,
-                                    size: 90,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                      // Replace animated metric circles with new swipeable cards
+                      const CalorieSummaryCarousel(),
+
                       const SizedBox(height: 30),
                       _SectionHeader(
-                        title: 'Today\'s Meals', 
+                        title: 'Today\'s Meals',
                         icon: Icons.restaurant,
                         color: colorScheme.primary,
                       ),
                       ..._buildAnimatedMealItems(),
                       const SizedBox(height: 30),
                       _SectionHeader(
-                        title: 'Recommended Recipes', 
+                        title: 'Water Tracker',
+                        icon: Icons.local_drink,
+                        color: colorScheme.primary,
+                      ),
+                      const WaterTracker(),
+                      const SizedBox(height: 30),
+                      _SectionHeader(
+                        title: 'Recommended Recipes',
                         icon: Icons.local_dining,
                         color: colorScheme.primary,
                       ),
@@ -189,18 +148,23 @@ class _MealTrackingPageState extends State<MealTrackingPage>
               ),
             ],
           ),
-          if (_showCameraPage) _buildCameraPageOverlay(),
+          if (overlayController.showOverlay) _buildCameraPageOverlay(),
         ],
       ),
-      bottomNavigationBar: _buildCreativeBottomNavBar(colorScheme),
     );
   }
 
   Widget _buildCameraPageOverlay() {
+    final overlayController =
+        Provider.of<CameraOverlayController>(context, listen: false);
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
-      bottom: _showCameraPage ? 0 : -MediaQuery.of(context).size.height * 0.7,
+      bottom: overlayController.showOverlay
+          ? 0
+          : -MediaQuery.of(context).size.height * 0.7,
       left: 0,
       right: 0,
       child: Container(
@@ -218,17 +182,19 @@ class _MealTrackingPageState extends State<MealTrackingPage>
         ),
         child: Column(
           children: [
+            // Header Section
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(30)),
                 gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withOpacity(0.7),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).primaryColor,
-                    Theme.of(context).primaryColor.withOpacity(0.7),
-                  ],
                 ),
               ),
               child: Row(
@@ -245,14 +211,17 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () {
-                      setState(() {
-                        _showCameraPage = false;
-                      });
+                      overlayController.hide();
+                      if (context.read<PersistentTabController>().index != 0) {
+                        context.read<PersistentTabController>().index = 0;
+                      }
                     },
                   ),
                 ],
               ),
             ),
+
+            // Scanner Animation
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: ScannerPulseAnimation(
@@ -263,12 +232,12 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        Theme.of(context).primaryColor.withOpacity(0.3),
-                        Theme.of(context).primaryColor.withOpacity(0.1),
+                        colorScheme.primary.withOpacity(0.3),
+                        colorScheme.primary.withOpacity(0.1),
                       ],
                     ),
                     border: Border.all(
-                      color: Theme.of(context).primaryColor.withOpacity(0.5),
+                      color: colorScheme.primary.withOpacity(0.5),
                       width: 2,
                     ),
                   ),
@@ -279,13 +248,15 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                       child: Icon(
                         Icons.auto_awesome,
                         size: 40,
-                        color: Theme.of(context).primaryColor,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ),
                 ),
               ),
             ),
+
+            // Options List
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -335,18 +306,21 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 ),
               ),
             ),
+
+            // Scan Button
             Padding(
               padding: const EdgeInsets.all(20),
               child: ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                  backgroundColor: colorScheme.primary,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                   elevation: 5,
-                  shadowColor: Theme.of(context).primaryColor.withOpacity(0.4),
+                  shadowColor: colorScheme.primary.withOpacity(0.4),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -370,89 +344,13 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-  Widget _buildAnimatedMetricCircle({
-    required int value,
-    required String label,
-    required Color color,
-    required IconData icon,
-    required double size,
-    bool isMain = false,
-  }) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        final pulseValue = isMain 
-            ? 1 + (_animationController.value * 0.05)
-            : 1 + (_animationController.value * 0.02);
-        
-        return Transform.scale(
-          scale: pulseValue,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      color.withOpacity(0.3),
-                      color.withOpacity(0.1),
-                    ],
-                    stops: const [0.1, 1.0],
-                  ),
-                  border: Border.all(
-                    color: color.withOpacity(0.8),
-                    width: isMain ? 3 : 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: isMain ? 20 : 10,
-                      spreadRadius: isMain ? 5 : 2,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon, 
-                      color: color,
-                      size: size * 0.3,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      value.toString(),
-                      style: TextStyle(
-                        fontSize: size * 0.25,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isMain ? FontWeight.bold : FontWeight.normal,
-                  color: Colors.grey[700],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   List<Widget> _buildAnimatedMealItems() {
     final meals = [
-      {'name': 'Breakfast', 'calories': '0/691 kcal', 'icon': Icons.breakfast_dining},
+      {
+        'name': 'Breakfast',
+        'calories': '0/691 kcal',
+        'icon': Icons.breakfast_dining
+      },
       {'name': 'Lunch', 'calories': '0/968 kcal', 'icon': Icons.lunch_dining},
       {'name': 'Dinner', 'calories': '0/968 kcal', 'icon': Icons.dinner_dining},
       {'name': 'Snacks', 'calories': '0/138 kcal', 'icon': Icons.cookie},
@@ -463,7 +361,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
         animation: _animationController,
         builder: (context, child) {
           return Transform.translate(
-            offset: Offset(0, math.sin(_animationController.value * math.pi * 2) * 2),
+            offset: Offset(
+                0, math.sin(_animationController.value * math.pi * 2) * 2),
             child: Card(
               margin: const EdgeInsets.only(bottom: 16),
               shape: RoundedRectangleBorder(
@@ -538,15 +437,19 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     final recipePosts = [
       {
         'title': 'Mediterranean Salad',
-        'image': 'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg',
-        'description': 'Fresh and healthy salad with olives, feta, and vegetables',
+        'image':
+            'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg',
+        'description':
+            'Fresh and healthy salad with olives, feta, and vegetables',
         'calories': '320 kcal',
         'time': '15 min'
       },
       {
         'title': 'Avocado Toast',
-        'image': 'https://images.pexels.com/photos/2144112/pexels-photo-2144112.jpeg',
-        'description': 'Creamy avocado on whole grain bread with cherry tomatoes',
+        'image':
+            'https://images.pexels.com/photos/2144112/pexels-photo-2144112.jpeg',
+        'description':
+            'Creamy avocado on whole grain bread with cherry tomatoes',
         'calories': '280 kcal',
         'time': '10 min'
       }
@@ -626,7 +529,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Icon(Icons.local_fire_department, color: Colors.orange[400]),
+                            Icon(Icons.local_fire_department,
+                                color: Colors.orange[400]),
                             const SizedBox(width: 4),
                             Text(recipe['calories'] as String),
                             const SizedBox(width: 16),
@@ -642,8 +546,10 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                               child: OutlinedButton(
                                 onPressed: () {},
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  side: BorderSide(color: Theme.of(context).primaryColor),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  side: BorderSide(
+                                      color: Theme.of(context).primaryColor),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -661,8 +567,10 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                               child: ElevatedButton(
                                 onPressed: () {},
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  backgroundColor: Theme.of(context).primaryColor,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  backgroundColor:
+                                      Theme.of(context).primaryColor,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -682,129 +590,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
         },
       );
     }).toList();
-  }
-
-  Widget _buildCreativeBottomNavBar(ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 15,
-            spreadRadius: 3,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, child) {
-            return BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                if (index == 2) {
-                  setState(() {
-                    _showCameraPage = true;
-                    _currentIndex = _currentIndex; // Maintain current index
-                  });
-                } else {
-                  setState(() {
-                    _currentIndex = index;
-                    _showCameraPage = false;
-                  });
-                }
-              },
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: colorScheme.surface,
-              selectedItemColor: colorScheme.primary,
-              unselectedItemColor: colorScheme.onSurface.withOpacity(0.6),
-              selectedLabelStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12 + (_animationController.value * 2),
-              ),
-              items: [
-                _buildBottomNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: 'Home',
-                  isActive: _currentIndex == 0,
-                ),
-                _buildBottomNavItem(
-                  icon: Icons.track_changes_outlined,
-                  activeIcon: Icons.track_changes,
-                  label: 'Track',
-                  isActive: _currentIndex == 1,
-                ),
-                BottomNavigationBarItem(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.primary,
-                      border: Border.all(
-                        color: colorScheme.surface,
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  label: '',
-                ),
-                _buildBottomNavItem(
-                  icon: Icons.restaurant_outlined,
-                  activeIcon: Icons.restaurant,
-                  label: 'Meals',
-                  isActive: _currentIndex == 3,
-                ),
-                _buildBottomNavItem(
-                  icon: Icons.person_outlined,
-                  activeIcon: Icons.person,
-                  label: 'Profile',
-                  isActive: _currentIndex == 4,
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  BottomNavigationBarItem _buildBottomNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isActive,
-  }) {
-    return BottomNavigationBarItem(
-      icon: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: isActive 
-              ? Theme.of(context).primaryColor.withOpacity(0.2)
-              : Colors.transparent,
-        ),
-        child: Icon(
-          isActive ? activeIcon : icon,
-          size: 24,
-        ),
-      ),
-      label: label,
-    );
   }
 }
 

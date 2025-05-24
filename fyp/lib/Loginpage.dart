@@ -4,6 +4,7 @@ import 'package:fyp/NamePage.dart';
 import 'package:fyp/ProfilePage.dart';
 import 'package:fyp/SignUpPage.dart';
 import 'package:fyp/main.dart';
+import 'package:fyp/main_navigation.dart';
 import 'HomePage.dart';
 import 'ProfilePage.dart';
 
@@ -197,12 +198,11 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
                             onTap: () {
-                              Navigator.push(
+                              Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const MealTrackingPage(
-                                   
-                                  ),
+                                  builder: (context) =>
+                                      const MainNavigationWrapper(),
                                 ),
                               );
                             },
