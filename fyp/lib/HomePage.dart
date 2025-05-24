@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:fyp/Widgets/calorie_summary_carousel.dart';
 import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/water_tracker.dart';
@@ -307,7 +308,25 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                       subtitle: 'Add exercise or physical activity',
                       color: Colors.red,
                       delay: 500,
-                      onTap: () {},
+                      onTap: () {
+                        // Hide camera overlay
+                        Provider.of<CameraOverlayController>(context,
+                                listen: false)
+                            .hide();
+
+                        // Show activity log sheet
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const ActivityLogSheet(),
+                        ).then((selectedActivity) {
+                          if (selectedActivity != null) {
+                            // Handle selected activity if needed
+                            print('Logged activity: ${selectedActivity.name}');
+                          }
+                        });
+                      },
                     ),
                   ],
                 ),

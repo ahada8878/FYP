@@ -45,7 +45,7 @@ class WeekProgressWidget extends StatelessWidget {
                             child: CircleAvatar(
                               radius: 6,
                               backgroundColor: isCircleFilled
-                                  ? const Color(0xFF4CAF50)
+                                  ? const Color.fromRGBO(106, 79, 153, 1)
                                   : const Color(0xFFE0E0E0),
                             ),
                           ),
@@ -54,7 +54,7 @@ class WeekProgressWidget extends StatelessWidget {
                               child: Container(
                                 height: 2,
                                 color: isLineFilled
-                                    ? const Color(0xFF4CAF50)
+                                    ? const Color.fromRGBO(106, 79, 153, 1)
                                     : const Color(0xFFE0E0E0),
                               ),
                             ),
@@ -75,7 +75,7 @@ class WeekProgressWidget extends StatelessWidget {
                 onPressed: () {},
                 child: const Text('Recommendation Source',
                     style: TextStyle(
-                        fontSize: 12, color: Color(0xFF4CAF50))),
+                        fontSize: 12, color: const Color.fromRGBO(106, 79, 153, 1))),
               ),
             ),
           ],
