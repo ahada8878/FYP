@@ -3,7 +3,9 @@ import 'package:flutter/animation.dart';
 import 'GoalPage.dart';
 
 class GoalWeightPage extends StatefulWidget {
-  const GoalWeightPage({super.key});
+  final bool isEditing;
+  final double currentWeight;
+  const GoalWeightPage({super.key, this.isEditing= false, required this.currentWeight});
 
   @override
   State<GoalWeightPage> createState() => _CreativeGoalWeightPageState();
@@ -20,6 +22,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
   int selectedG = 0;
   double currentWeight = 85.0; // Would come from previous screen
   double targetPercentage = 3.0;
+  double get _targetWeight => selectedKg + (selectedG / 1000);
 
   @override
   void initState() {
@@ -61,8 +64,8 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final weightDifference = currentWeight - (selectedKg + selectedG / 1000);
-    final targetWeight = currentWeight * (1 - targetPercentage / 100);
+    final weightDifference = widget.currentWeight - _targetWeight;
+    final targetWeight = widget.currentWeight * (1 - targetPercentage / 100);
 
     return Scaffold(
       body: AnimatedBuilder(
@@ -130,7 +133,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                       elevation: 0,
                       leading: IconButton(
                         icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {},
+                        onPressed: () => Navigator.pop(context, _targetWeight),
                       ),
                     ),
                     Padding(
@@ -302,7 +305,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                     ),
                                     LayoutBuilder(
                                       builder: (context, constraints) {
-                                        final progress = (weightDifference / (currentWeight - targetWeight)).clamp(0.0, 1.0);
+                                        final progress = (weightDifference / (widget.currentWeight - targetWeight)).clamp(0.0, 1.0);
                                         return Container(
                                           height: 8,
                                           width: constraints.maxWidth * progress,
@@ -358,11 +361,14 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => GoalPage()),
-                                  );
-                                },
+                            Navigator.pop(context, _targetWeight);
+                            if (!widget.isEditing) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => GoalPage()),
+                              );
+                            }
+                          },
                                 child: Container(
                                   width: double.infinity,
                                   height: 60,
@@ -377,7 +383,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                   ),
                                   child: Center(
                                     child: Text(
-                                      'CONTINUE',
+                                      widget.isEditing ? 'SAVE' : 'CONTINUE',
                                       style: textTheme.titleLarge?.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
