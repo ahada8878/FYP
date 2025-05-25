@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:fyp/Widgets/calorie_summary_carousel.dart';
+import 'package:fyp/Widgets/log_food_sheet.dart';
 import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/water_tracker.dart';
+import 'package:fyp/screens/describe_meal_screen.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
@@ -65,7 +67,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 
   Future<void> _takePicture() async {
     if (!_isCameraInitialized) return;
-    
+
     try {
       final image = await _cameraController.takePicture();
       setState(() {
@@ -81,7 +83,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   Future<void> _openGallery() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (pickedFile != null) {
       setState(() {
         _capturedImage = File(pickedFile.path);
@@ -220,11 +222,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
               ),
             ],
           ),
-          
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
-          
           if (_showCameraView && _isCameraInitialized) _buildCameraView(),
-          
           if (_showImagePreview && _capturedImage != null) _buildImagePreview(),
         ],
       ),
@@ -251,7 +250,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               IconButton(
-                icon: const Icon(Icons.photo_library, color: Colors.white, size: 40),
+                icon: const Icon(Icons.photo_library,
+                    color: Colors.white, size: 40),
                 onPressed: _openGallery,
               ),
               IconButton(
@@ -307,7 +307,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 onPressed: () {
                   // Process the image here
                   _resetScanning();
-                  Provider.of<CameraOverlayController>(context, listen: false).hide();
+                  Provider.of<CameraOverlayController>(context, listen: false)
+                      .hide();
                 },
                 child: const Text('Use This Image'),
               ),
@@ -349,7 +350,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(30)),
                 gradient: LinearGradient(
                   colors: [
                     colorScheme.primary,
@@ -427,72 +429,79 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ListView(
                     children: [
-                      
-                    AnimatedScannerButton(
-                      icon: Icons.chat_bubble_outline,
-                      text: 'Describe Meal to AI',
-                      subtitle: 'Get nutritional analysis by description',
-                      color: Colors.blue,
-                      delay: 100,
-                      onTap: () {},
-                    ),
-                    AnimatedScannerButton(
-                      icon: Icons.bookmark_border,
-                      text: 'Saved Meals',
-                      subtitle: 'Your frequently logged meals',
-                      color: Colors.green,
-                      delay: 200,
-                      onTap: () {},
-                    ),
-                    AnimatedScannerButton(
-                      icon: Icons.local_drink_outlined,
-                      text: 'Log Water',
-                      subtitle: 'Track your daily water intake',
-                      color: Colors.lightBlue,
-                      delay: 300,
-                      onTap: () {
-                        // Only hide the camera overlay, don't use Navigator
-                        Provider.of<CameraOverlayController>(context,
-                                listen: false)
-                            .hide();
-                        // Show water overlay
-                        showLogWaterOverlay(context);
-                      },
-                    ),
-                    AnimatedScannerButton(
-                      icon: Icons.monitor_weight_outlined,
-                      text: 'Log Weight',
-                      subtitle: 'Update your current weight',
-                      color: Colors.orange,
-                      delay: 400,
-                      onTap: () {},
-                    ),
-                    AnimatedScannerButton(
-                      icon: Icons.directions_run,
-                      text: 'Log Activity',
-                      subtitle: 'Add exercise or physical activity',
-                      color: Colors.red,
-                      delay: 500,
-                      onTap: () {
-                        // Hide camera overlay
-                        Provider.of<CameraOverlayController>(context,
-                                listen: false)
-                            .hide();
+                      AnimatedScannerButton(
+                        icon: Icons.chat_bubble_outline,
+                        text: 'Describe Meal to AI',
+                        subtitle: 'Get nutritional analysis by description',
+                        color: Colors.blue,
+                        delay: 100,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const DescribeMealScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      AnimatedScannerButton(
+                        icon: Icons.bookmark_border,
+                        text: 'Saved Meals',
+                        subtitle: 'Your frequently logged meals',
+                        color: Colors.green,
+                        delay: 200,
+                        onTap: () {},
+                      ),
+                      AnimatedScannerButton(
+                        icon: Icons.local_drink_outlined,
+                        text: 'Log Water',
+                        subtitle: 'Track your daily water intake',
+                        color: Colors.lightBlue,
+                        delay: 300,
+                        onTap: () {
+                          // Only hide the camera overlay, don't use Navigator
+                          Provider.of<CameraOverlayController>(context,
+                                  listen: false)
+                              .hide();
+                          // Show water overlay
+                          showLogWaterOverlay(context);
+                        },
+                      ),
+                      AnimatedScannerButton(
+                        icon: Icons.monitor_weight_outlined,
+                        text: 'Log Weight',
+                        subtitle: 'Update your current weight',
+                        color: Colors.orange,
+                        delay: 400,
+                        onTap: () {},
+                      ),
+                      AnimatedScannerButton(
+                        icon: Icons.directions_run,
+                        text: 'Log Activity',
+                        subtitle: 'Add exercise or physical activity',
+                        color: Colors.red,
+                        delay: 500,
+                        onTap: () {
+                          // Hide camera overlay
+                          Provider.of<CameraOverlayController>(context,
+                                  listen: false)
+                              .hide();
 
-                        // Show activity log sheet
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => const ActivityLogSheet(),
-                        ).then((selectedActivity) {
-                          if (selectedActivity != null) {
-                            // Handle selected activity if needed
-                            print('Logged activity: ${selectedActivity.name}');
-                          }
-                        });
-                      },
-                    ),
+                          // Show activity log sheet
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const ActivityLogSheet(),
+                          ).then((selectedActivity) {
+                            if (selectedActivity != null) {
+                              // Handle selected activity if needed
+                              print(
+                                  'Logged activity: ${selectedActivity.name}');
+                            }
+                          });
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -506,7 +515,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                   onPressed: _startScanning,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 32),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -535,7 +545,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-  
   List<Widget> _buildAnimatedMealItems() {
     final meals = [
       {
@@ -612,7 +621,12 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                           color: Theme.of(context).primaryColor,
                           size: 30,
                         ),
-                        onPressed: () {},
+                        onPressed: () => showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const LogFoodSheet(),
+                        ),
                       ),
                     ],
                   ),
