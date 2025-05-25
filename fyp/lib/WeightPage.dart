@@ -4,7 +4,8 @@ import 'HeightPage.dart';
 import 'GoalWeightPage.dart';
 
 class WeightPage extends StatefulWidget {
-  const WeightPage({super.key});
+  final bool isEditing;
+  const WeightPage({super.key, this.isEditing=false});
 
   @override
   State<WeightPage> createState() => _CreativeWeightPageState();
@@ -22,6 +23,15 @@ class _CreativeWeightPageState extends State<WeightPage>
   bool isMetric = true;
   double bmi = 24.2;
   String bmiCategory = "Normal";
+
+  double _getCurrentWeightInKg() {
+    if (isMetric) {
+      return selectedKg + (selectedG / 1000);
+    } else {
+      // Convert pounds to kg
+      return selectedKg * 0.45359237;
+    }
+  }
 
   @override
   void initState() {
@@ -129,8 +139,11 @@ class _CreativeWeightPageState extends State<WeightPage>
                       backgroundColor: Colors.transparent,
                       elevation: 0,
                       leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {},
+                        icon: Icon(Icons.arrow_back,
+                            color: colorScheme.onBackground),
+                        onPressed: () {
+                          Navigator.pop(context, _getCurrentWeightInKg());
+                        },
                       ),
                     ),
                     Padding(
@@ -161,7 +174,8 @@ class _CreativeWeightPageState extends State<WeightPage>
                             child: Text(
                               'Let us know your weight to calculate your BMI and personalize your plan',
                               style: textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(0.7),
+                                color:
+                                    colorScheme.onBackground.withOpacity(0.7),
                               ),
                             ),
                           ),
@@ -184,8 +198,10 @@ class _CreativeWeightPageState extends State<WeightPage>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _buildMeasurementButton('kg', isMetric, colorScheme),
-                                _buildMeasurementButton('lbs', !isMetric, colorScheme),
+                                _buildMeasurementButton(
+                                    'kg', isMetric, colorScheme),
+                                _buildMeasurementButton(
+                                    'lbs', !isMetric, colorScheme),
                               ],
                             ),
                           ),
@@ -194,8 +210,8 @@ class _CreativeWeightPageState extends State<WeightPage>
                           // Weight Picker
                           SizedBox(
                             height: 200,
-                            child: isMetric 
-                                ? _buildKilogramPicker(colorScheme) 
+                            child: isMetric
+                                ? _buildKilogramPicker(colorScheme)
                                 : _buildPoundsPicker(colorScheme),
                           ),
                           const SizedBox(height: 24),
@@ -219,7 +235,8 @@ class _CreativeWeightPageState extends State<WeightPage>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Your BMI: ${bmi.toStringAsFixed(1)}',
@@ -250,7 +267,8 @@ class _CreativeWeightPageState extends State<WeightPage>
                                 Text(
                                   _getBmiAdvice(),
                                   style: TextStyle(
-                                    color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                                    color: colorScheme.onSurfaceVariant
+                                        .withOpacity(0.8),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -268,10 +286,17 @@ class _CreativeWeightPageState extends State<WeightPage>
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => GoalWeightPage()),
-                                  );
+                                  if (widget.isEditing) {
+                                    Navigator.pop(
+                                        context, _getCurrentWeightInKg());
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              GoalWeightPage(currentWeight: _getCurrentWeightInKg())),
+                                    );
+                                  }
                                 },
                                 child: Container(
                                   width: double.infinity,
@@ -287,7 +312,7 @@ class _CreativeWeightPageState extends State<WeightPage>
                                   ),
                                   child: Center(
                                     child: Text(
-                                      'CONTINUE',
+                                      widget.isEditing ? 'SAVE' : 'CONTINUE',
                                       style: textTheme.titleLarge?.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -312,7 +337,8 @@ class _CreativeWeightPageState extends State<WeightPage>
     );
   }
 
-  Widget _buildMeasurementButton(String text, bool isActive, ColorScheme colorScheme) {
+  Widget _buildMeasurementButton(
+      String text, bool isActive, ColorScheme colorScheme) {
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -329,7 +355,8 @@ class _CreativeWeightPageState extends State<WeightPage>
         child: Text(
           text,
           style: TextStyle(
-            color: isActive ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+            color:
+                isActive ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
@@ -345,7 +372,9 @@ class _CreativeWeightPageState extends State<WeightPage>
         // Kilograms Picker
         Column(
           children: [
-            Text('kg', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 16)),
+            Text('kg',
+                style: TextStyle(
+                    color: colorScheme.onSurfaceVariant, fontSize: 16)),
             const SizedBox(height: 8),
             SizedBox(
               height: 150,
@@ -369,7 +398,8 @@ class _CreativeWeightPageState extends State<WeightPage>
                               fontSize: 32,
                               color: kg == selectedKg
                                   ? colorScheme.primary
-                                  : colorScheme.onSurfaceVariant.withOpacity(0.3),
+                                  : colorScheme.onSurfaceVariant
+                                      .withOpacity(0.3),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -384,7 +414,9 @@ class _CreativeWeightPageState extends State<WeightPage>
         // Grams Picker
         Column(
           children: [
-            Text('g', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 16)),
+            Text('g',
+                style: TextStyle(
+                    color: colorScheme.onSurfaceVariant, fontSize: 16)),
             const SizedBox(height: 8),
             SizedBox(
               height: 150,
@@ -400,7 +432,18 @@ class _CreativeWeightPageState extends State<WeightPage>
                     _calculateBmi();
                   });
                 },
-                children: ['0', '100', '200', '300', '400', '500', '600', '700', '800', '900']
+                children: [
+                  '0',
+                  '100',
+                  '200',
+                  '300',
+                  '400',
+                  '500',
+                  '600',
+                  '700',
+                  '800',
+                  '900'
+                ]
                     .map((g) => Center(
                           child: Text(
                             g,
@@ -408,7 +451,8 @@ class _CreativeWeightPageState extends State<WeightPage>
                               fontSize: 32,
                               color: int.parse(g) == selectedG
                                   ? colorScheme.primary
-                                  : colorScheme.onSurfaceVariant.withOpacity(0.3),
+                                  : colorScheme.onSurfaceVariant
+                                      .withOpacity(0.3),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -455,9 +499,8 @@ class _CreativeWeightPageState extends State<WeightPage>
   }
 
   void _calculateBmi() {
-    double weight = isMetric
-        ? selectedKg + (selectedG / 1000)
-        : selectedKg / 2.205;
+    double weight =
+        isMetric ? selectedKg + (selectedG / 1000) : selectedKg / 2.205;
 
     double height = 1.75; // meters (demo)
     if (height == 0) return;
@@ -485,9 +528,12 @@ class _CreativeWeightPageState extends State<WeightPage>
   }
 
   String _getBmiAdvice() {
-    if (bmi < 18.5) return "Consider consulting a nutritionist for healthy weight gain strategies.";
-    if (bmi < 25) return "Great job maintaining a healthy weight! Keep up the good habits.";
-    if (bmi < 30) return "Small lifestyle changes can help you reach a healthier weight.";
+    if (bmi < 18.5)
+      return "Consider consulting a nutritionist for healthy weight gain strategies.";
+    if (bmi < 25)
+      return "Great job maintaining a healthy weight! Keep up the good habits.";
+    if (bmi < 30)
+      return "Small lifestyle changes can help you reach a healthier weight.";
     return "It's important to seek guidance for a healthier lifestyle!";
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/HomePage.dart';
 import 'package:fyp/screens/meal_plan_screen.dart';
+import 'package:fyp/screens/progress_screen.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 
 class CustomNavBar extends StatelessWidget {
@@ -58,7 +59,7 @@ class CustomNavBar extends StatelessWidget {
     const MealTrackingPage(),
     const MealTrackingPage(),
     const MealPlanScreen(),
-    const MealTrackingPage(),
+    MyProgressScreen(),
   ];
 
   List<PersistentBottomNavBarItem> _navBarsItems(BuildContext context) {
@@ -112,7 +113,7 @@ class CustomNavBar extends StatelessWidget {
         active: currentIndex == 4,
         icon: Icons.person_outlined,
         activeIcon: Icons.person,
-        label: 'Profile',
+        label: 'Progress',
         colorScheme: colorScheme,
       ),
     ];
