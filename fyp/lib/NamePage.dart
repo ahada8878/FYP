@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'BirthdayPage.dart';
+import 'models/userDetail.dart';
 
 class NamePage extends StatefulWidget {
   const NamePage({super.key});
@@ -15,6 +16,8 @@ class _CreativeNamePageState extends State<NamePage>
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
   late Animation<Color?> _bgColorAnimation;
+
+  
 
   final TextEditingController _nameController = TextEditingController();
   bool _nameEntered = false;

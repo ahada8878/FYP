@@ -5,8 +5,11 @@ import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/water_tracker.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
-import 'camera_overlay_controller.dart';
+import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'dart:math' as math;
+import 'camera_overlay_controller.dart';
 
 class MealTrackingPage extends StatefulWidget {
   const MealTrackingPage({super.key});
@@ -19,10 +22,20 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  late CameraController _cameraController;
+  File? _capturedImage;
+  bool _showImagePreview = false;
+  bool _isCameraInitialized = false;
+  bool _showCameraView = false;
 
   @override
   void initState() {
     super.initState();
+    _initAnimations();
+    _initCamera();
+  }
+
+  void _initAnimations() {
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -36,9 +49,67 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  Future<void> _initCamera() async {
+    try {
+      final cameras = await availableCameras();
+      _cameraController = CameraController(
+        cameras.first,
+        ResolutionPreset.medium,
+      );
+      await _cameraController.initialize();
+      setState(() => _isCameraInitialized = true);
+    } catch (e) {
+      print("Camera error: $e");
+    }
+  }
+
+  Future<void> _takePicture() async {
+    if (!_isCameraInitialized) return;
+    
+    try {
+      final image = await _cameraController.takePicture();
+      setState(() {
+        _capturedImage = File(image.path);
+        _showImagePreview = true;
+        _showCameraView = false;
+      });
+    } catch (e) {
+      print("Error taking picture: $e");
+    }
+  }
+
+  Future<void> _openGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (pickedFile != null) {
+      setState(() {
+        _capturedImage = File(pickedFile.path);
+        _showImagePreview = true;
+        _showCameraView = false;
+      });
+    }
+  }
+
+  void _startScanning() {
+    setState(() {
+      _showCameraView = true;
+      _showImagePreview = false;
+    });
+  }
+
+  void _resetScanning() {
+    setState(() {
+      _showCameraView = false;
+      _showImagePreview = false;
+      _capturedImage = null;
+    });
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
+    _cameraController.dispose();
     super.dispose();
   }
 
@@ -149,15 +220,106 @@ class _MealTrackingPageState extends State<MealTrackingPage>
               ),
             ],
           ),
+          
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
+          
+          if (_showCameraView && _isCameraInitialized) _buildCameraView(),
+          
+          if (_showImagePreview && _capturedImage != null) _buildImagePreview(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraView() {
+    return Stack(
+      children: [
+        CameraPreview(_cameraController),
+        Positioned(
+          top: 40,
+          left: 20,
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
+            onPressed: _resetScanning,
+          ),
+        ),
+        Positioned(
+          bottom: 40,
+          left: 0,
+          right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.photo_library, color: Colors.white, size: 40),
+                onPressed: _openGallery,
+              ),
+              IconButton(
+                icon: const Icon(Icons.camera, color: Colors.white, size: 60),
+                onPressed: _takePicture,
+              ),
+              const SizedBox(width: 40), // Placeholder for balance
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePreview() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'This is an image',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            height: 300,
+            width: 300,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.file(_capturedImage!, fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: _resetScanning,
+                child: const Text('Retake'),
+              ),
+              const SizedBox(width: 20),
+              ElevatedButton(
+                onPressed: () {
+                  // Process the image here
+                  _resetScanning();
+                  Provider.of<CameraOverlayController>(context, listen: false).hide();
+                },
+                child: const Text('Use This Image'),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _buildCameraPageOverlay() {
-    final overlayController =
-        Provider.of<CameraOverlayController>(context, listen: false);
+    final overlayController = Provider.of<CameraOverlayController>(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return AnimatedPositioned(
@@ -187,8 +349,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                 gradient: LinearGradient(
                   colors: [
                     colorScheme.primary,
@@ -213,6 +374,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                     icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () {
                       overlayController.hide();
+                      _resetScanning();
                       if (context.read<PersistentTabController>().index != 0) {
                         context.read<PersistentTabController>().index = 0;
                       }
@@ -222,47 +384,50 @@ class _MealTrackingPageState extends State<MealTrackingPage>
               ),
             ),
 
-            // Scanner Animation
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: ScannerPulseAnimation(
-                child: Container(
-                  height: 120,
-                  width: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        colorScheme.primary.withOpacity(0.3),
-                        colorScheme.primary.withOpacity(0.1),
-                      ],
+            // Scanner Animation (shown only when not in camera mode)
+            if (!_showCameraView && !_showImagePreview)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: ScannerPulseAnimation(
+                  child: Container(
+                    height: 120,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          colorScheme.primary.withOpacity(0.3),
+                          colorScheme.primary.withOpacity(0.1),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: colorScheme.primary.withOpacity(0.5),
+                        width: 2,
+                      ),
                     ),
-                    border: Border.all(
-                      color: colorScheme.primary.withOpacity(0.5),
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: AnimatedRotation(
-                      duration: const Duration(seconds: 8),
-                      turns: _animationController.value * 2,
-                      child: Icon(
-                        Icons.auto_awesome,
-                        size: 40,
-                        color: colorScheme.primary,
+                    child: Center(
+                      child: AnimatedRotation(
+                        duration: const Duration(seconds: 8),
+                        turns: _animationController.value * 2,
+                        child: Icon(
+                          Icons.auto_awesome,
+                          size: 40,
+                          color: colorScheme.primary,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-            // Options List
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: ListView(
-                  children: [
+            // Options List (shown only when not in camera or preview mode)
+            if (!_showCameraView && !_showImagePreview)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: ListView(
+                    children: [
+                      
                     AnimatedScannerButton(
                       icon: Icons.chat_bubble_outline,
                       text: 'Describe Meal to AI',
@@ -328,48 +493,49 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                         });
                       },
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Scan Button
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    ],
                   ),
-                  elevation: 5,
-                  shadowColor: colorScheme.primary.withOpacity(0.4),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.scanner, color: Colors.white),
-                    SizedBox(width: 10),
-                    Text(
-                      'SCAN NOW',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
                 ),
               ),
-            ),
+
+            // Scan Button (shown only when not in camera or preview mode)
+            if (!_showCameraView && !_showImagePreview)
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: ElevatedButton(
+                  onPressed: _startScanning,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 5,
+                    shadowColor: colorScheme.primary.withOpacity(0.4),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.scanner, color: Colors.white),
+                      SizedBox(width: 10),
+                      Text(
+                        'SCAN NOW',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
+  
   List<Widget> _buildAnimatedMealItems() {
     final meals = [
       {
@@ -858,4 +1024,5 @@ class _ScannerPulseAnimationState extends State<ScannerPulseAnimation>
       child: widget.child,
     );
   }
+  // ... (keep all your existing helper methods like _buildAnimatedMealItems, etc.)
 }
