@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/screens/describe_meal_screen.dart';
+import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 
 class LogFoodSheet extends StatelessWidget {
   const LogFoodSheet({super.key});
@@ -53,13 +54,13 @@ class LogFoodSheet extends StatelessWidget {
   }
 
   void _handleDescribeMeal(BuildContext context) {
-    Navigator.pop(context); // Close the food log sheet
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const DescribeMealScreen(),
-      ),
-    );
+    Navigator.pop(context);
+    PersistentNavBarNavigator.pushNewScreen(
+        context,
+        screen: const DescribeMealScreen(),
+        withNavBar: false, 
+        pageTransitionAnimation: PageTransitionAnimation.cupertino,
+    ); 
   }
 
   void _handleSavedMeals(BuildContext context) {
