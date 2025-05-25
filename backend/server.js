@@ -62,10 +62,8 @@ app.post('/api/predict', upload.single('image'), (req, res) => {
       }
       
       // Send prediction back to client
-      res.json({
-        success: true,
-        prediction: stdout.trim()
-      });
+      res.send(stdout.trim().replace(/^"|"$/g, ''));
+      console.log(`Prediction result: ${stdout.trim()}`);
     }
   );
 });
