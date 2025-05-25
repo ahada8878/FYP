@@ -25,8 +25,14 @@ class _MainNavigationContent extends StatefulWidget {
 }
 
 class _MainNavigationContentState extends State<_MainNavigationContent> {
-  final PersistentTabController _tabController = PersistentTabController();
+  late final PersistentTabController _tabController ;
 
+@override
+  void initState() {
+    super.initState();
+    _tabController =context.read<PersistentTabController>() ;
+
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -43,7 +43,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    )..repeat();
 
     _scaleAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
       CurvedAnimation(
@@ -60,10 +60,11 @@ class _MealTrackingPageState extends State<MealTrackingPage>
         cameras.first,
         ResolutionPreset.medium,
       );
+      if (!mounted) return;
       await _cameraController.initialize();
       setState(() => _isCameraInitialized = true);
     } catch (e) {
-      print("Camera error: $e");
+      debugPrint("Camera error: $e");
     }
   }
 
@@ -75,11 +76,15 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     
     try {
       final image = await _cameraController.takePicture();
+      final file = File(image.path);
       setState(() {
         _capturedImage = File(image.path);
         _showImagePreview = true;
         _showCameraView = false;
+        _prediction = "Analyzing...";
+        _isProcessing = true;
       });
+      await _sendImageForPrediction(file);   // ← add this
     } catch (e) {
       print("Error taking picture: $e");
     }
@@ -151,7 +156,7 @@ Future<void> _sendImageForPrediction(File imageFile) async {
 
 void _startScanning() {
   setState(() {
-    _showCameraView = true;
+    _showCameraView= true;
     _showImagePreview = false;
     _prediction = "No prediction yet";
     _isProcessing = false;
@@ -171,7 +176,7 @@ void _resetScanning() {
   @override
   void dispose() {
     _animationController.dispose();
-    _cameraController.dispose();
+    if (_isCameraInitialized) _cameraController.dispose();
     super.dispose();
   }
 
@@ -228,7 +233,7 @@ void _resetScanning() {
                         animation: _animationController,
                         builder: (context, child) {
                           return Transform.scale(
-                            scale: 1 + (_animationController.value * 0.05),
+                            scale: _scaleAnimation.value,
                             child: Opacity(
                               opacity: 0.3,
                               child: Center(

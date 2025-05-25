@@ -3,6 +3,7 @@ import 'package:fyp/Loginpage.dart';
 import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/camera_overlay_controller.dart';
 import 'package:fyp/water_tracker_controller.dart';
+import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -12,6 +13,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => CameraOverlayController()),
         ChangeNotifierProvider(create: (_) => WaterTrackerController()),
         ChangeNotifierProvider(create: (_) => CalorieTrackerController()),
+        ChangeNotifierProvider(create:(_) => PersistentTabController(initialIndex: 0),)
       ],
       child: const MyApp(),
     ),
