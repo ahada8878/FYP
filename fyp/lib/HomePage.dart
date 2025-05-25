@@ -10,6 +10,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'camera_overlay_controller.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class MealTrackingPage extends StatefulWidget {
   const MealTrackingPage({super.key});
@@ -63,48 +65,116 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     }
   }
 
-  Future<void> _takePicture() async {
-    if (!_isCameraInitialized) return;
+  String _prediction = "No prediction yet";
+  bool _isProcessing = false; 
+Future<void> _takePicture() async {
+  if (!_isCameraInitialized) return;
+  
+  try {
+    final image = await _cameraController.takePicture();
+    final imageFile = File(image.path);
     
-    try {
-      final image = await _cameraController.takePicture();
-      setState(() {
-        _capturedImage = File(image.path);
-        _showImagePreview = true;
-        _showCameraView = false;
-      });
-    } catch (e) {
-      print("Error taking picture: $e");
-    }
-  }
+    setState(() {
+      _capturedImage = imageFile;
+      _showImagePreview = true;
+      _showCameraView = false;
+      _prediction = "Analyzing...";
+      _isProcessing = true;
+    });
 
-  Future<void> _openGallery() async {
+    // Send image for prediction
+    await _sendImageForPrediction(imageFile);
+  } catch (e) {
+    print("Error taking picture: $e");
+    setState(() {
+      _prediction = "Error capturing image";
+      _isProcessing = false;
+    });
+  }
+}
+
+Future<void> _openGallery() async {
+  try {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     
     if (pickedFile != null) {
+      final imageFile = File(pickedFile.path);
+      
       setState(() {
-        _capturedImage = File(pickedFile.path);
+        _capturedImage = imageFile;
         _showImagePreview = true;
         _showCameraView = false;
+        _prediction = "Analyzing...";
+        _isProcessing = true;
       });
+
+      // Send image for prediction
+      await _sendImageForPrediction(imageFile);
     }
-  }
-
-  void _startScanning() {
+  } catch (e) {
+    print("Error selecting from gallery: $e");
     setState(() {
-      _showCameraView = true;
-      _showImagePreview = false;
+      _prediction = "Error selecting image";
+      _isProcessing = false;
     });
   }
+}
 
-  void _resetScanning() {
+Future<void> _sendImageForPrediction(File imageFile) async {
+  try {
+    // Create multipart request
+    var request = http.MultipartRequest(
+      'POST', 
+      Uri.parse('http://192.168.18.63:5000/api/predict')
+    );
+    
+    // Add image file
+    request.files.add(await http.MultipartFile.fromPath(
+      'image',
+      imageFile.path,
+      contentType: MediaType('image', 'jpeg'),
+    ));
+
+    // Send request
+    var response = await request.send();
+
+    if (response.statusCode == 200) {
+      final prediction = await response.stream.bytesToString();
+      setState(() {
+        _prediction = prediction;
+        _isProcessing = false;
+      });
+    } else {
+      throw Exception('Prediction failed with status ${response.statusCode}');
+    }
+  } catch (e) {
+    print("Error during prediction: $e");
     setState(() {
-      _showCameraView = false;
-      _showImagePreview = false;
-      _capturedImage = null;
+      _prediction = "Prediction failed";
+      _isProcessing = false;
     });
   }
+}
+
+void _startScanning() {
+  setState(() {
+    _showCameraView = true;
+    _showImagePreview = false;
+    _prediction = "No prediction yet";
+    _isProcessing = false;
+  });
+}
+
+void _resetScanning() {
+  setState(() {
+    _showCameraView = false;
+    _showImagePreview = false;
+    _capturedImage = null;
+    _prediction = "No prediction yet";
+    _isProcessing = false;
+  });
+}
 
   @override
   void dispose() {
@@ -266,16 +336,21 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+
   Widget _buildImagePreview() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'This is an image',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          _isProcessing ? "Analyzing..." : _prediction,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: _isProcessing ? Colors.grey : Colors.black,
           ),
-          const SizedBox(height: 20),
+        ),
+        const SizedBox(height: 20),
+        if (_capturedImage != null)
           Container(
             height: 300,
             width: 300,
@@ -294,29 +369,31 @@ class _MealTrackingPageState extends State<MealTrackingPage>
               child: Image.file(_capturedImage!, fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: _resetScanning,
-                child: const Text('Retake'),
-              ),
-              const SizedBox(width: 20),
-              ElevatedButton(
-                onPressed: () {
-                  // Process the image here
-                  _resetScanning();
-                  Provider.of<CameraOverlayController>(context, listen: false).hide();
-                },
-                child: const Text('Use This Image'),
-              ),
-            ],
-          ),
-        ],
-      ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              onPressed: _isProcessing ? null : _startScanning,
+              child: const Text('Retake'),
+            ),
+            const SizedBox(width: 20),
+            ElevatedButton(
+              onPressed: _isProcessing 
+                  ? null 
+                  : () {
+                      // Process the image here
+                      _resetScanning();
+                      Provider.of<CameraOverlayController>(context, listen: false).hide();
+                    },
+              child: const Text('Use This'),
+            ),
+          ],
+        ),
+      ],
     );
   }
+  // Build the camera page overlay with options and scanner animation
 
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);
