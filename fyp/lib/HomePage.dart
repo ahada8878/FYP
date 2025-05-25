@@ -327,16 +327,28 @@ void _resetScanning() {
   }
 
 
-  Widget _buildImagePreview() {
-    return Column(
+Widget _buildImagePreview() {
+  return Padding(
+    padding: const EdgeInsets.only(top: 240.0), // Adjust this value to move content lower
+    child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           _isProcessing ? "Analyzing..." : _prediction,
           style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: _isProcessing ? Colors.grey : Colors.black,
+            fontSize: 28, // Slightly larger
+            fontWeight: FontWeight.w600, // Semi-bold (softer than bold)
+            color: _isProcessing ? Colors.blueGrey : Colors.deepPurple, // More elegant colors
+            letterSpacing: 0.5, // Slightly spaced letters
+            shadows: _isProcessing 
+              ? null 
+              : [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: Offset(1, 1),
+                  )
+                ],
           ),
         ),
         const SizedBox(height: 20),
@@ -359,29 +371,29 @@ void _resetScanning() {
               child: Image.file(_capturedImage!, fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: _resetScanning,
-                child: const Text('Retake'),
-              ),
-              const SizedBox(width: 20),
-              ElevatedButton(
-                onPressed: () {
-                  // Process the image here
-                  _resetScanning();
-                  Provider.of<CameraOverlayController>(context, listen: false).hide();
-                },
-                child: const Text('Use This Image'),
-              ),
-            ],
-          ),
-        ],
-      );
-  }
-  // Build the camera page overlay with options and scanner animation
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              onPressed: _resetScanning,
+              child: const Text('Retake'),
+            ),
+            const SizedBox(width: 20),
+            ElevatedButton(
+              onPressed: () {
+                // Process the image here
+                _resetScanning();
+                Provider.of<CameraOverlayController>(context, listen: false).hide();
+              },
+              child: const Text('Use This Image'),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);

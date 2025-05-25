@@ -23,7 +23,7 @@ CLASS_LABELS = [
     "cup_cakes", "deviled_eggs", "donuts", "dumplings", "edamame", "eggs_benedict", "escargots", 
     "falafel", "filet_mignon", "fish_and_chips", "foie_gras", "french_fries", "french_onion_soup", 
     "french_toast", "fried_calamari", "fried_rice", "frozen_yogurt", "garlic_bread", "gnocchi", 
-    "greek_salad", "grilled_cheese_sandwich", "grilled_salmon", "guacamole", "gyoza", "hamburger", 
+    "greek_salad", "grilled_cheese_sandwich", "grilled_salmon", "guacamole", "gyoza", "Hamburger", 
     "hot_and_sour_soup", "hot_dog", "huevos_rancheros", "hummus", "ice_cream", "lasagna", "lobster_bisque", 
     "lobster_roll_sandwich", "macaroni_and_cheese", "macarons", "miso_soup", "mussels", "nachos", "omelette", 
     "onion_rings", "oysters", "pad_thai", "paella", "pancakes", "panna_cotta", "peking_duck", "pho", "pizza", 
@@ -71,15 +71,24 @@ def predict(image_path):
         class_idx = int(np.argmax(pred))
         confidence = float(np.max(pred))
         
+        # If confidence < 40%, return "Unclear Picture"
+        if confidence < 0.4:
+            return {
+                'success': True,
+                'predicted_class': "Couldn't predict food",
+                'confidence': confidence,
+                'confidence_percentage': f"{confidence * 100:.2f}%"
+            }
+
         return {
-            # 'success': True,
+            'success': True,
             'predicted_class': CLASS_LABELS[class_idx],
-            # 'class_index': class_idx,
-            # 'confidence': confidence,
-            # 'confidence_percentage': f"{confidence * 100:.2f}%",
-            # 'all_predictions': {
-            #     CLASS_LABELS[i]: float(pred[0][i]) for i in range(len(CLASS_LABELS))
-            # }
+            'class_index': class_idx,
+            'confidence': confidence,
+            'confidence_percentage': f"{confidence * 100:.2f}%",
+            'all_predictions': {
+                CLASS_LABELS[i]: float(pred[0][i]) for i in range(len(CLASS_LABELS))
+            }
         }
     except Exception as e:
         return {
@@ -95,7 +104,9 @@ if __name__ == '__main__':
             
         image_path = sys.argv[1]
         result = predict(image_path)
-        print(json.dumps(result, indent=2))
+        # print(result)
+        trimmed_result = result['predicted_class']
+        print(json.dumps(trimmed_result, indent=2))
         
     except Exception as e:
         print(json.dumps({
