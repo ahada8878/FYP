@@ -1,11 +1,13 @@
 import 'package:fyp/HomePage.dart';
 import 'package:fyp/LoadingPage.dart';
+import 'package:fyp/LocalDB.dart';
+import 'package:fyp/models/user_details.dart';
 
 import 'EatingStylePage.dart';
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'dart:math' as math;
-import 'HomePage.dart';
+import '../HomePage.dart';
 
 class MealTimingPage extends StatefulWidget {
   const MealTimingPage({super.key});
@@ -136,10 +138,7 @@ class _MealTimingPageState extends State<MealTimingPage>
               AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                  onPressed: () => Navigator.pop(context),
-                ),
+                
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -268,8 +267,12 @@ class _MealTimingPageState extends State<MealTimingPage>
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
                             onTap: _startTime != null && _endTime != null
-                                ? () {
+                                ? () async{
                                     _confettiController.play();
+                                    //_startTimes,_endTimes both are maps 
+                                    await LocalDB.setStartTimes(_startTimes);
+                                    await LocalDB.setEndTimes(_endTimes);
+
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(

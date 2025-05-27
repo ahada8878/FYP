@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'BMIPage.dart';
+import 'Registration/BMIPage.dart';
 
 class AITrackerPage extends StatefulWidget {
   const AITrackerPage({super.key});
@@ -198,6 +198,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                     elevation: 4,
                   ),
                   onPressed: () {
+                    //nothing to save here
                     Navigator.push(
                       context,
                       MaterialPageRoute(

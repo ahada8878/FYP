@@ -7,6 +7,8 @@ const { exec } = require('child_process');
 const connectDB = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
+const mealRoutes = require('./routes/mealRoutes');
+const userDetailsRoutes = require('./routes/userDetailsRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -37,6 +39,8 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/meals', mealRoutes);
+app.use('/api/user-details', userDetailsRoutes);
 
 // Image Prediction Endpoint
 app.post('/api/predict', upload.single('image'), (req, res) => {

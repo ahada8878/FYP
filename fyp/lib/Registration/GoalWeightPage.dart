@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'GoalPage.dart';
 
 class GoalWeightPage extends StatefulWidget {
@@ -131,10 +132,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () => Navigator.pop(context, _targetWeight),
-                      ),
+                      
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -360,9 +358,17 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                               elevation: 5,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(30),
-                                onTap: () {
+                                onTap: () async{
+                                 
+                                 await LocalDB.setTargetWeight('$selectedKg.$selectedG kg');
+                                
+                               
+                                  if (widget.isEditing) {
+                                    //on tap
                             Navigator.pop(context, _targetWeight);
-                            if (!widget.isEditing) {
+                                  }
+                            else {
+                              //ontap here
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (context) => GoalPage()),

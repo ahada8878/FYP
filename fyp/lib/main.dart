@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/Loginpage.dart';
+import 'package:fyp/LocalDB.dart';
+import 'package:fyp/MissingRouteDataForSignUp.dart';
+import 'package:fyp/Registration/SignUpPage.dart';
 import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/camera_overlay_controller.dart';
 import 'package:fyp/water_tracker_controller.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalDB.init();
   runApp(
     MultiProvider(
       providers: [
@@ -20,9 +24,20 @@ void main() {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+late final Widget screen;
+  @override
+  void initState() {
+    super.initState();
+    screen=getIncompleteStepView();
+  }
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -37,7 +52,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.grey[50],
         useMaterial3: true,
       ),
-      home: const CreativeLoginPage(), // Start with login page
+      home:screen, // Start with login page
     );
   }
 }

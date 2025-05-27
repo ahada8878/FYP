@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
+import 'package:fyp/LocalDB.dart';
 import 'MealPerDayPage.dart';
 
 class BadHabitsPage extends StatefulWidget {
@@ -158,11 +159,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                 AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  leading: IconButton(
-                    icon:
-                        Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                 
                   actions: [
                     if (_selectedHabits.isNotEmpty)
                       IconButton(
@@ -345,8 +342,11 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
                             onTap: _selectedHabits.isNotEmpty
-                                ? () {
+                                ? ()async {
+
                                     _confettiController.play();
+                            await LocalDB.setSelectedHabits(_selectedHabits);
+
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(

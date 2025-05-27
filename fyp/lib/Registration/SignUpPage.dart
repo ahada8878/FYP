@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
-import 'package:fyp/NamePage.dart';
-import '../services/auth_service.dart'; // Import your auth service
+import 'package:fyp/LocalDB.dart';
+import 'package:fyp/Registration/NamePage.dart';
+import '../../services/auth_service.dart'; // Import your auth service
+import 'package:fyp/Loginpage.dart';
 
 class CreativeSignupPage extends StatefulWidget {
   const CreativeSignupPage({super.key});
@@ -41,6 +43,9 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
 
       if (token != null) {
         // Navigate to NamePage after successful registration
+
+        //ontap
+        await LocalDB.setAuthToken(token);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const NamePage()),
@@ -328,7 +333,12 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                         Center(
                           child: GestureDetector(
                             onTap: () {
-                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreativeLoginPage(),
+                                ),
+                              );
                             },
                             child: RichText(
                               text: TextSpan(

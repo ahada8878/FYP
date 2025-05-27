@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'HeightPage.dart';
 import 'GoalWeightPage.dart';
 
@@ -138,13 +139,7 @@ class _CreativeWeightPageState extends State<WeightPage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back,
-                            color: colorScheme.onBackground),
-                        onPressed: () {
-                          Navigator.pop(context, _getCurrentWeightInKg());
-                        },
-                      ),
+                     
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -285,8 +280,16 @@ class _CreativeWeightPageState extends State<WeightPage>
                               elevation: 5,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(30),
-                                onTap: () {
+                                onTap: () async{
+                                   if(isMetric){
+                                 await LocalDB.setCurrentWeight('$selectedKg kg');
+                                }else{
+                                 await LocalDB.setCurrentWeight('$selectedG g');
+                                }
+
                                   if (widget.isEditing) {
+
+                                  
                                     Navigator.pop(
                                         context, _getCurrentWeightInKg());
                                   } else {

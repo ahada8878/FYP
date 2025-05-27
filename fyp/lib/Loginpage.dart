@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
-import 'package:fyp/SignUpPage.dart';
+import 'package:fyp/Registration/SignUpPage.dart';
 import 'package:fyp/main_navigation.dart';
 import '../services/auth_service.dart';
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'HeightPage.dart';
 
 class BirthdayPage extends StatefulWidget {
@@ -90,10 +91,7 @@ class _CreativeBirthdayPageState extends State<BirthdayPage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () => Navigator.pop(context),
-                      ),
+                    
                     ),
                     ScaleTransition(
                       scale: _scaleAnimation,
@@ -157,10 +155,15 @@ class _CreativeBirthdayPageState extends State<BirthdayPage>
                         child: InkWell(
                           borderRadius: BorderRadius.circular(30),
                           onTap: _isComplete
-                              ? () => Navigator.push(
+                              ? () async{
+                            await LocalDB.setSelectedMonth(_selectedMonth!);
+                            await LocalDB.setSelectedDay(_selectedDay!);
+                            await LocalDB.setSelectedYear(_selectedYear!);
+                               Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (_) => HeightPage()),
-                                  )
+                                  );
+                                  }
                               : null,
                           child: Container(
                             width: double.infinity,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'GoalWeightPage.dart';
 import 'ActivityPage.dart';
 
@@ -132,10 +133,7 @@ class _CreativeGoalPageState extends State<GoalPage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {},
-                      ),
+                     
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -317,7 +315,9 @@ class _CreativeGoalPageState extends State<GoalPage>
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: selectedMainGoal == null
                                     ? null
-                                    : () {
+                                    : () async{
+                                     await LocalDB.setSelectedSubGoals(selectedSubGoals);
+
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(builder: (context) => ActivityPage()),

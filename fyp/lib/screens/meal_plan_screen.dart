@@ -14,6 +14,7 @@ class MealPlanScreen extends StatefulWidget {
 }
 
 class _MealPlanScreenState extends State<MealPlanScreen> {
+
   final Map<int, Set<String>> _loggedMeals = {};
 
   final Map<int, Map<String, Meal>> _mealReplacements = {};

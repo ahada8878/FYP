@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
+import 'package:fyp/LocalDB.dart';
 import 'dart:math' as math;
 import 'DietryRestrictionPage.dart';
 import 'EatingTime.dart';
@@ -131,10 +132,7 @@ class _EatingStylePageState extends State<EatingStylePage>
               AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                  onPressed: () => Navigator.pop(context),
-                ),
+               
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -230,7 +228,11 @@ class _EatingStylePageState extends State<EatingStylePage>
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
-                            onTap: () {
+                            onTap: () async{
+                              // _eatingStyles map
+                                await LocalDB.setEatingStyles(_eatingStyles);
+                                
+
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(

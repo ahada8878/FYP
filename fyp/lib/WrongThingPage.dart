@@ -1,4 +1,6 @@
-import 'BMIPage.dart';
+import 'package:fyp/LocalDB.dart';
+
+import 'Registration/BMIPage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'MessagePage2.dart';
@@ -150,11 +152,7 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                 AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  leading: IconButton(
-                    icon:
-                        Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -334,7 +332,9 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                             child: InkWell(
                               borderRadius: BorderRadius.circular(30),
                               onTap: selectedOption != null
-                                  ? () {
+                                  ? () async{
+                            await LocalDB.setOptions(options[selectedOption!]['text']);
+                                   
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(

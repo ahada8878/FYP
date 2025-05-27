@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'MessagePage1.dart';
+import 'package:fyp/LocalDB.dart';
+import '../MessagePage1.dart';
 
 class WeightLossFamiliarityPage extends StatefulWidget {
   const WeightLossFamiliarityPage({super.key});
@@ -70,10 +71,7 @@ class _WeightLossFamiliarityPageState extends State<WeightLossFamiliarityPage> {
               AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                  onPressed: () => Navigator.pop(context),
-                ),
+               
               ),
               Padding(
                 padding:
@@ -283,7 +281,9 @@ Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(30),
                       onTap: 
-                          () {
+                          ()async {
+                            await LocalDB.setLevels(levels[selectedLevel!]['title']  );
+                            
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

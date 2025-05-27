@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
-import 'package:fyp/WorkSchedulePage.dart';
+import 'package:fyp/LocalDB.dart';
+import 'package:fyp/Registration/WorkSchedulePage.dart';
 
 class ActivityPage extends StatefulWidget {
-  const ActivityPage({super.key});
+  const 
+  
+  ActivityPage({super.key});
 
   @override
   State<ActivityPage> createState() => _CreativeActivityPageState();
@@ -150,10 +153,7 @@ class _CreativeActivityPageState extends State<ActivityPage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {},
-                      ),
+                   
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -280,7 +280,9 @@ class _CreativeActivityPageState extends State<ActivityPage>
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: selectedLevel == null
                                     ? null
-                                    : () {
+                                    : ()async {
+                                       await LocalDB.setActivityLevels(activityLevels[selectedLevel!]['title']);
+
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(builder: (context) => WorkSchedulePage()),
