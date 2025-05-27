@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'package:confetti/confetti.dart'; // Add this to pubspec.yaml
-import 'WrongThingPage.dart';
+import '../WrongThingPage.dart';
 
 
 class PersonalSummaryPage extends StatefulWidget {
@@ -401,6 +401,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                             borderRadius: BorderRadius.circular(30),
                             onTap: () {
                               _toggleCelebration();
+                              // Nothing to save here 
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

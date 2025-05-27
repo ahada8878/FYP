@@ -1,51 +1,54 @@
-import 'package:flutter/material.dart';
-import 'dart:math' as math; // Add this import to fix the Random class error
-import 'BadHabitsPage.dart';
-import 'WaterIntakePage.dart';
+import 'package:fyp/LocalDB.dart';
 
-class MealsPerDayPage extends StatefulWidget {
-  const MealsPerDayPage({super.key});
+import 'MealPerDayPage.dart';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/animation.dart';
+import 'dart:math' as math;
+import 'DietryRestrictionPage.dart';
+
+class WaterIntakePage extends StatefulWidget {
+  const WaterIntakePage({super.key});
 
   @override
-  State<MealsPerDayPage> createState() => _MealsPerDayPageState();
+  State<WaterIntakePage> createState() => _WaterIntakePageState();
 }
 
-class _MealsPerDayPageState extends State<MealsPerDayPage>
+class _WaterIntakePageState extends State<WaterIntakePage>
     with SingleTickerProviderStateMixin {
   int? _selectedOption;
   late AnimationController _animationController;
+  late Animation<double> _waveAnimation;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _foodSizeAnimation;
-  late Animation<Color?> _colorAnimation;
 
-  final List<Map<String, dynamic>> mealOptions = [
+  final List<Map<String, dynamic>> waterOptions = [
     {
-      'count': '5 meals',
-      'description': 'Breakfast, Lunch, Dinner and 2 Snacks',
-      'icon': Icons.restaurant,
-      'color': Colors.blue,
-      'foods': ['🍳', '🥪', '🍲', '🍎', '🥜'],
+      'title': '2 Glasses',
+      'subtitle': 'Minimal hydration',
+      'icon': Icons.water_drop_outlined,
+      'color': Colors.blue[200]!,
+      'waterLevel': 0.2,
     },
     {
-      'count': '4 meals',
-      'description': 'Breakfast, Lunch, Dinner and 1 Snack',
-      'icon': Icons.breakfast_dining,
-      'color': Colors.green,
-      'foods': ['🥞', '🍝', '🍛', '🍌'],
+      'title': '2 to 6 Glasses',
+      'subtitle': 'Moderate hydration',
+      'icon': Icons.water_drop_rounded,
+      'color': Colors.blue[400]!,
+      'waterLevel': 0.5,
     },
     {
-      'count': '3 meals',
-      'description': 'Breakfast, Lunch, Dinner',
-      'icon': Icons.dinner_dining,
-      'color': Colors.orange,
-      'foods': ['🥐', '🥗', '🍱'],
+      'title': '6+ Glasses',
+      'subtitle': 'Optimal hydration',
+      'icon': Icons.water,
+      'color': Colors.blue[600]!,
+      'waterLevel': 0.8,
     },
     {
-      'count': '2 meals',
-      'description': 'Breakfast or Dinner with Lunch',
-      'icon': Icons.lunch_dining,
-      'color': Colors.purple,
-      'foods': ['🍓', '🍜'],
+      'title': 'Other drinks',
+      'subtitle': 'Mostly non-water',
+      'icon': Icons.local_cafe,
+      'color': Colors.brown[300]!,
+      'waterLevel': 0.1,
     },
   ];
 
@@ -54,30 +57,22 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _waveAnimation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
     );
 
-    _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.95, end: 1.05), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 1.05, end: 1.0), weight: 50),
-    ]).animate(_animationController);
-
-    _foodSizeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.2), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 70),
-    ]).animate(
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: Curves.elasticOut,
       ),
     );
-
-    _colorAnimation = ColorTween(
-      begin: Colors.grey[200],
-      end: Colors.blue[100],
-    ).animate(_animationController);
-
-    _animationController.forward();
   }
 
   @override
@@ -89,8 +84,6 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
   void _selectOption(int index) {
     setState(() {
       _selectedOption = index;
-      _animationController.reset();
-      _animationController.forward();
     });
   }
 
@@ -102,25 +95,25 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
     return Scaffold(
       body: Stack(
         children: [
-          // Animated background
+          // **Background Gradient**
           AnimatedContainer(
             duration: const Duration(milliseconds: 500),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
                   _selectedOption != null
-                      ? mealOptions[_selectedOption!]['color'].withOpacity(0.1)
-                      : colorScheme.surfaceVariant,
+                      ? waterOptions[_selectedOption!]['color'].withOpacity(0.1)
+                      : colorScheme.surfaceVariant.withOpacity(0.2),
                   colorScheme.surface,
                 ],
               ),
             ),
           ),
 
-          // Floating food particles
-          ...List.generate(20, (index) {
+          // **Floating Water Droplets**
+          ...List.generate(10, (index) {
             return Positioned(
               left: math.Random().nextDouble() *
                   MediaQuery.of(context).size.width,
@@ -129,11 +122,10 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 500),
                 opacity: _selectedOption != null ? 0.3 : 0.1,
-                child: Text(
-                  ['🍎', '🥑', '🥦', '🍗', '🥕', '🍇'][index % 6],
-                  style: TextStyle(
-                    fontSize: 16 + (index * 2).toDouble(),
-                  ),
+                child: Icon(
+                  Icons.water_drop,
+                  size: 24,
+                  color: Colors.blue[200],
                 ),
               ),
             );
@@ -145,59 +137,52 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                 AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  leading: IconButton(
-                    icon:
-                        Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                 
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Animated title
+                      // **Animated Title**
                       ScaleTransition(
                         scale: _scaleAnimation,
                         child: Text(
-                          'How many meals',
+                          'What is your',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.onBackground,
-                            shadows: [
-                              Shadow(
-                                blurRadius: 10,
-                                color: colorScheme.primary.withOpacity(0.2),
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
                           ),
                         ),
                       ),
-
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        'do you have per day?',
+                        'daily water intake?',
                         style: textTheme.headlineLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.primary,
-                          height: 0.9,
                         ),
                       ),
-
+                      const SizedBox(height: 8),
+                      Text(
+                        'Stay hydrated for better health!',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onBackground.withOpacity(0.6),
+                        ),
+                      ),
                       const SizedBox(height: 40),
 
-                      // Meal option cards
-                      ...List.generate(mealOptions.length, (index) {
-                        final option = mealOptions[index];
+                      // **Water Option Cards**
+                      ...List.generate(waterOptions.length, (index) {
+                        final option = waterOptions[index];
                         final isSelected = _selectedOption == index;
 
                         return GestureDetector(
                           onTap: () => _selectOption(index),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
-                            margin: const EdgeInsets.only(bottom: 20),
-                            padding: const EdgeInsets.all(20),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? option['color'].withOpacity(0.1)
@@ -219,70 +204,51 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                                 ),
                               ],
                             ),
-                            child: Column(
+                            child: Row(
                               children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      option['count'],
-                                      style: textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: isSelected
-                                            ? option['color']
-                                            : colorScheme.onBackground,
+                                // **Animated Water Glass**
+                                AnimatedBuilder(
+                                  animation: _waveAnimation,
+                                  builder: (context, child) {
+                                    return CustomPaint(
+                                      size: const Size(60, 80),
+                                      painter: _WaterGlassPainter(
+                                        waterLevel: option['waterLevel'],
+                                        waveValue: _waveAnimation.value,
+                                        color: option['color'],
+                                        isSelected: isSelected,
                                       ),
-                                    ),
-                                    AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: isSelected
-                                            ? option['color'].withOpacity(0.3)
-                                            : colorScheme.onSurface
-                                                .withOpacity(0.1),
-                                      ),
-                                      child: Icon(
-                                        option['icon'],
-                                        color: isSelected
-                                            ? option['color']
-                                            : colorScheme.onBackground,
-                                      ),
-                                    ),
-                                  ],
+                                    );
+                                  },
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  option['description'],
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onBackground
-                                        .withOpacity(0.8),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        option['title'],
+                                        style: textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onBackground,
+                                        ),
+                                      ),
+                                      Text(
+                                        option['subtitle'],
+                                        style: textTheme.bodyMedium?.copyWith(
+                                          color: colorScheme.onBackground
+                                              .withOpacity(0.6),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                // Food icons
-                                Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: List.generate(
-                                    option['foods'].length,
-                                    (foodIndex) => AnimatedScale(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      scale: isSelected
-                                          ? _foodSizeAnimation.value
-                                          : 1.0,
-                                      child: Text(
-                                        option['foods'][foodIndex],
-                                        style: const TextStyle(fontSize: 28),
-                                      ),
-                                    ),
+                                if (isSelected)
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: option['color'],
                                   ),
-                                ),
                               ],
                             ),
                           ),
@@ -291,7 +257,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
 
                       const SizedBox(height: 40),
 
-                      // Continue button
+                      // **Continue Button**
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 500),
                         width: double.infinity,
@@ -301,8 +267,8 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                           gradient: _selectedOption != null
                               ? LinearGradient(
                                   colors: [
-                                    mealOptions[_selectedOption!]['color'],
-                                    mealOptions[_selectedOption!]['color']
+                                    waterOptions[_selectedOption!]['color'],
+                                    waterOptions[_selectedOption!]['color']
                                         .withOpacity(0.7),
                                   ],
                                 )
@@ -315,7 +281,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                           boxShadow: [
                             BoxShadow(
                               color: _selectedOption != null
-                                  ? mealOptions[_selectedOption!]['color']
+                                  ? waterOptions[_selectedOption!]['color']
                                       .withOpacity(0.4)
                                   : Colors.transparent,
                               blurRadius: 15,
@@ -329,12 +295,14 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
                             onTap: _selectedOption != null
-                                ? () {
+                                ? ()async {
+                                   await LocalDB.setWaterOptions(waterOptions[_selectedOption!]['title']);
+                                  // waterOptions[selectedOption] map
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) =>
-                                              WaterIntakePage()),
+                                              DietaryRestrictionsPage()),
                                     );
                                   }
                                 : null,
@@ -353,7 +321,6 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -365,4 +332,60 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
       ),
     );
   }
+}
+
+// **Custom Water Glass Painter**
+class _WaterGlassPainter extends CustomPainter {
+  final double waterLevel;
+  final double waveValue;
+  final Color color;
+  final bool isSelected;
+
+  _WaterGlassPainter({
+    required this.waterLevel,
+    required this.waveValue,
+    required this.color,
+    required this.isSelected,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final glassPath = Path()
+      ..moveTo(size.width * 0.2, 0)
+      ..lineTo(size.width * 0.8, 0)
+      ..lineTo(size.width * 0.9, size.height)
+      ..lineTo(size.width * 0.1, size.height)
+      ..close();
+
+    // Draw glass outline
+    canvas.drawPath(glassPath, paint);
+
+    // Draw water with wave effect
+    final waterPaint = Paint()..color = color.withOpacity(0.6);
+    final waterPath = Path();
+
+    final waveHeight = isSelected ? 5.0 : 2.0;
+    final baseWaterLevel = size.height * (1 - waterLevel);
+
+    waterPath.moveTo(0, baseWaterLevel);
+
+    for (double x = 0; x <= size.width; x++) {
+      final y = baseWaterLevel + math.sin(waveValue + x * 0.1) * waveHeight;
+      waterPath.lineTo(x, y);
+    }
+
+    waterPath.lineTo(size.width * 0.9, size.height);
+    waterPath.lineTo(size.width * 0.1, size.height);
+    waterPath.close();
+
+    canvas.drawPath(waterPath, waterPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

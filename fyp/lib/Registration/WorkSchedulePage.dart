@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'ActivityPage.dart';
 import 'HealthConcernPage.dart';
 
@@ -132,12 +133,7 @@ class _CreativeWorkSchedulePageState extends State<WorkSchedulePage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                      ),
+                      
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -267,7 +263,9 @@ class _CreativeWorkSchedulePageState extends State<WorkSchedulePage>
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: selectedSchedule == null
                                     ? null
-                                    : () {
+                                    : ()async {
+                                       await LocalDB.setScheduleIcons(selectedSchedule!);
+
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(builder: (context) => HealthConcernsPage()),

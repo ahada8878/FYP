@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'BadHabitsPage.dart';
+import 'Registration/BadHabitsPage.dart';
 
 class AITrackerPage2 extends StatefulWidget {
   const AITrackerPage2({super.key});
@@ -311,6 +311,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
                             onTap: () {
+                              //nothing to save here 
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'BirthdayPage.dart';
-import 'models/userDetail.dart';
+import '../models/user_details.dart';
 
 class NamePage extends StatefulWidget {
   const NamePage({super.key});
@@ -25,6 +27,7 @@ class _CreativeNamePageState extends State<NamePage>
   @override
   void initState() {
     super.initState();
+    displayToken();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -52,11 +55,28 @@ class _CreativeNamePageState extends State<NamePage>
     _animationController.forward();
   }
 
+  void controllerListener() {
+    if (kDebugMode) {
+      print('Controller value: ${_nameController.text}');
+      print('Controller type: ${_nameController.runtimeType}');
+    }
+    // This method can be used to listen to changes in the controller
+    // if needed, but currently it's not being used.
+  }  
+
   @override
   void dispose() {
+    
+    controllerListener();
+    // Dispose of the animation controller and text controller
     _animationController.dispose();
     _nameController.dispose();
     super.dispose();
+  }
+
+  void displayToken()async{
+    String token=await LocalDB.getAuthToken();
+    print(token);
   }
 
   @override
@@ -128,10 +148,7 @@ class _CreativeNamePageState extends State<NamePage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {},
-                      ),
+                     
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -219,7 +236,9 @@ class _CreativeNamePageState extends State<NamePage>
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: _nameEntered
-                                    ? () {
+                                    ? () async{
+                                      await LocalDB.setUserName(_nameController.text);
+                                      
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(builder: (context) => BirthdayPage()),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'ExperiencePage.dart';
 
 class HealthConcernsPage extends StatefulWidget {
@@ -132,10 +133,7 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
                     AppBar(
                       backgroundColor: Colors.transparent,
                       elevation: 0,
-                      leading: IconButton(
-                        icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                        onPressed: () {},
-                      ),
+                      
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -291,7 +289,9 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
                               elevation: 5,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(30),
-                                onTap: () {
+                                onTap: () async{
+                                  await LocalDB.setHealthConcerns(healthConcerns);
+
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (context) => WeightLossFamiliarityPage()),

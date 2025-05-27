@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:fyp/LocalDB.dart';
 import 'WeightPage.dart';
 
 class HeightPage extends StatefulWidget {
@@ -20,6 +21,8 @@ class _CreativeHeightPageState extends State<HeightPage>
   int selectedInches = 11;
   int selectedCentimeters = 170;
   bool isMetric = false;
+
+  
 
   @override
   void initState() {
@@ -92,10 +95,7 @@ class _CreativeHeightPageState extends State<HeightPage>
                         AppBar(
                           backgroundColor: Colors.transparent,
                           elevation: 0,
-                          leading: IconButton(
-                            icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
-                            onPressed: () => Navigator.pop(context),
-                          ),
+                         
                         ),
                         const SizedBox(height: 16),
 
@@ -161,8 +161,13 @@ class _CreativeHeightPageState extends State<HeightPage>
                             elevation: 5,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(30),
-                              onTap: () {
-                                Navigator.push(
+                              onTap: ()async {
+                                if(isMetric){
+                                 await LocalDB.setHeight('$selectedCentimeters cm');
+                                }else{
+                                 await LocalDB.setHeight('$selectedFeet.$selectedInches feet');
+                                }
+                               Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const WeightPage()),
                                 );

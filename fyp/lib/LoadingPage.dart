@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'dart:math' as math;
 
+import 'package:fyp/HomePage.dart';
+import 'package:fyp/LocalDB.dart';
+import 'package:fyp/models/user_details.dart';
+import 'package:fyp/services/user_details_service.dart';
+
 class FoodieAnalysisPage extends StatefulWidget {
   const FoodieAnalysisPage({super.key});
 
@@ -19,11 +24,40 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
   bool _isComplete = false;
   final List<String> _foodEmojis = ['🍎', '🥑', '🍗', '🥦', '🍓', '🥚', '🍕', '🍣'];
   final List<Offset> _emojiPositions = [];
+   final profile = UserDetails(
+                                  authToken: LocalDB.getAuthToken(),
+                                  userName: LocalDB.getUserName(),
+                                  selectedMonth: LocalDB.getSelectedMonth(),
+                                  selectedDay: LocalDB.getSelectedDay(),
+                                  selectedYear: LocalDB.getSelectedYear(),
+                                  height: LocalDB.getHeight(),
+                                  currentWeight: LocalDB.getCurrentWeight(),
+                                  targetWeight: LocalDB.getTargetWeight(),
+                                  selectedSubGoals: LocalDB.getSelectedSubGoals(),
+                                  selectedHabits: LocalDB.getSelectedHabits(),
+                                  activityLevels: LocalDB.getActivityLevels(),
+                                  scheduleIcons: LocalDB.getScheduleIcons(),
+                                  healthConcerns: LocalDB.getHealthConcerns(),
+                                  levels: LocalDB.getLevels(),
+                                  options: LocalDB.getOptions(),
+                                  mealOptions: LocalDB.getMealOptions(),
+                                  waterOptions: LocalDB.getWaterOptions(),
+                                  restrictions: LocalDB.getRestrictions(),
+                                  eatingStyles: LocalDB.getEatingStyles(),
+                                  startTimes: LocalDB.getStartTimes(),
+                                  endTimes: LocalDB.getEndTimes(),
+                                );
 
   @override
   void initState() {
     super.initState();
-    
+
+    UserDetailsService.postUserDetails(profile).then((success) {
+      print("User details posted successfully: $success");
+    }).catchError((error) {
+      print("Error posting user details: $error");
+    });
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
@@ -230,7 +264,12 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: ElevatedButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+                        onPressed: () {
+                         //on tap here 
+                          Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => MealTrackingPage()),
+                              (Route<dynamic> route) => false,  );  
+                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _colorAnim.value,
                           padding: const EdgeInsets.symmetric(

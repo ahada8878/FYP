@@ -9,6 +9,7 @@ class Meal {
   final Map<String, String> macronutrients;
   final List<String> ingredients;
   final List<String> cookingSteps;
+  final Map<String, bool> dietaryRestrictions;
 
   Meal({
     required this.id,
@@ -21,8 +22,79 @@ class Meal {
     required this.macronutrients,
     required this.ingredients,
     required this.cookingSteps,
-  });
+    Map<String, bool>? dietaryRestrictions,
+  }) : dietaryRestrictions = dietaryRestrictions ?? {
+          'diabetesFriendly': false,
+          'hypertensionFriendly': false,
+        };
+
+  factory Meal.fromJson(Map<String, dynamic> json) {
+    return Meal(
+      id: json['_id'] ?? json['id'] ?? '',
+      name: json['name'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      time: json['time'] ?? '',
+      calories: json['calories'] ?? 0,
+      type: json['type'] ?? '',
+      cookingTime: json['cookingTime'] ?? '',
+      macronutrients: Map<String, String>.from(json['macronutrients'] ?? {}),
+      ingredients: List<String>.from(json['ingredients'] ?? []),
+      cookingSteps: List<String>.from(json['cookingSteps'] ?? []),
+      dietaryRestrictions: Map<String, bool>.from(
+          json['dietaryRestrictions'] ?? 
+          {
+            'diabetesFriendly': false,
+            'hypertensionFriendly': false,
+          }),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'name': name,
+      'imageUrl': imageUrl,
+      'time': time,
+      'calories': calories,
+      'type': type,
+      'cookingTime': cookingTime,
+      'macronutrients': macronutrients,
+      'ingredients': ingredients,
+      'cookingSteps': cookingSteps,
+      'dietaryRestrictions': dietaryRestrictions,
+    };
+  }
 }
+
+
+
+
+
+// class Meal {
+//   final String id;
+//   final String name;
+//   final String imageUrl;
+//   final String time;
+//   final int calories;
+//   final String type;
+//   final String cookingTime;
+//   final Map<String, String> macronutrients;
+//   final List<String> ingredients;
+//   final List<String> cookingSteps;
+
+//   Meal({
+//     required this.id,
+//     required this.name,
+//     required this.imageUrl,
+//     required this.time,
+//     required this.calories,
+//     required this.type,
+//     required this.cookingTime,
+//     required this.macronutrients,
+//     required this.ingredients,
+//     required this.cookingSteps,
+//   });
+// }
 
 List<Meal> getDayMeals(int day) {
   final dayNumber = day % 7;
