@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/Registration/GoalWeightPage.dart';
-import 'package:fyp/Registration/WeightPage.dart';
+import 'package:fyp/GoalWeightPage.dart';
+import 'package:fyp/WeightPage.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 
 class MyProgressScreen extends StatefulWidget {
@@ -14,6 +14,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
   double targetWeight = 75.0;
   double bmi = 24.8;
   String bmiCategory = "Healthy";
+  bool _showWeeklyWaterData = true;
 
   final List<Map<String, dynamic>> achievements = [
     {
@@ -52,27 +53,44 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('My Progress'),
+        title: const Text('My Progress'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SettingsScreen()),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionTitle('Achievements'),
             _buildAchievementsSection(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildSectionTitle('Weight Log'),
             _buildWeightLogSection(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildSectionTitle('Steps Tracker'),
             _buildStepsTracker(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildSectionTitle('BMI'),
             _buildBMICard(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildSectionTitle('Nutrition'),
             _buildProUpsell(),
+            _buildSectionTitle('Weight Trend'),
+            WeightChart(currentWeight: currentWeight),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Water Intake'),
+            WaterIntakeChart(
+              showWeekly: _showWeeklyWaterData,
+              onToggle: (value) => setState(() => _showWeeklyWaterData = value),
+            ),
           ],
         ),
       ),
@@ -84,7 +102,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
@@ -119,7 +137,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
       opacity: achieved ? 1.0 : 0.5,
       child: Container(
         width: 100,
-        margin: EdgeInsets.only(right: 12),
+        margin: const EdgeInsets.only(right: 12),
         child: Card(
           elevation: achieved ? 2 : 0,
           shape: RoundedRectangleBorder(
@@ -163,7 +181,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
                     height: 40,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   title,
                   textAlign: TextAlign.center,
@@ -186,7 +204,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
         Expanded(
             child:
                 _buildWeightCard('Current Weight', currentWeight, Icons.scale)),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Expanded(
             child: _buildWeightCard('Target Weight', targetWeight, Icons.flag)),
       ],
@@ -208,24 +226,24 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(icon, size: 32, color: Colors.blueGrey),
-                SizedBox(height: 8),
-                Text(title, style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 8),
+                Text(title, style: const TextStyle(color: Colors.grey)),
                 Text('${weight.toStringAsFixed(1)} kg',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold)),
               ],
             ),
             Positioned(
               top: 0,
               right: 0,
               child: IconButton(
-                  icon: Icon(Icons.edit, size: 18, color: Colors.grey),
+                  icon: const Icon(Icons.edit, size: 18, color: Colors.grey),
                   onPressed: () async {
                     final updatedWeight =
                         await PersistentNavBarNavigator.pushNewScreen(
                       context,
                       screen: title == "Current Weight"
-                          ? WeightPage(isEditing: true)
+                          ? const WeightPage(isEditing: true)
                           : GoalWeightPage(
                               isEditing: true,
                               currentWeight: currentWeight,
@@ -264,6 +282,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
 
   Widget _buildStepsTracker() {
     return Card(
+      color: Colors.white,
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -272,25 +291,33 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(Icons.android, color: Colors.green, size: 40),
-            SizedBox(width: 16),
-            Icon(Icons.favorite, color: Colors.red, size: 40),
-            SizedBox(width: 16),
+            const Icon(Icons.android,
+                color: Color.fromRGBO(106, 79, 153, 1), size: 40),
+            const SizedBox(width: 16),
+            const Icon(Icons.directions_walk,
+                color: Color.fromRGBO(106, 79, 153, 1), size: 40),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text('Get steps in sync with Health Connect!'),
-                  SizedBox(height: 8),
+                  const Text(
+                    'Get steps in sync with Health Connect!',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: const Color.fromRGBO(106, 79, 153, 1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
                     onPressed: () {},
-                    child: Text('Connect'),
+                    child: const Text(
+                      'Connect',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ],
               ),
@@ -316,28 +343,30 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Current BMI',
+                const Text('Current BMI',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: _getBmiCategoryColor(),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child:
-                      Text(bmiCategory, style: TextStyle(color: Colors.white)),
+                  child: Text(bmiCategory,
+                      style: const TextStyle(color: Colors.white)),
                 ),
               ],
             ),
             Text(bmi.toStringAsFixed(1),
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-            SizedBox(height: 16),
+                style:
+                    const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
             _buildBMIScale(),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Center(
               child: TextButton(
                 onPressed: () {},
-                child: Text('Recommendation Source',
+                child: const Text('Recommendation Source',
                     style: TextStyle(
                       color: Colors.grey,
                       decoration: TextDecoration.underline,
@@ -363,73 +392,82 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
     double normalizedBMI = bmi.clamp(minBMI, maxBMI);
     double positionFactor = (normalizedBMI - minBMI) / (maxBMI - minBMI);
     return LayoutBuilder(
-    builder: (context, constraints) {
-      return Stack(
-        children: [
-          Container(
-            height: 8,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              gradient: LinearGradient(
-                colors: [Colors.blue, Colors.green, Colors.yellow, Colors.red],
-                stops: [0.15, 0.4, 0.6, 1.0],
-              ),
-            ),
-          ),
-          Positioned(
-            left: constraints.maxWidth * positionFactor - 8,
-            child: Container(
-              width: 16,
-              height: 16,
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            Container(
+              height: 8,
               decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.grey, blurRadius: 2)],
+                borderRadius: BorderRadius.circular(4),
+                gradient: const LinearGradient(
+                  colors: [
+                    Colors.blue,
+                    Colors.green,
+                    Colors.yellow,
+                    Colors.red
+                  ],
+                  stops: [0.15, 0.4, 0.6, 1.0],
+                ),
               ),
             ),
-          ),
-        ],
-      );
-    },
-  );
-}
+            Positioned(
+              left: constraints.maxWidth * positionFactor - 8,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.grey, blurRadius: 2)],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildProUpsell() {
     return Center(
       child: Card(
+        color: Colors.white,
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         child: Container(
-          width: 200,
-          padding: EdgeInsets.all(16),
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text('Unlock PRO to see your macros'),
-              SizedBox(height: 12),
+              const Text('Will be developed Later'),
+              const SizedBox(height: 12),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.green),
+                  side: const BorderSide(
+                      color: const Color.fromRGBO(106, 79, 153, 1)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
                 onPressed: () {},
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.green,
+                        color: const Color.fromRGBO(106, 79, 153, 1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('PRO', style: TextStyle(color: Colors.white)),
+                      child: const Text('...',
+                          style: TextStyle(color: Colors.white)),
                     ),
-                    SizedBox(width: 8),
-                    Text('Upgrade Now'),
+                    const SizedBox(width: 8),
+                    const Text('Coming soon'),
                   ],
                 ),
               ),
