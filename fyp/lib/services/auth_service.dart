@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://192.168.18.123:5000/api/auth';
+  static const String baseUrl = 'http://192.168.100.189:5000/api/auth';
   // static const String baseUrl = 'http://localhost:5000/api/auth'; // For iOS simulator
 
   // Shared Preferences Keys

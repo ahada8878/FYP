@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/GoalWeightPage.dart';
-import 'package:fyp/WeightPage.dart';
+import 'package:fyp/Registration/GoalWeightPage.dart';
+import 'package:fyp/Registration/WeightPage.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
+import 'package:fyp/screens/settings_screen.dart';
+import 'package:fyp/widgets/weight_chart.dart';
+import 'package:fyp/widgets/water_intake_chart.dart';
 
 class MyProgressScreen extends StatefulWidget {
   @override
