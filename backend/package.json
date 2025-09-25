@@ -22,6 +22,6 @@
     "jpeg-js": "^0.4.4",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.15.0",
-    "multer": "^2.0.0"
+    "multer": "^2.0.2"
   }
 }

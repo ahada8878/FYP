@@ -123,7 +123,7 @@ Future<void> _sendImageForPrediction(File imageFile) async {
     // Create multipart request
     var request = http.MultipartRequest(
       'POST', 
-      Uri.parse('http://192.168.100.189:5000/api/predict')
+      Uri.parse('http://192.168.18.39:5000/api/predict')
     );
     
     // Add image file
