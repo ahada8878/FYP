@@ -19,6 +19,7 @@ import 'package:fyp/Registration/WaterIntakePage.dart';
 import 'package:fyp/Registration/WeightPage.dart';
 import 'package:fyp/Registration/WorkSchedulePage.dart';
 import 'package:fyp/WrongThingPage.dart';
+import 'package:fyp/main_navigation.dart';
 import 'package:fyp/models/user_details.dart';
 
 Widget getIncompleteStepView()  {
@@ -73,7 +74,7 @@ Widget getIncompleteStepView()  {
   if (user.eatingStyles.isEmpty) return const EatingStylePage(); 
   if (user.startTimes.isEmpty || user.endTimes.isEmpty) return const MealTimingPage();
 
-  return const FoodieAnalysisPage(); 
+  return const  MainNavigationWrapper(); 
 }
 
 double extractWeightValue(String weightString) {

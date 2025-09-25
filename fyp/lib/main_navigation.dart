@@ -25,30 +25,36 @@ class _MainNavigationContent extends StatefulWidget {
 }
 
 class _MainNavigationContentState extends State<_MainNavigationContent> {
-  late final PersistentTabController _tabController ;
+  late PersistentTabController _tabController;
 
-@override
+  @override
   void initState() {
     super.initState();
-    _tabController =context.read<PersistentTabController>() ;
-
+    _tabController = PersistentTabController(initialIndex: 0);
   }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: CustomNavBar(
         currentIndex: _tabController.index,
         onItemSelected: (index) => setState(() {
-          _tabController.index = index; // Update the tab controller
+          _tabController.index = index;
         }),
         onCameraPressed: () {
-          _tabController.index = 0;
-          
+          _tabController.index = 0; // Set to home tab
           // Show overlay after navigation completes
           WidgetsBinding.instance.addPostFrameCallback((_) {
             context.read<CameraOverlayController>().show();
           });
-        }, tabController: _tabController,
+        }, 
+        tabController: _tabController,
       ),
     );
   }
