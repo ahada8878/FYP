@@ -123,10 +123,10 @@ class _MealTimingPageState extends State<MealTimingPage>
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 500),
               child: _isDayTime
-                  ? Icon(Icons.wb_sunny,
-                      key: const ValueKey('sun'), size: 60, color: Colors.amber)
-                  : Icon(Icons.nightlight_round,
-                      key: const ValueKey('moon'),
+                  ? const Icon(Icons.wb_sunny,
+                      key: ValueKey('sun'), size: 60, color: Colors.amber)
+                  : const Icon(Icons.nightlight_round,
+                      key: ValueKey('moon'),
                       size: 60,
                       color: Colors.white),
             ),
@@ -156,7 +156,7 @@ class _MealTimingPageState extends State<MealTimingPage>
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 color: colorScheme.primary.withOpacity(0.2),
@@ -172,7 +172,7 @@ class _MealTimingPageState extends State<MealTimingPage>
                         'When do you usually eat?',
                         style: TextStyle(
                           fontSize: 16,
-                          color: colorScheme.onBackground.withOpacity(0.7),
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -350,7 +350,7 @@ class _TimeSelectionSection extends StatelessWidget {
           title,
           style: TextStyle(
             fontSize: 16,
-            color: Theme.of(context).colorScheme.onBackground.withOpacity(0.8),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
           ),
         ),
         const SizedBox(height: 16),

@@ -115,7 +115,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                 end: Alignment.bottomRight,
                 colors: [
                   colorScheme.primary.withOpacity(0.1),
-                  colorScheme.surfaceVariant.withOpacity(0.8),
+                  colorScheme.surfaceContainerHighest.withOpacity(0.8),
                 ],
               ),
             ),
@@ -179,7 +179,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                           'We all have some',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 blurRadius: 10,
@@ -203,7 +203,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                       Text(
                         'What are yours?',
                         style: textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onBackground.withOpacity(0.8),
+                          color: colorScheme.onSurface.withOpacity(0.8),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -233,7 +233,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                             borderRadius: BorderRadius.circular(20),
                             color: isSelected
                                 ? habit['color'].withOpacity(0.2)
-                                : colorScheme.surfaceVariant,
+                                : colorScheme.surfaceContainerHighest,
                             border: Border.all(
                               color: isSelected
                                   ? habit['color']
@@ -284,7 +284,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                                         habit['text'],
                                         style: textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: colorScheme.onBackground,
+                                          color: colorScheme.onSurface,
                                         ),
                                       ),
                                     ),
@@ -351,7 +351,7 @@ class _BadHabitsPageState extends State<BadHabitsPage>
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) =>
-                                              MealsPerDayPage()),
+                                              const MealsPerDayPage()),
                                     );
                                   }
                                 : null,

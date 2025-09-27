@@ -124,7 +124,7 @@ class _DietaryRestrictionsPageState extends State<DietaryRestrictionsPage>
                 ),
               ),
             );
-          }).toList(),
+          }),
 
           Column(
             children: [
@@ -151,7 +151,7 @@ class _DietaryRestrictionsPageState extends State<DietaryRestrictionsPage>
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 color: colorScheme.primary.withOpacity(0.2),
@@ -167,7 +167,7 @@ class _DietaryRestrictionsPageState extends State<DietaryRestrictionsPage>
                         'Tell us about your food preferences',
                         style: TextStyle(
                           fontSize: 16,
-                          color: colorScheme.onBackground.withOpacity(0.7),
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -243,7 +243,7 @@ class _DietaryRestrictionsPageState extends State<DietaryRestrictionsPage>
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) =>
-                                              EatingStylePage()),
+                                              const EatingStylePage()),
                                     );
                                   }
                                 : null,

@@ -153,7 +153,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                   elevation: 0,
                   leading: IconButton(
                     icon:
-                        Icon(Icons.arrow_back, color: colorScheme.onBackground),
+                        Icon(Icons.arrow_back, color: colorScheme.onSurface),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -168,7 +168,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                           'Our high-tech AI tracker',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 blurRadius: 10,
@@ -186,7 +186,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                           'makes the weight loss process painless',
                           style: textTheme.titleMedium?.copyWith(
                             color:
-                                colorScheme.onBackground.withOpacity(0.8),
+                                colorScheme.onSurface.withOpacity(0.8),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -226,7 +226,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                           margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceVariant,
+                            color: colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
@@ -264,14 +264,14 @@ class _AITrackerPageState extends State<AITrackerPage2>
                                       feature['title'],
                                       style: textTheme.titleMedium?.copyWith(
                                         fontWeight: FontWeight.bold,
-                                        color: colorScheme.onBackground,
+                                        color: colorScheme.onSurface,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       feature['description'],
                                       style: textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onBackground
+                                        color: colorScheme.onSurface
                                             .withOpacity(0.6),
                                       ),
                                     ),
@@ -315,7 +315,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => BadHabitsPage()),
+                                    builder: (context) => const BadHabitsPage()),
                               );
                             },
                             child: Center(

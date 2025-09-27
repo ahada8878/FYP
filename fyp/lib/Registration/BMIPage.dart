@@ -125,14 +125,14 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
+                    icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
                     onPressed: () => Navigator.pop(context),
                   ),
                   actions: [
                     IconButton(
                       icon: Icon(
                         _celebrating ? Icons.celebration : Icons.celebration_outlined,
-                        color: _celebrating ? Colors.amber : colorScheme.onBackground,
+                        color: _celebrating ? Colors.amber : colorScheme.onSurface,
                       ),
                       onPressed: _toggleCelebration,
                     ),
@@ -152,7 +152,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                           'Your Wellness Profile',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 blurRadius: 10,
@@ -167,7 +167,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                       Text(
                         'A snapshot of your health journey',
                         style: textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onBackground.withOpacity(0.7),
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                       
@@ -260,7 +260,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                                 child: LinearProgressIndicator(
                                   value: _calculateBmiProgress(bmiValue),
                                   minHeight: 10,
-                                  backgroundColor: colorScheme.surfaceVariant,
+                                  backgroundColor: colorScheme.surfaceContainerHighest,
                                   color: _getBmiColor(bmiValue),
                                 ),
                               ),
@@ -293,7 +293,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceVariant,
+                            color: colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(15),
                             boxShadow: [
                               BoxShadow(
@@ -405,7 +405,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => PostMealRegretPage()),
+                                    builder: (context) => const PostMealRegretPage()),
                               );
                               
                             },
@@ -467,7 +467,7 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
           Expanded(
             child: Text(
               title,
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           Text(value),
@@ -498,11 +498,11 @@ class _AnimatedCounter extends StatelessWidget {
   final TextStyle? style;
   
   const _AnimatedCounter({
-    Key? key,
+    super.key,
     required this.value,
     required this.duration,
     this.style,
-  }) : super(key: key);
+  });
   
   @override
   Widget build(BuildContext context) {

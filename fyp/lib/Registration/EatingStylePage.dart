@@ -52,8 +52,8 @@ class _EatingStylePageState extends State<EatingStylePage>
         ConfettiController(duration: const Duration(seconds: 3));
 
     // Generate food particle positions once
-    final screenWidth = 400.0;
-    final screenHeight = 800.0;
+    const screenWidth = 400.0;
+    const screenHeight = 800.0;
     final random = math.Random();
     for (int i = 0; i < 15; i++) {
       _particlePositions.add(
@@ -150,7 +150,7 @@ class _EatingStylePageState extends State<EatingStylePage>
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 color: colorScheme.primary.withOpacity(0.2),
@@ -166,7 +166,7 @@ class _EatingStylePageState extends State<EatingStylePage>
                         'How do you prefer to eat?',
                         style: TextStyle(
                           fontSize: 16,
-                          color: colorScheme.onBackground.withOpacity(0.7),
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -237,7 +237,7 @@ class _EatingStylePageState extends State<EatingStylePage>
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) =>
-                                              MealTimingPage()),
+                                              const MealTimingPage()),
                                     );
                                   },
                             child: Center(
