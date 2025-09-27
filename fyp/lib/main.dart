@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/MissingRouteDataForSignUp.dart';
-import 'package:fyp/Registration/SignUpPage.dart';
 import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/camera_overlay_controller.dart';
 import 'package:fyp/water_tracker_controller.dart';
-import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 
 void main() async{

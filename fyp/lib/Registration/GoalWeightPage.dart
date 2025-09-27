@@ -89,40 +89,40 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
               ),
 
               // Floating food emojis
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🥦', style: TextStyle(fontSize: 40)),
+                  child: Text('🥦', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 80,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍗', style: TextStyle(fontSize: 50)),
+                  child: Text('🍗', style: TextStyle(fontSize: 50)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 200,
                 left: 50,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🥗', style: TextStyle(fontSize: 45)),
+                  child: Text('🥗', style: TextStyle(fontSize: 45)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 180,
                 right: 60,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍎', style: TextStyle(fontSize: 48)),
+                  child: Text('🍎', style: TextStyle(fontSize: 48)),
                 ),
               ),
 
@@ -162,7 +162,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                             child: Text(
                               'Set a healthy target weight to work towards',
                               style: textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(0.7),
+                                color: colorScheme.onSurface.withOpacity(0.7),
                               ),
                             ),
                           ),
@@ -186,7 +186,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                 Padding(
                                   padding: const EdgeInsets.all(16.0),
                                   child: Text(
-                                    '${selectedKg} kg ${selectedG > 0 ? '$selectedG g' : ''}'.trim(),
+                                    '$selectedKg kg ${selectedG > 0 ? '$selectedG g' : ''}'.trim(),
                                     style: TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
@@ -329,7 +329,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                       const TextSpan(text: 'You will lose '),
                                       TextSpan(
                                         text: '${weightDifference.toStringAsFixed(1)} kg ',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
                                       ),
                                       TextSpan(
                                         text: '(${targetPercentage.toStringAsFixed(0)}% of your weight)',
@@ -371,7 +371,7 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                               //ontap here
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => GoalPage()),
+                                MaterialPageRoute(builder: (context) => const GoalPage()),
                               );
                             }
                           },

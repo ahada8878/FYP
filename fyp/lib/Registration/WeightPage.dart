@@ -96,40 +96,40 @@ class _CreativeWeightPageState extends State<WeightPage>
               ),
 
               // Floating food emojis
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍎', style: TextStyle(fontSize: 40)),
+                  child: Text('🍎', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 80,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🥑', style: TextStyle(fontSize: 50)),
+                  child: Text('🥑', style: TextStyle(fontSize: 50)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 200,
                 left: 50,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍓', style: TextStyle(fontSize: 45)),
+                  child: Text('🍓', style: TextStyle(fontSize: 45)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 180,
                 right: 60,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍊', style: TextStyle(fontSize: 48)),
+                  child: Text('🍊', style: TextStyle(fontSize: 48)),
                 ),
               ),
 
@@ -170,7 +170,7 @@ class _CreativeWeightPageState extends State<WeightPage>
                               'Let us know your weight to calculate your BMI and personalize your plan',
                               style: textTheme.titleMedium?.copyWith(
                                 color:
-                                    colorScheme.onBackground.withOpacity(0.7),
+                                    colorScheme.onSurface.withOpacity(0.7),
                               ),
                             ),
                           ),
@@ -531,12 +531,15 @@ class _CreativeWeightPageState extends State<WeightPage>
   }
 
   String _getBmiAdvice() {
-    if (bmi < 18.5)
+    if (bmi < 18.5) {
       return "Consider consulting a nutritionist for healthy weight gain strategies.";
-    if (bmi < 25)
+    }
+    if (bmi < 25) {
       return "Great job maintaining a healthy weight! Keep up the good habits.";
-    if (bmi < 30)
+    }
+    if (bmi < 30) {
       return "Small lifestyle changes can help you reach a healthier weight.";
+    }
     return "It's important to seek guidance for a healthier lifestyle!";
   }
 }

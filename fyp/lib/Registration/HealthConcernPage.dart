@@ -90,40 +90,40 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
               ),
 
               // Floating health emojis
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('❤️', style: TextStyle(fontSize: 40)),
+                  child: Text('❤️', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 80,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🩺', style: TextStyle(fontSize: 50)),
+                  child: Text('🩺', style: TextStyle(fontSize: 50)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 200,
                 left: 50,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍬', style: TextStyle(fontSize: 45)),
+                  child: Text('🍬', style: TextStyle(fontSize: 45)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 180,
                 right: 60,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('⚖️', style: TextStyle(fontSize: 48)),
+                  child: Text('⚖️', style: TextStyle(fontSize: 48)),
                 ),
               ),
 
@@ -164,7 +164,7 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
                             child: Text(
                               'Let us know about any health conditions to personalize your recommendations',
                               style: textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(0.7),
+                                color: colorScheme.onSurface.withOpacity(0.7),
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -197,7 +197,7 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
                                   decoration: BoxDecoration(
                                     color: healthConcerns[concern]!
                                         ? _getConditionColor(concern, colorScheme)
-                                        : colorScheme.surfaceVariant, // Changed from surface to surfaceVariant
+                                        : colorScheme.surfaceContainerHighest, // Changed from surface to surfaceVariant
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
@@ -294,7 +294,7 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
 
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => WeightLossFamiliarityPage()),
+                                    MaterialPageRoute(builder: (context) => const WeightLossFamiliarityPage()),
                                   );
                                 },
                                 child: Container(
@@ -355,7 +355,7 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
       case 'I don\'t have any':
         return colorScheme.primary.withOpacity(0.2);
       default:
-        return colorScheme.surfaceVariant; // Changed from surface to surfaceVariant
+        return colorScheme.surfaceContainerHighest; // Changed from surface to surfaceVariant
     }
   }
 

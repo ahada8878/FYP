@@ -54,7 +54,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  colorScheme.surfaceVariant.withOpacity(0.8),
+                  colorScheme.surfaceContainerHighest.withOpacity(0.8),
                   colorScheme.surface,
                 ],
               ),
@@ -68,7 +68,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
+                  icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -81,7 +81,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                     Text(
                       "Let's prepare your meals",
                       style: TextStyle(
-                        color: colorScheme.onBackground,
+                        color: colorScheme.onSurface,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
@@ -91,7 +91,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                     Text(
                       "effortlessly!",
                       style: TextStyle(
-                        color: colorScheme.onBackground,
+                        color: colorScheme.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.w300,
                       ),
@@ -149,7 +149,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                     Text(
                       "Our revolutionary AI tracker makes",
                       style: TextStyle(
-                        color: colorScheme.onBackground,
+                        color: colorScheme.onSurface,
                         fontSize: 18,
                         height: 1.5,
                       ),
@@ -158,7 +158,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                     Text(
                       "the weight loss process much easier",
                       style: TextStyle(
-                        color: colorScheme.onBackground,
+                        color: colorScheme.onSurface,
                         fontSize: 18,
                         height: 1.5,
                       ),
@@ -202,7 +202,7 @@ class _AITrackerPageState extends State<AITrackerPage>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => PersonalSummaryPage()),
+                          builder: (context) => const PersonalSummaryPage()),
                     );
                   },
                   child: Text(
@@ -226,7 +226,7 @@ class _AITrackerPageState extends State<AITrackerPage>
   Widget _buildFeatureChip(
       String text, IconData icon, ColorScheme colorScheme) {
     return Chip(
-      backgroundColor: colorScheme.surfaceVariant,
+      backgroundColor: colorScheme.surfaceContainerHighest,
       avatar: Icon(
         icon,
         color: colorScheme.primary,

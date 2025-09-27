@@ -147,7 +147,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Text('👨‍🍳', style: const TextStyle(fontSize: 80)),
+                        const Text('👨‍🍳', style: TextStyle(fontSize: 80)),
                         Positioned(
                           top: -40,
                           child: Transform.scale(
@@ -267,7 +267,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                         onPressed: () {
                          //on tap here 
                           Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (_) => MealTrackingPage()),
+                              MaterialPageRoute(builder: (_) => const MealTrackingPage()),
                               (Route<dynamic> route) => false,  );  
                          },
                         style: ElevatedButton.styleFrom(

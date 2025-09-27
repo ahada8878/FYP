@@ -123,7 +123,7 @@ Future<void> _sendImageForPrediction(File imageFile) async {
     // Create multipart request
     var request = http.MultipartRequest(
       'POST', 
-      Uri.parse('http://192.168.18.39:5000/api/predict')
+      Uri.parse('http://192.168.18.47:5000/api/predict')
     );
     
     // Add image file
@@ -351,7 +351,7 @@ Widget _buildImagePreview() {
                   Shadow(
                     color: Colors.black.withOpacity(0.1),
                     blurRadius: 4,
-                    offset: Offset(1, 1),
+                    offset: const Offset(1, 1),
                   )
                 ],
           ),

@@ -7,6 +7,8 @@ import 'package:fyp/widgets/weight_chart.dart';
 import 'package:fyp/widgets/water_intake_chart.dart';
 
 class MyProgressScreen extends StatefulWidget {
+  const MyProgressScreen({super.key});
+
   @override
   _MyProgressScreenState createState() => _MyProgressScreenState();
 }
@@ -62,7 +64,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => SettingsScreen()),
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
             ),
           ),
         ],
@@ -449,7 +451,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(
-                      color: const Color.fromRGBO(106, 79, 153, 1)),
+                      color: Color.fromRGBO(106, 79, 153, 1)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),

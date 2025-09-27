@@ -60,7 +60,7 @@ class _WeightLossFamiliarityPageState extends State<WeightLossFamiliarityPage> {
                 colors: [
                   selectedLevel != null
                       ? levels[selectedLevel!]['color'].withOpacity(0.2)
-                      : colorScheme.surfaceVariant.withOpacity(0.2),
+                      : colorScheme.surfaceContainerHighest.withOpacity(0.2),
                   colorScheme.surface,
                 ],
               ),
@@ -81,7 +81,7 @@ class _WeightLossFamiliarityPageState extends State<WeightLossFamiliarityPage> {
                     Text(
                       'HOW FAMILIAR ARE YOU WITH',
                       style: TextStyle(
-                        color: colorScheme.onBackground,
+                        color: colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.w300,
                         letterSpacing: 1.5,
@@ -91,7 +91,7 @@ class _WeightLossFamiliarityPageState extends State<WeightLossFamiliarityPage> {
                     Text(
                       'WEIGHT LOSS?',
                       style: TextStyle(
-                        color: colorScheme.onBackground,
+                        color: colorScheme.onSurface,
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
@@ -161,8 +161,8 @@ class _WeightLossFamiliarityPageState extends State<WeightLossFamiliarityPage> {
                                 levels[index]['title'],
                                 style: TextStyle(
                                   color: selectedLevel == index
-                                      ? colorScheme.onBackground
-                                      : colorScheme.onBackground
+                                      ? colorScheme.onSurface
+                                      : colorScheme.onSurface
                                           .withOpacity(0.6),
                                   fontWeight: selectedLevel == index
                                       ? FontWeight.bold
@@ -199,7 +199,7 @@ Expanded(
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
-              color: colorScheme.surfaceVariant,
+              color: colorScheme.surfaceContainerHighest,
             ),
             child: Padding(
               padding: const EdgeInsets.all(30),
@@ -287,7 +287,7 @@ Expanded(
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => AITrackerPage()),
+                                    builder: (context) => const AITrackerPage()),
                               );
                             },
                       child: Center(

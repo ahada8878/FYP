@@ -36,7 +36,7 @@ class _WaterIntakeChartState extends State<WaterIntakeChart> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
-                Container(
+                SizedBox(
                   height: 200,
                   child: BarChart(_chartData()),
                 ),
