@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class CommunityPage extends StatelessWidget {
-  const CommunityPage({super.key});
+class RecipeSuggestion extends StatelessWidget {
+  const RecipeSuggestion({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Community'),
+        title: const Text('Recipe Suggestions'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
       ),

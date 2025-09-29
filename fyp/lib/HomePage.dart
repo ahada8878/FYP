@@ -5,6 +5,7 @@ import 'package:fyp/Widgets/log_food_sheet.dart';
 import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/water_tracker.dart';
 import 'package:fyp/screens/describe_meal_screen.dart';
+import 'package:fyp/screens/ai_scanner_result_page.dart'; // Import the new page
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
@@ -27,8 +28,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late CameraController _cameraController;
-  File? _capturedImage;
-  bool _showImagePreview = false;
   bool _isCameraInitialized = false;
   bool _showCameraView = false;
 
@@ -68,110 +67,62 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     }
   }
 
-  String _prediction = "No prediction yet";
-  bool _isProcessing = false;
-
   Future<void> _takePicture() async {
     if (!_isCameraInitialized) return;
     
     try {
       final image = await _cameraController.takePicture();
       final file = File(image.path);
-      setState(() {
-        _capturedImage = File(image.path);
-        _showImagePreview = true;
-        _showCameraView = false;
-        _prediction = "Analyzing...";
-        _isProcessing = true;
-      });
-      await _sendImageForPrediction(file);   // ← add this
+      
+      // Navigate to the result page instead of showing preview
+      _navigateToResultPage(file, true);
     } catch (e) {
       print("Error taking picture: $e");
     }
   }
 
-Future<void> _openGallery() async {
-  try {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  Future<void> _openGallery() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (pickedFile != null) {
-      final imageFile = File(pickedFile.path);
-      
-      setState(() {
-        _capturedImage = imageFile;
-        _showImagePreview = true;
-        _showCameraView = false;
-        _prediction = "Analyzing...";
-        _isProcessing = true;
-      });
-
-      // Send image for prediction
-      await _sendImageForPrediction(imageFile);
+      if (pickedFile != null) {
+        final imageFile = File(pickedFile.path);
+        _navigateToResultPage(imageFile, false);
+      }
+    } catch (e) {
+      print("Error selecting from gallery: $e");
     }
-  } catch (e) {
-    print("Error selecting from gallery: $e");
-    setState(() {
-      _prediction = "Error selecting image";
-      _isProcessing = false;
-    });
   }
-}
 
-Future<void> _sendImageForPrediction(File imageFile) async {
-  try {
-    // Create multipart request
-    var request = http.MultipartRequest(
-      'POST', 
-      Uri.parse('http://192.168.18.47:5000/api/predict')
-    );
+  void _navigateToResultPage(File imageFile, bool fromCamera) {
+    // Hide camera overlay and reset scanning state
+    Provider.of<CameraOverlayController>(context, listen: false).hide();
+    _resetScanning();
     
-    // Add image file
-    request.files.add(await http.MultipartFile.fromPath(
-      'image',
-      imageFile.path,
-      contentType: MediaType('image', 'jpeg'),
-    ));
+    // Navigate to the result page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AiScannerResultPage(
+          imageFile: imageFile,
+          fromCamera: fromCamera,
+        ),
+      ),
+    );
+  }
 
-    // Send request
-    var response = await request.send();
-
-    if (response.statusCode == 200) {
-      final prediction = await response.stream.bytesToString();
-      setState(() {
-        _prediction = prediction;
-        _isProcessing = false;
-      });
-    } else {
-      throw Exception('Prediction failed with status ${response.statusCode}');
-    }
-  } catch (e) {
-    print("Error during prediction: $e");
+  void _startScanning() {
     setState(() {
-      _prediction = "Prediction failed";
-      _isProcessing = false;
+      _showCameraView = true;
     });
   }
-}
 
-void _startScanning() {
-  setState(() {
-    _showCameraView= true;
-    _showImagePreview = false;
-    _prediction = "No prediction yet";
-    _isProcessing = false;
-  });
-}
-
-void _resetScanning() {
-  setState(() {
-    _showCameraView = false;
-    _showImagePreview = false;
-    _capturedImage = null;
-    _prediction = "No prediction yet";
-    _isProcessing = false;
-  });
-}
+  void _resetScanning() {
+    setState(() {
+      _showCameraView = false;
+    });
+  }
 
   @override
   void dispose() {
@@ -256,9 +207,7 @@ void _resetScanning() {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // Replace animated metric circles with new swipeable cards
                       const CalorieSummaryCarousel(),
-
                       const SizedBox(height: 30),
                       _SectionHeader(
                         title: 'Today\'s Meals',
@@ -289,7 +238,6 @@ void _resetScanning() {
           ),
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
           if (_showCameraView && _isCameraInitialized) _buildCameraView(),
-          if (_showImagePreview && _capturedImage != null) _buildImagePreview(),
         ],
       ),
     );
@@ -315,90 +263,20 @@ void _resetScanning() {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               IconButton(
-                icon: const Icon(Icons.photo_library,
-                    color: Colors.white, size: 40),
+                icon: const Icon(Icons.photo_library, color: Colors.white, size: 40),
                 onPressed: _openGallery,
               ),
               IconButton(
                 icon: const Icon(Icons.camera, color: Colors.white, size: 60),
                 onPressed: _takePicture,
               ),
-              const SizedBox(width: 40), // Placeholder for balance
+              const SizedBox(width: 40),
             ],
           ),
         ),
       ],
     );
   }
-
-
-Widget _buildImagePreview() {
-  return Padding(
-    padding: const EdgeInsets.only(top: 240.0), // Adjust this value to move content lower
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          _isProcessing ? "Analyzing..." : _prediction,
-          style: TextStyle(
-            fontSize: 28, // Slightly larger
-            fontWeight: FontWeight.w600, // Semi-bold (softer than bold)
-            color: _isProcessing ? Colors.blueGrey : Colors.deepPurple, // More elegant colors
-            letterSpacing: 0.5, // Slightly spaced letters
-            shadows: _isProcessing 
-              ? null 
-              : [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(1, 1),
-                  )
-                ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        if (_capturedImage != null)
-          Container(
-            height: 300,
-            width: 300,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.file(_capturedImage!, fit: BoxFit.cover),
-            ),
-          ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _resetScanning,
-              child: const Text('Retake'),
-            ),
-            const SizedBox(width: 20),
-            ElevatedButton(
-              onPressed: () {
-                // Process the image here
-                _resetScanning();
-                Provider.of<CameraOverlayController>(context, listen: false).hide();
-              },
-              child: const Text('Use This Image'),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
 
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);
@@ -407,9 +285,7 @@ Widget _buildImagePreview() {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
-      bottom: overlayController.showOverlay
-          ? 0
-          : -MediaQuery.of(context).size.height * 0.7,
+      bottom: overlayController.showOverlay ? 0 : -MediaQuery.of(context).size.height * 0.7,
       left: 0,
       right: 0,
       child: Container(
@@ -427,12 +303,10 @@ Widget _buildImagePreview() {
         ),
         child: Column(
           children: [
-            // Header Section
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                 gradient: LinearGradient(
                   colors: [
                     colorScheme.primary,
@@ -466,9 +340,7 @@ Widget _buildImagePreview() {
                 ],
               ),
             ),
-
-            // Scanner Animation (shown only when not in camera mode)
-            if (!_showCameraView && !_showImagePreview)
+            if (!_showCameraView)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: ScannerPulseAnimation(
@@ -502,9 +374,7 @@ Widget _buildImagePreview() {
                   ),
                 ),
               ),
-
-            // Options List (shown only when not in camera or preview mode)
-            if (!_showCameraView && !_showImagePreview)
+            if (!_showCameraView)
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -540,11 +410,7 @@ Widget _buildImagePreview() {
                         color: Colors.lightBlue,
                         delay: 300,
                         onTap: () {
-                          // Only hide the camera overlay, don't use Navigator
-                          Provider.of<CameraOverlayController>(context,
-                                  listen: false)
-                              .hide();
-                          // Show water overlay
+                          Provider.of<CameraOverlayController>(context, listen: false).hide();
                           showLogWaterOverlay(context);
                         },
                       ),
@@ -563,12 +429,7 @@ Widget _buildImagePreview() {
                         color: Colors.red,
                         delay: 500,
                         onTap: () {
-                          // Hide camera overlay
-                          Provider.of<CameraOverlayController>(context,
-                                  listen: false)
-                              .hide();
-
-                          // Show activity log sheet
+                          Provider.of<CameraOverlayController>(context, listen: false).hide();
                           showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
@@ -576,9 +437,7 @@ Widget _buildImagePreview() {
                             builder: (context) => const ActivityLogSheet(),
                           ).then((selectedActivity) {
                             if (selectedActivity != null) {
-                              // Handle selected activity if needed
-                              print(
-                                  'Logged activity: ${selectedActivity.name}');
+                              print('Logged activity: ${selectedActivity.name}');
                             }
                           });
                         },
@@ -587,20 +446,15 @@ Widget _buildImagePreview() {
                   ),
                 ),
               ),
-
-            // Scan Button (shown only when not in camera or preview mode)
-            if (!_showCameraView && !_showImagePreview)
+            if (!_showCameraView)
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: ElevatedButton(
                   onPressed: _startScanning,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 32),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 5,
                     shadowColor: colorScheme.primary.withOpacity(0.4),
                   ),
@@ -611,10 +465,7 @@ Widget _buildImagePreview() {
                       SizedBox(width: 10),
                       Text(
                         'SCAN NOW',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -628,11 +479,7 @@ Widget _buildImagePreview() {
 
   List<Widget> _buildAnimatedMealItems() {
     final meals = [
-      {
-        'name': 'Breakfast',
-        'calories': '0/691 kcal',
-        'icon': Icons.breakfast_dining
-      },
+      {'name': 'Breakfast', 'calories': '0/691 kcal', 'icon': Icons.breakfast_dining},
       {'name': 'Lunch', 'calories': '0/968 kcal', 'icon': Icons.lunch_dining},
       {'name': 'Dinner', 'calories': '0/968 kcal', 'icon': Icons.dinner_dining},
       {'name': 'Snacks', 'calories': '0/138 kcal', 'icon': Icons.cookie},
@@ -643,13 +490,10 @@ Widget _buildImagePreview() {
         animation: _animationController,
         builder: (context, child) {
           return Transform.translate(
-            offset: Offset(
-                0, math.sin(_animationController.value * math.pi * 2) * 2),
+            offset: Offset(0, math.sin(_animationController.value * math.pi * 2) * 2),
             child: Card(
               margin: const EdgeInsets.only(bottom: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 4,
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
@@ -669,39 +513,21 @@ Widget _buildImagePreview() {
                             ],
                           ),
                         ),
-                        child: Icon(
-                          meal['icon'] as IconData,
-                          color: Theme.of(context).primaryColor,
-                        ),
+                        child: Icon(meal['icon'] as IconData, color: Theme.of(context).primaryColor),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              meal['name'] as String,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            Text(meal['name'] as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            Text(
-                              meal['calories'] as String,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                              ),
-                            ),
+                            Text(meal['calories'] as String, style: TextStyle(color: Colors.grey[600])),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: Icon(
-                          Icons.add_circle,
-                          color: Theme.of(context).primaryColor,
-                          size: 30,
-                        ),
+                        icon: Icon(Icons.add_circle, color: Theme.of(context).primaryColor, size: 30),
                         onPressed: () => showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
@@ -724,19 +550,15 @@ Widget _buildImagePreview() {
     final recipePosts = [
       {
         'title': 'Mediterranean Salad',
-        'image':
-            'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg',
-        'description':
-            'Fresh and healthy salad with olives, feta, and vegetables',
+        'image': 'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg',
+        'description': 'Fresh and healthy salad with olives, feta, and vegetables',
         'calories': '320 kcal',
         'time': '15 min'
       },
       {
         'title': 'Avocado Toast',
-        'image':
-            'https://images.pexels.com/photos/2144112/pexels-photo-2144112.jpeg',
-        'description':
-            'Creamy avocado on whole grain bread with cherry tomatoes',
+        'image': 'https://images.pexels.com/photos/2144112/pexels-photo-2144112.jpeg',
+        'description': 'Creamy avocado on whole grain bread with cherry tomatoes',
         'calories': '280 kcal',
         'time': '10 min'
       }
@@ -750,55 +572,30 @@ Widget _buildImagePreview() {
             scale: 0.98 + (_animationController.value * 0.04),
             child: Card(
               margin: const EdgeInsets.only(bottom: 24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               elevation: 6,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                     child: Stack(
                       children: [
-                        Image.network(
-                          recipe['image'] as String,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.7),
-                                  Colors.transparent,
-                                ],
-                              ),
+                        Image.network(recipe['image'] as String, height: 200, width: double.infinity, fit: BoxFit.cover),
+                        Positioned(bottom: 0, left: 0, right: 0, child: Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                             ),
                           ),
-                        ),
-                        Positioned(
-                          bottom: 16,
-                          left: 16,
-                          child: Text(
-                            recipe['title'] as String,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
+                        )),
+                        Positioned(bottom: 16, left: 16, child: Text(
+                          recipe['title'] as String,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                        )),
                       ],
                     ),
                   ),
@@ -807,64 +604,39 @@ Widget _buildImagePreview() {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          recipe['description'] as String,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                        Text(recipe['description'] as String, style: TextStyle(color: Colors.grey[600])),
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Icon(Icons.local_fire_department,
-                                color: Colors.orange[400]),
-                            const SizedBox(width: 4),
-                            Text(recipe['calories'] as String),
+                            Icon(Icons.local_fire_department, color: Colors.orange[400]),
+                            const SizedBox(width: 4), Text(recipe['calories'] as String),
                             const SizedBox(width: 16),
                             Icon(Icons.timer, color: Colors.blue[400]),
-                            const SizedBox(width: 4),
-                            Text(recipe['time'] as String),
+                            const SizedBox(width: 4), Text(recipe['time'] as String),
                           ],
                         ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  side: BorderSide(
-                                      color: Theme.of(context).primaryColor),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Save Recipe',
-                                  style: TextStyle(
-                                    color: Theme.of(context).primaryColor,
-                                  ),
-                                ),
+                            Expanded(child: OutlinedButton(
+                              onPressed: () {},
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: BorderSide(color: Theme.of(context).primaryColor),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                            ),
+                              child: Text('Save Recipe', style: TextStyle(color: Theme.of(context).primaryColor)),
+                            )),
                             const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  backgroundColor:
-                                      Theme.of(context).primaryColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text('Cook Now'),
+                            Expanded(child: ElevatedButton(
+                              onPressed: () {},
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: Theme.of(context).primaryColor,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                            ),
+                              child: const Text('Cook Now'),
+                            )),
                           ],
                         ),
                       ],
@@ -877,6 +649,313 @@ Widget _buildImagePreview() {
         },
       );
     }).toList();
+  }
+}
+
+// Keep all the existing supporting animation widget classes...
+// [ShimmeringIcon, FadeInAnimation, ScaleAnimation, SlideInAnimation, AnimatedButton, _SectionHeader, AnimatedScannerButton, ScannerPulseAnimation]
+// They remain exactly the same as in your original code
+
+// Supporting Animation Widgets
+
+class ShimmeringIcon extends StatefulWidget {
+  final IconData icon;
+  final double size;
+  final Color color;
+
+  const ShimmeringIcon({
+    super.key,
+    required this.icon,
+    required this.size,
+    required this.color,
+  });
+
+  @override
+  State<ShimmeringIcon> createState() => _ShimmeringIconState();
+}
+
+class _ShimmeringIconState extends State<ShimmeringIcon>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    
+    _opacityAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacityAnimation.value,
+          child: Icon(
+            widget.icon,
+            size: widget.size,
+            color: widget.color,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class FadeInAnimation extends StatefulWidget {
+  final Widget child;
+  final int delay;
+
+  const FadeInAnimation({
+    super.key,
+    required this.child,
+    required this.delay,
+  });
+
+  @override
+  State<FadeInAnimation> createState() => _FadeInAnimationState();
+}
+
+class _FadeInAnimationState extends State<FadeInAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacityAnimation,
+      child: widget.child,
+    );
+  }
+}
+
+class ScaleAnimation extends StatefulWidget {
+  final Widget child;
+  final int delay;
+
+  const ScaleAnimation({
+    super.key,
+    required this.child,
+    required this.delay,
+  });
+
+  @override
+  State<ScaleAnimation> createState() => _ScaleAnimationState();
+}
+
+class _ScaleAnimationState extends State<ScaleAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: widget.child,
+    );
+  }
+}
+
+class SlideInAnimation extends StatefulWidget {
+  final Widget child;
+  final int delay;
+
+  const SlideInAnimation({
+    super.key,
+    required this.child,
+    required this.delay,
+  });
+
+  @override
+  State<SlideInAnimation> createState() => _SlideInAnimationState();
+}
+
+class _SlideInAnimationState extends State<SlideInAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: widget.child,
+    );
+  }
+}
+
+class AnimatedButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  final String label;
+  final IconData icon;
+  final Color backgroundColor;
+  final Color iconColor;
+
+  const AnimatedButton({
+    super.key,
+    required this.onPressed,
+    required this.label,
+    required this.icon,
+    required this.backgroundColor,
+    required this.iconColor,
+  });
+
+  @override
+  State<AnimatedButton> createState() => _AnimatedButtonState();
+}
+
+class _AnimatedButtonState extends State<AnimatedButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onPressed();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: widget.backgroundColor,
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: [
+              BoxShadow(
+                color: widget.backgroundColor.withOpacity(0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.iconColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1119,5 +1198,4 @@ class _ScannerPulseAnimationState extends State<ScannerPulseAnimation>
       child: widget.child,
     );
   }
-  // ... (keep all your existing helper methods like _buildAnimatedMealItems, etc.)
 }

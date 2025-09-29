@@ -7,7 +7,7 @@ import 'Features/meal_planner_page.dart';
 import 'Features/progress_tracker_page.dart';
 import 'Features/recipes_page.dart';
 import 'Features/nutrition_tips_page.dart';
-import 'Features/community_page.dart';
+import 'Features/recipe_suggestions.dart';
 
 class Features extends StatefulWidget {
   const Features({super.key});
@@ -146,11 +146,11 @@ class _FeaturesState extends State<Features>
   List<Widget> _buildFeatureButtons() {
     final features = [
       {
-        'title': 'Meal Planner',
-        'icon': Icons.calendar_today,
+        'title': 'Recipe Suggestions',
+        'icon': Icons.restaurant_menu,
         'color': Colors.blue,
-        'subtitle': 'Plan your weekly meals',
-        'page': const MealPlannerPage(),
+        'subtitle': 'Use Ingredients smartly',
+        'page': const RecipeSuggestion(),
       },
       {
         'title': 'Progress Tracker',
@@ -178,7 +178,7 @@ class _FeaturesState extends State<Features>
         'icon': Icons.people,
         'color': Colors.red,
         'subtitle': 'Connect with others',
-        'page': const CommunityPage(),
+        'page': const MealPlannerPage(),
       },
     ];
 
