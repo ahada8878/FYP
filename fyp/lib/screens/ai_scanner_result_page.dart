@@ -76,65 +76,48 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
+      appBar: AppBar(
+        title: Text(
+          'AI Analysis Result',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.2),
+      ),
+      body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            backgroundColor: Theme.of(context).primaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'AI Analysis Result',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              centerTitle: true,
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).primaryColor,
-                      Theme.of(context).primaryColor.withOpacity(0.7),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // Analysis Status
-                  _buildAnalysisStatus(),
-                  const SizedBox(height: 30),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        child: Column(
+          children: [
+            // Analysis Status - Reduced spacing
+            _buildAnalysisStatus(),
+            const SizedBox(height: 20),
 
-                  // Image Preview
-                  _buildImagePreview(),
-                  const SizedBox(height: 30),
+            // Image Preview - Smaller size
+            _buildImagePreview(),
+            const SizedBox(height: 20),
 
-                  // Prediction Result
-                  _buildPredictionResult(),
-                  const SizedBox(height: 40),
+            // Prediction Result - Compact design
+            _buildPredictionResult(),
+            const SizedBox(height: 25),
 
-                  // Action Buttons
-                  _buildActionButtons(),
-                  const SizedBox(height: 20),
+            // Action Buttons
+            _buildActionButtons(),
+            const SizedBox(height: 16),
 
-                  // Additional Info
-                  _buildAdditionalInfo(),
-                ],
-              ),
-            ),
-          ),
-        ],
+            // Additional Info
+            _buildAdditionalInfo(),
+            
+            // Extra space at bottom for better scrolling
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -148,24 +131,24 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
               children: [
                 ShimmeringIcon(
                   icon: Icons.auto_awesome,
-                  size: 60,
+                  size: 50, // Reduced from 60
                   color: Colors.blueAccent,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12), // Reduced from 16
                 Text(
                   "Analyzing Your Food...",
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 20, // Reduced from 24
                     fontWeight: FontWeight.w700,
                     color: Colors.blueAccent,
-                    letterSpacing: 0.8,
+                    letterSpacing: 0.6, // Reduced from 0.8
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6), // Reduced from 8
                 Text(
                   "Our AI is identifying nutritional content",
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13, // Reduced from 14
                     color: Colors.grey[600],
                     fontStyle: FontStyle.italic,
                   ),
@@ -177,20 +160,20 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
               children: [
                 Icon(
                   _hasError ? Icons.error_outline : Icons.verified,
-                  size: 60,
+                  size: 50, // Reduced from 60
                   color: _hasError ? Colors.orange : Colors.greenAccent[400],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12), // Reduced from 16
                 Text(
                   _hasError ? "Analysis Failed" : "Analysis Complete!",
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 20, // Reduced from 24
                     fontWeight: FontWeight.w700,
                     color: _hasError ? Colors.orange : Colors.greenAccent[400],
-                    letterSpacing: 0.8,
+                    letterSpacing: 0.6, // Reduced from 0.8
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4), // Reduced from 8
               ],
             ),
     );
@@ -198,20 +181,20 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
 
   Widget _buildImagePreview() {
     return Container(
-      height: 280,
-      width: 280,
+      height: 220, // Reduced from 280
+      width: 220,  // Reduced from 280
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(20), // Slightly smaller radius
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 3,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.25), // Slightly lighter shadow
+            blurRadius: 15, // Reduced from 20
+            spreadRadius: 2, // Reduced from 3
+            offset: const Offset(0, 6), // Reduced from 8
           ),
           BoxShadow(
             color: Colors.white.withOpacity(0.2),
-            blurRadius: 5,
+            blurRadius: 4, // Reduced from 5
             spreadRadius: 1,
             offset: const Offset(0, -2),
           ),
@@ -222,7 +205,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(20), // Match container radius
         child: Stack(
           children: [
             Image.file(widget.imageFile, fit: BoxFit.cover),
@@ -246,28 +229,28 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
 
   Widget _buildPredictionResult() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), // Reduced padding
+      margin: const EdgeInsets.symmetric(horizontal: 10), // Reduced margin
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.deepPurple.withOpacity(0.1),
-            Colors.blueAccent.withOpacity(0.1),
+            Colors.deepPurple.withOpacity(0.08), // Lighter opacity
+            Colors.blueAccent.withOpacity(0.08),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16), // Slightly smaller
         border: Border.all(
-          color: Colors.deepPurple.withOpacity(0.3),
+          color: Colors.deepPurple.withOpacity(0.2), // Lighter border
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.deepPurple.withOpacity(0.1),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
+            color: Colors.deepPurple.withOpacity(0.08), // Lighter shadow
+            blurRadius: 12, // Reduced from 15
+            spreadRadius: 1, // Reduced from 2
+            offset: const Offset(0, 3), // Reduced from 4
           ),
         ],
       ),
@@ -276,21 +259,21 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           Text(
             "AI Analysis Result",
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16, // Reduced from 18
               fontWeight: FontWeight.w600,
               color: Colors.deepPurple[800],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced from 12
           Text(
             _prediction,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14, // Reduced from 16
               fontWeight: FontWeight.w500,
               color: Colors.deepPurple[800],
-              letterSpacing: 0.3,
-              height: 1.4,
+              letterSpacing: 0.2, // Reduced from 0.3
+              height: 1.3, // Reduced from 1.4
             ),
           ),
         ],
@@ -309,7 +292,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           backgroundColor: Colors.grey[600]!,
           iconColor: Colors.white,
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 16), // Reduced from 20
         AnimatedButton(
           onPressed: _useThisImage,
           label: 'Use This Image',
@@ -322,18 +305,22 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   }
 
   Widget _buildAdditionalInfo() {
-    return Text(
-      "You can always retake or choose another image",
-      style: TextStyle(
-        fontSize: 12,
-        color: Colors.grey[500],
-        fontStyle: FontStyle.italic,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        "You can always retake or choose another image",
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 11, // Reduced from 12
+          color: Colors.grey[500],
+          fontStyle: FontStyle.italic,
+        ),
       ),
     );
   }
 }
 
-// Supporting Animation Widgets (same as before)
+// Updated Supporting Animation Widgets with smaller sizes
 class ShimmeringIcon extends StatefulWidget {
   final IconData icon;
   final double size;
@@ -360,7 +347,7 @@ class _ShimmeringIconState extends State<ShimmeringIcon>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200), // Slightly faster
     )..repeat(reverse: true);
     
     _opacityAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
@@ -422,7 +409,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 150), // Faster animation
     );
     
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
@@ -448,29 +435,29 @@ class _AnimatedButtonState extends State<AnimatedButton>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Reduced padding
           decoration: BoxDecoration(
             color: widget.backgroundColor,
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(20), // Slightly smaller
             boxShadow: [
               BoxShadow(
-                color: widget.backgroundColor.withOpacity(0.4),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: widget.backgroundColor.withOpacity(0.3), // Lighter shadow
+                blurRadius: 8, // Reduced from 10
+                offset: const Offset(0, 3), // Reduced from 4
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, color: widget.iconColor, size: 20),
-              const SizedBox(width: 8),
+              Icon(widget.icon, color: widget.iconColor, size: 18), // Reduced from 20
+              const SizedBox(width: 6), // Reduced from 8
               Text(
                 widget.label,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: 13, // Reduced from 14
                 ),
               ),
             ],
