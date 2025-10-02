@@ -32,7 +32,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     try {
       var request = http.MultipartRequest(
         'POST', 
-        Uri.parse('http://192.168.18.47:5000/api/predict')
+        Uri.parse('http://192.168.100.110:5000/api/predict')
       );
       
       request.files.add(await http.MultipartFile.fromPath(
