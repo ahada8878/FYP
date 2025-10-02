@@ -4,7 +4,7 @@ import 'dart:math' as math;
 
 // Import the separate landing pages
 import 'Features/meal_planner_page.dart';
-import 'Features/progress_tracker_page.dart';
+import 'Features/label_scanner_page.dart';
 import 'Features/recipes_page.dart';
 import 'Features/nutrition_tips_page.dart';
 import 'Features/recipe_suggestions.dart';
@@ -153,11 +153,11 @@ class _FeaturesState extends State<Features>
         'page': const RecipeSuggestion(),
       },
       {
-        'title': 'Progress Tracker',
-        'icon': Icons.trending_up,
+        'title': 'Label Scanner',
+        'icon': Icons.scanner,
         'color': Colors.green,
-        'subtitle': 'Track your fitness journey',
-        'page': const ProgressTrackerPage(),
+        'subtitle': 'Analyze the Grocery!',
+        'page': const LabelScannerPage(),
       },
       {
         'title': 'Recipes',
