@@ -110,7 +110,7 @@ class _CreativeBirthdayPageState extends State<BirthdayPage>
                       child: Text(
                         'Let us know when we can celebrate your special day and personalize your plan.',
                         style: textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onBackground.withOpacity(0.7),
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -161,7 +161,7 @@ class _CreativeBirthdayPageState extends State<BirthdayPage>
                             await LocalDB.setSelectedYear(_selectedYear!);
                                Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => HeightPage()),
+                                    MaterialPageRoute(builder: (_) => const HeightPage()),
                                   );
                                   }
                               : null,

@@ -75,7 +75,7 @@ class _CreativeNamePageState extends State<NamePage>
   }
 
   void displayToken()async{
-    String token=await LocalDB.getAuthToken();
+    String token=LocalDB.getAuthToken();
     print(token);
   }
 
@@ -105,40 +105,40 @@ class _CreativeNamePageState extends State<NamePage>
               ),
 
               // Floating food emojis
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍎', style: TextStyle(fontSize: 40)),
+                  child: Text('🍎', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 80,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🥑', style: TextStyle(fontSize: 50)),
+                  child: Text('🥑', style: TextStyle(fontSize: 50)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 200,
                 left: 50,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍓', style: TextStyle(fontSize: 45)),
+                  child: Text('🍓', style: TextStyle(fontSize: 45)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 180,
                 right: 60,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍊', style: TextStyle(fontSize: 48)),
+                  child: Text('🍊', style: TextStyle(fontSize: 48)),
                 ),
               ),
 
@@ -178,7 +178,7 @@ class _CreativeNamePageState extends State<NamePage>
                             child: Text(
                               'We\'re so glad you\'re here! What would you like us to call you?',
                               style: textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(0.7),
+                                color: colorScheme.onSurface.withOpacity(0.7),
                               ),
                             ),
                           ),
@@ -241,7 +241,7 @@ class _CreativeNamePageState extends State<NamePage>
                                       
                                         Navigator.push(
                                           context,
-                                          MaterialPageRoute(builder: (context) => BirthdayPage()),
+                                          MaterialPageRoute(builder: (context) => const BirthdayPage()),
                                         );
                                       }
                                     : null,

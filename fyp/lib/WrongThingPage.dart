@@ -101,7 +101,7 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                 colors: [
                   selectedOption != null
                       ? options[selectedOption!]['color'].withOpacity(0.1)
-                      : colorScheme.surfaceVariant,
+                      : colorScheme.surfaceContainerHighest,
                   colorScheme.surface,
                 ],
               ),
@@ -166,7 +166,7 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                           'After eating...',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 blurRadius: 10,
@@ -185,7 +185,7 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                         child: Text(
                           'Do you suffer for having eaten the wrong thing?',
                           style: textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onBackground.withOpacity(0.8),
+                            color: colorScheme.onSurface.withOpacity(0.8),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -211,7 +211,7 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                             decoration: BoxDecoration(
                               color: selectedOption == index
                                   ? option['color'].withOpacity(0.2)
-                                  : colorScheme.surfaceVariant,
+                                  : colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: selectedOption == index
@@ -259,14 +259,14 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                                         option['text'],
                                         style: textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: colorScheme.onBackground,
+                                          color: colorScheme.onSurface,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         option['subtext'],
                                         style: textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onBackground
+                                          color: colorScheme.onSurface
                                               .withOpacity(0.6),
                                         ),
                                       ),
@@ -339,7 +339,7 @@ class _PostMealRegretPageState extends State<PostMealRegretPage>
                                         context,
                                         MaterialPageRoute(
                                             builder: (context) =>
-                                                AITrackerPage2()),
+                                                const AITrackerPage2()),
                                       );
                                     }
                                   : null,

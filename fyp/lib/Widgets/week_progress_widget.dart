@@ -75,7 +75,7 @@ class WeekProgressWidget extends StatelessWidget {
                 onPressed: () {},
                 child: const Text('Recommendation Source',
                     style: TextStyle(
-                        fontSize: 12, color: const Color.fromRGBO(106, 79, 153, 1))),
+                        fontSize: 12, color: Color.fromRGBO(106, 79, 153, 1))),
               ),
             ),
           ],

@@ -295,7 +295,7 @@ class _ProfilePageState extends State<ProfilePage>
               color: isChecked ? Colors.green.withOpacity(0.1) : Colors.transparent,
             ),
             child: isChecked 
-                ? Icon(Icons.check, size: 16, color: Colors.green)
+                ? const Icon(Icons.check, size: 16, color: Colors.green)
                 : null,
           ),
           const SizedBox(width: 12),
