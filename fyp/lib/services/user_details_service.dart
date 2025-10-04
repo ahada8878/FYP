@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_details.dart';
+import '../app_config.dart'; // Import the config file for IP and port
 
 class UserDetailsService {
-  static const String baseUrl = 'http://192.168.18.47:5000/api';
+  static const String baseUrl = 'http://$apiIpAddress:5000/api';
 
   static Future<UserDetails?> fetchUserDetails(String id) async {
     final response = await http.get(Uri.parse('$baseUrl/user-details/$id'));

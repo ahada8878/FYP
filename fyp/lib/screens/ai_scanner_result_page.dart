@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../app_config.dart'; // Import the config file for IP and port
 
 class AiScannerResultPage extends StatefulWidget {
   final File imageFile;
@@ -32,7 +33,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     try {
       var request = http.MultipartRequest(
         'POST', 
-        Uri.parse('http://192.168.18.47:5000/api/predict')
+        Uri.parse('http://$apiIpAddress:5000/api/predict')
       );
       
       request.files.add(await http.MultipartFile.fromPath(
