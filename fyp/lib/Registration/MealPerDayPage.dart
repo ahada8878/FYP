@@ -113,7 +113,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                 colors: [
                   _selectedOption != null
                       ? mealOptions[_selectedOption!]['color'].withOpacity(0.1)
-                      : colorScheme.surfaceVariant,
+                      : colorScheme.surfaceContainerHighest,
                   colorScheme.surface,
                 ],
               ),
@@ -160,7 +160,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                           'How many meals',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                             shadows: [
                               Shadow(
                                 blurRadius: 10,
@@ -198,7 +198,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? option['color'].withOpacity(0.1)
-                                  : colorScheme.surfaceVariant,
+                                  : colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: isSelected
@@ -228,7 +228,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                                         fontWeight: FontWeight.bold,
                                         color: isSelected
                                             ? option['color']
-                                            : colorScheme.onBackground,
+                                            : colorScheme.onSurface,
                                       ),
                                     ),
                                     AnimatedContainer(
@@ -247,7 +247,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                                         option['icon'],
                                         color: isSelected
                                             ? option['color']
-                                            : colorScheme.onBackground,
+                                            : colorScheme.onSurface,
                                       ),
                                     ),
                                   ],
@@ -256,7 +256,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                                 Text(
                                   option['description'],
                                   style: textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onBackground
+                                    color: colorScheme.onSurface
                                         .withOpacity(0.8),
                                   ),
                                 ),
@@ -333,7 +333,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) =>
-                                              WaterIntakePage()),
+                                              const WaterIntakePage()),
                                     );
                                   }
                                 : null,

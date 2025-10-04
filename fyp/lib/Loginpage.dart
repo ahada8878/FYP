@@ -134,22 +134,22 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                   ),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍏', style: TextStyle(fontSize: 40)),
+                  child: Text('🍏', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 150,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍩', style: TextStyle(fontSize: 50)),
+                  child: Text('🍩', style: TextStyle(fontSize: 50)),
                 ),
               ),
               SingleChildScrollView(
@@ -184,7 +184,7 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                           child: Text(
                             'Log in to track your meals & moods 🍽️',
                             style: textTheme.titleMedium?.copyWith(
-                              color: colorScheme.onBackground.withOpacity(0.7),
+                              color: colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
                         ),
@@ -287,7 +287,7 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                           child: Text(
                             'Or log in with...',
                             style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onBackground.withOpacity(0.6),
+                              color: colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ),
                         ),
@@ -330,7 +330,7 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                                 text: 'New here? ',
                                 style: textTheme.bodyMedium?.copyWith(
                                   color:
-                                      colorScheme.onBackground.withOpacity(0.7),
+                                      colorScheme.onSurface.withOpacity(0.7),
                                 ),
                                 children: [
                                   TextSpan(

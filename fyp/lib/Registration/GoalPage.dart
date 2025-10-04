@@ -90,40 +90,40 @@ class _CreativeGoalPageState extends State<GoalPage>
               ),
 
               // Floating food emojis
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🥑', style: TextStyle(fontSize: 40)),
+                  child: Text('🥑', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 80,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍎', style: TextStyle(fontSize: 50)),
+                  child: Text('🍎', style: TextStyle(fontSize: 50)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 200,
                 left: 50,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🥗', style: TextStyle(fontSize: 45)),
+                  child: Text('🥗', style: TextStyle(fontSize: 45)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 180,
                 right: 60,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍗', style: TextStyle(fontSize: 48)),
+                  child: Text('🍗', style: TextStyle(fontSize: 48)),
                 ),
               ),
 
@@ -164,7 +164,7 @@ class _CreativeGoalPageState extends State<GoalPage>
                             child: Text(
                               'Select your primary focus and the benefits you want to achieve',
                               style: textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(0.7),
+                                color: colorScheme.onSurface.withOpacity(0.7),
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -320,7 +320,7 @@ class _CreativeGoalPageState extends State<GoalPage>
 
                                         Navigator.push(
                                           context,
-                                          MaterialPageRoute(builder: (context) => ActivityPage()),
+                                          MaterialPageRoute(builder: (context) => const ActivityPage()),
                                         );
                                       },
                                 child: Container(

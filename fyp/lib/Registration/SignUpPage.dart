@@ -135,22 +135,22 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                   ),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🍔', style: TextStyle(fontSize: 40)),
+                  child: Text('🍔', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 150,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🍣', style: TextStyle(fontSize: 50)),
+                  child: Text('🍣', style: TextStyle(fontSize: 50)),
                 ),
               ),
               SingleChildScrollView(
@@ -185,7 +185,7 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                           child: Text(
                             'Track meals, moods, and more 🎉',
                             style: textTheme.titleMedium?.copyWith(
-                              color: colorScheme.onBackground.withOpacity(0.7),
+                              color: colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
                         ),
@@ -347,7 +347,7 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                               text: TextSpan(
                                 text: 'Already have an account? ',
                                 style: textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onBackground.withOpacity(0.7),
+                                  color: colorScheme.onSurface.withOpacity(0.7),
                                 ),
                                 children: [
                                   TextSpan(

@@ -110,40 +110,40 @@ class _CreativeActivityPageState extends State<ActivityPage>
               ),
 
               // Floating activity emojis
-              Positioned(
+              const Positioned(
                 top: 100,
                 left: 30,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🪑', style: TextStyle(fontSize: 40)),
+                  child: Text('🪑', style: TextStyle(fontSize: 40)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 top: 80,
                 right: 40,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🏃‍♀️', style: TextStyle(fontSize: 50)),
+                  child: Text('🏃‍♀️', style: TextStyle(fontSize: 50)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 200,
                 left: 50,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 2),
+                  duration: Duration(seconds: 2),
                   opacity: 0.6,
-                  child: const Text('🏋️', style: TextStyle(fontSize: 45)),
+                  child: Text('🏋️', style: TextStyle(fontSize: 45)),
                 ),
               ),
-              Positioned(
+              const Positioned(
                 bottom: 180,
                 right: 60,
                 child: AnimatedOpacity(
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                   opacity: 0.6,
-                  child: const Text('🚶‍♂️', style: TextStyle(fontSize: 48)),
+                  child: Text('🚶‍♂️', style: TextStyle(fontSize: 48)),
                 ),
               ),
 
@@ -184,7 +184,7 @@ class _CreativeActivityPageState extends State<ActivityPage>
                             child: Text(
                               'Select the option that best describes your daily movement',
                               style: textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(0.7),
+                                color: colorScheme.onSurface.withOpacity(0.7),
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -266,7 +266,7 @@ class _CreativeActivityPageState extends State<ActivityPage>
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
 
                           const SizedBox(height: 24),
 
@@ -285,7 +285,7 @@ class _CreativeActivityPageState extends State<ActivityPage>
 
                                         Navigator.push(
                                           context,
-                                          MaterialPageRoute(builder: (context) => WorkSchedulePage()),
+                                          MaterialPageRoute(builder: (context) => const WorkSchedulePage()),
                                         );
                                       },
                                 child: Container(

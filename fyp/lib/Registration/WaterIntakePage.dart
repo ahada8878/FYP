@@ -105,7 +105,7 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                 colors: [
                   _selectedOption != null
                       ? waterOptions[_selectedOption!]['color'].withOpacity(0.1)
-                      : colorScheme.surfaceVariant.withOpacity(0.2),
+                      : colorScheme.surfaceContainerHighest.withOpacity(0.2),
                   colorScheme.surface,
                 ],
               ),
@@ -151,7 +151,7 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                           'What is your',
                           style: textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -167,7 +167,7 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                       Text(
                         'Stay hydrated for better health!',
                         style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onBackground.withOpacity(0.6),
+                          color: colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -186,7 +186,7 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? option['color'].withOpacity(0.1)
-                                  : colorScheme.surfaceVariant,
+                                  : colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: isSelected
@@ -231,13 +231,13 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                                         option['title'],
                                         style: textTheme.titleLarge?.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: colorScheme.onBackground,
+                                          color: colorScheme.onSurface,
                                         ),
                                       ),
                                       Text(
                                         option['subtitle'],
                                         style: textTheme.bodyMedium?.copyWith(
-                                          color: colorScheme.onBackground
+                                          color: colorScheme.onSurface
                                               .withOpacity(0.6),
                                         ),
                                       ),
@@ -302,7 +302,7 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) =>
-                                              DietaryRestrictionsPage()),
+                                              const DietaryRestrictionsPage()),
                                     );
                                   }
                                 : null,

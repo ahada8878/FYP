@@ -199,15 +199,15 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
   void _analyzeMeal() {
   showDialog(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => const AlertDialog(
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(
+          CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF7F5A83)),
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'Analyzing Meal Composition...',
             style: TextStyle(
               fontSize: 14,

@@ -96,6 +96,7 @@ class _CreativeHeightPageState extends State<HeightPage>
                           backgroundColor: Colors.transparent,
                           elevation: 0,
                          
+                         
                         ),
                         const SizedBox(height: 16),
 
@@ -116,7 +117,7 @@ class _CreativeHeightPageState extends State<HeightPage>
                           child: Text(
                             'Let us know your height to personalize your experience.',
                             style: textTheme.bodyLarge?.copyWith(
-                              color: colorScheme.onBackground.withOpacity(0.7),
+                              color: colorScheme.onSurface.withOpacity(0.7),
                             ),
                             textAlign: TextAlign.center,
                           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/LoadingPage.dart';
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/Registration/ActivityPage.dart';
 import 'package:fyp/Registration/BadHabitsPage.dart';
