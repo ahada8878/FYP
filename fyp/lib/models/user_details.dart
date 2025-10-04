@@ -1,4 +1,5 @@
 class UserDetails {
+  String user;
   String authToken;
   String userName;
   String selectedMonth;
@@ -22,6 +23,7 @@ class UserDetails {
   List<Map<String, dynamic>> endTimes;
 
   UserDetails({
+    required this.user,
     required this.authToken,
     required this.userName,
     required this.selectedMonth,
@@ -47,6 +49,7 @@ class UserDetails {
 
   factory UserDetails.fromJson(Map<String, dynamic> json) {
     return UserDetails(
+      user: json['user'] ?? '',
       authToken: json['authToken'] ?? '',
       userName: json['userName'] ?? '',
       selectedMonth: json['selectedMonth'] ?? '',
@@ -77,6 +80,7 @@ class UserDetails {
 
   Map<String, dynamic> toJson() {
     return {
+      'user': user,
       'authToken': authToken,
       'userName': userName,
       'selectedMonth': selectedMonth,

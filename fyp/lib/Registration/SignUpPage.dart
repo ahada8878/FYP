@@ -36,16 +36,19 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
     setState(() => _isLoading = true);
 
     try {
-      final token = await _authService.register(
+     
+      final data = await _authService.register(
         _emailController.text.trim(),
         _passwordController.text.trim(),
+        context
       );
-
-      if (token != null) {
+      
+      if (data['token'] != null) {
         // Navigate to NamePage after successful registration
 
         //ontap
-        await LocalDB.setAuthToken(token);
+        await LocalDB.setAuthToken(data['token']);
+        await LocalDB.setUser(data['userId'] as String);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const NamePage()),
@@ -62,7 +65,7 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.blueAccent,
         ),
       );
     } finally {

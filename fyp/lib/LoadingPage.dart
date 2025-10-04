@@ -14,63 +14,68 @@ class FoodieAnalysisPage extends StatefulWidget {
   State<FoodieAnalysisPage> createState() => _FoodieAnalysisPageState();
 }
 
-class _FoodieAnalysisPageState extends State<FoodieAnalysisPage> 
+class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _progressAnim;
   late Animation<double> _bounceAnim;
   late Animation<Color?> _colorAnim;
-  
+
   bool _isComplete = false;
-  final List<String> _foodEmojis = ['🍎', '🥑', '🍗', '🥦', '🍓', '🥚', '🍕', '🍣'];
+  final List<String> _foodEmojis = [
+    '🍎',
+    '🥑',
+    '🍗',
+    '🥦',
+    '🍓',
+    '🥚',
+    '🍕',
+    '🍣'
+  ];
   final List<Offset> _emojiPositions = [];
-   final profile = UserDetails(
-                                  authToken: LocalDB.getAuthToken(),
-                                  userName: LocalDB.getUserName(),
-                                  selectedMonth: LocalDB.getSelectedMonth(),
-                                  selectedDay: LocalDB.getSelectedDay(),
-                                  selectedYear: LocalDB.getSelectedYear(),
-                                  height: LocalDB.getHeight(),
-                                  currentWeight: LocalDB.getCurrentWeight(),
-                                  targetWeight: LocalDB.getTargetWeight(),
-                                  selectedSubGoals: LocalDB.getSelectedSubGoals(),
-                                  selectedHabits: LocalDB.getSelectedHabits(),
-                                  activityLevels: LocalDB.getActivityLevels(),
-                                  scheduleIcons: LocalDB.getScheduleIcons(),
-                                  healthConcerns: LocalDB.getHealthConcerns(),
-                                  levels: LocalDB.getLevels(),
-                                  options: LocalDB.getOptions(),
-                                  mealOptions: LocalDB.getMealOptions(),
-                                  waterOptions: LocalDB.getWaterOptions(),
-                                  restrictions: LocalDB.getRestrictions(),
-                                  eatingStyles: LocalDB.getEatingStyles(),
-                                  startTimes: LocalDB.getStartTimes(),
-                                  endTimes: LocalDB.getEndTimes(),
-                                );
+  final profile = UserDetails(
+    user: LocalDB.getUser(),
+    authToken: LocalDB.getAuthToken(),
+    userName: LocalDB.getUserName(),
+    selectedMonth: LocalDB.getSelectedMonth(),
+    selectedDay: LocalDB.getSelectedDay(),
+    selectedYear: LocalDB.getSelectedYear(),
+    height: LocalDB.getHeight(),
+    currentWeight: LocalDB.getCurrentWeight(),
+    targetWeight: LocalDB.getTargetWeight(),
+    selectedSubGoals: LocalDB.getSelectedSubGoals(),
+    selectedHabits: LocalDB.getSelectedHabits(),
+    activityLevels: LocalDB.getActivityLevels(),
+    scheduleIcons: LocalDB.getScheduleIcons(),
+    healthConcerns: LocalDB.getHealthConcerns(),
+    levels: LocalDB.getLevels(),
+    options: LocalDB.getOptions(),
+    mealOptions: LocalDB.getMealOptions(),
+    waterOptions: LocalDB.getWaterOptions(),
+    restrictions: LocalDB.getRestrictions(),
+    eatingStyles: LocalDB.getEatingStyles(),
+    startTimes: LocalDB.getStartTimes(),
+    endTimes: LocalDB.getEndTimes(),
+  );
 
   @override
   void initState() {
     super.initState();
 
-    UserDetailsService.postUserDetails(profile).then((success) {
-      print("User details posted successfully: $success");
-    }).catchError((error) {
-      print("Error posting user details: $error");
-    });
-
+    // Start the animation
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
     );
-    
+
     _progressAnim = Tween(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
-    
+
     _bounceAnim = Tween(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
     );
-    
+
     _colorAnim = ColorTween(
       begin: Colors.orange[200],
       end: Colors.purple[200],
@@ -84,8 +89,36 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
       ));
     }
 
-    _controller.forward().then((_) => setState(() => _isComplete = true));
+    // Start the animation and then call the APIs
+    _controller.forward().then((_) {
+      // After animation, call APIs and then set state to complete
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('api call! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      
+      _callAPIs().then((_) {
+        setState(() => _isComplete = true);
+             ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('api call! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      });
+    });
   }
+
+  Future<void> _callAPIs() async {
+  try {
+    final response = await UserDetailsService.postUserDetails(profile);
+    print("All API calls completed successfully");
+  } catch (e) {
+    print("Error in API calls: $e");
+  }
+}
 
   @override
   void dispose() {
@@ -124,11 +157,13 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (_, __) => Transform.translate(
-                  offset: Offset(0, -20 * math.sin(_progressAnim.value * 2 * math.pi + i)),
+                  offset: Offset(
+                      0, -20 * math.sin(_progressAnim.value * 2 * math.pi + i)),
                   child: Text(
                     _foodEmojis[i],
                     style: TextStyle(
-                      fontSize: 30 + 10 * math.sin(_progressAnim.value * 2 * math.pi),
+                      fontSize:
+                          30 + 10 * math.sin(_progressAnim.value * 2 * math.pi),
                     ),
                   ),
                 ),
@@ -151,8 +186,11 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                         Positioned(
                           top: -40,
                           child: Transform.scale(
-                            scale: 1 + 0.2 * math.sin(_progressAnim.value * 2 * math.pi),
-                            child: const Text('🎩', style: TextStyle(fontSize: 40)),
+                            scale: 1 +
+                                0.2 *
+                                    math.sin(_progressAnim.value * 2 * math.pi),
+                            child: const Text('🎩',
+                                style: TextStyle(fontSize: 40)),
                           ),
                         ),
                       ],
@@ -233,7 +271,10 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                     return AnimatedBuilder(
                       animation: _controller,
                       builder: (_, __) => Transform.scale(
-                        scale: 0.9 + 0.1 * math.sin(_progressAnim.value * 2 * math.pi + index),
+                        scale: 0.9 +
+                            0.1 *
+                                math.sin(
+                                    _progressAnim.value * 2 * math.pi + index),
                         child: Card(
                           margin: const EdgeInsets.symmetric(horizontal: 20),
                           elevation: 10,
@@ -260,16 +301,19 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                 AnimatedBuilder(
                   animation: _controller,
                   builder: (_, __) => Transform.scale(
-                    scale: 1 + 0.1 * math.sin(_progressAnim.value * 4 * math.pi),
+                    scale:
+                        1 + 0.1 * math.sin(_progressAnim.value * 4 * math.pi),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: ElevatedButton(
                         onPressed: () {
-                         //on tap here 
+                          //on tap here
                           Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (_) => MealTrackingPage()),
-                              (Route<dynamic> route) => false,  );  
-                         },
+                            MaterialPageRoute(
+                                builder: (_) => MealTrackingPage()),
+                            (Route<dynamic> route) => false,
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _colorAnim.value,
                           padding: const EdgeInsets.symmetric(
