@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../app_config.dart'; // Import the config file for IP and port
  
 class ApiService {
-  static const String _baseUrl = 'http://192.168.100.83:5000/api/predict';
+  static const String _baseUrl = 'http://$apiIpAddress:5000/api/predict';
 
   static Future<String> uploadImage(File image) async {
     var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/predict'));

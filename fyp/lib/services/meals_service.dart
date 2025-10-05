@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../app_config.dart'; // Import the config file for IP and port
 
 class MealsService {
-  final String baseUrl = 'http://192.168.100.83:5000/api';
+  final String baseUrl = 'http://$apiIpAddress:5000/api';
 
   MealsService();
 

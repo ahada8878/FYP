@@ -1,9 +1,6 @@
-// In camera_screen.dart
-
-import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart'; // Import image_picker
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -16,6 +13,7 @@ class _CameraScreenState extends State<CameraScreen> {
   CameraController? _controller;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
+  final ImagePicker _picker = ImagePicker(); // Create an instance of ImagePicker
 
   @override
   void initState() {
@@ -44,6 +42,7 @@ class _CameraScreenState extends State<CameraScreen> {
     super.dispose();
   }
 
+  // Function to take a picture using the camera
   Future<void> _takePicture() async {
     if (!_controller!.value.isInitialized) {
       return;
@@ -52,13 +51,25 @@ class _CameraScreenState extends State<CameraScreen> {
       final XFile file = await _controller!.takePicture();
       // Pass the image path back to the previous screen
       if (mounted) {
-         Navigator.of(context).pop(file.path);
+        Navigator.of(context).pop(file.path);
       }
     } catch (e) {
       debugPrint('Error taking picture: $e');
     }
   }
 
+  // ✨ NEW: Function to pick an image from the gallery
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
+      if (file != null && mounted) {
+        // Pass the image path back to the previous screen
+        Navigator.of(context).pop(file.path);
+      }
+    } catch (e) {
+      debugPrint('Error picking image from gallery: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,14 +84,37 @@ class _CameraScreenState extends State<CameraScreen> {
       body: Stack(
         children: [
           Center(child: CameraPreview(_controller!)),
+          // ✨ UPDATED: UI with both camera and gallery buttons
           Align(
             alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 50.0),
-              child: FloatingActionButton(
-                onPressed: _takePicture,
-                backgroundColor: Colors.white,
-                child: const Icon(Icons.camera_alt, color: Colors.black, size: 30),
+            child: Container(
+              color: Colors.black.withOpacity(0.5),
+              padding: const EdgeInsets.symmetric(vertical: 30.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Gallery button
+                  IconButton(
+                    onPressed: _pickImageFromGallery,
+                    icon: const Icon(Icons.photo_library,
+                        color: Colors.white, size: 35),
+                  ),
+                  // Shutter button
+                  GestureDetector(
+                    onTap: _takePicture,
+                    child: Container(
+                      height: 70,
+                      width: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey, width: 3),
+                      ),
+                    ),
+                  ),
+                  // Placeholder for spacing to keep shutter button centered
+                  const SizedBox(width: 48),
+                ],
               ),
             ),
           ),

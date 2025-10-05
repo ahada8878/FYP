@@ -1,14 +1,35 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fyp/app_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:lottie/lottie.dart';
-import 'package:fyp/screens/camera_screen.dart'; 
+import '../camera_screen.dart';
+import 'dart:async'; // For Completer
+import 'recipe_detail_screen.dart';
 
-// A data model for our recipe
+// --- CONFIGURATION CONSTANTS (ADD THESE) ---
+// NOTE: For a real app, use a proper environment variable solution
+const String _spoonacularApiKey = '3ae6af7175864f2b96f71cf261f1e16a'; // Replace with your actual key if needed
+// The base URL for the ingredient detection service remains local
+const String _serverIp = 'http://$apiIpAddress:5000'; // <-- IMPORTANT: Use your PC's IP address
+
+// --- DATA MODELS ---
+class DetectedIngredient {
+  final String name;
+  final List<double> box; // [x_min, y_min, x_max, y_max]
+  DetectedIngredient({required this.name, required this.box});
+}
+
+class ImageDimensions {
+  final double width;
+  final double height;
+  ImageDimensions({required this.width, required this.height});
+}
+
 class Recipe {
-  final int id;
+  final double id;
   final String title;
   final String imageUrl;
   final int usedIngredientCount;
@@ -23,8 +44,9 @@ class Recipe {
   });
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
+    // Spoonacular IDs are often integers, but using double for safety with JSON parsing
     return Recipe(
-      id: json['id'],
+      id: (json['id'] as num).toDouble(), 
       title: json['title'],
       imageUrl: json['image'],
       usedIngredientCount: json['usedIngredientCount'] ?? 0,
@@ -33,115 +55,231 @@ class Recipe {
   }
 }
 
-// Enum to manage the screen's state
-enum ScreenState { initial, loading, success, error }
+// --- STATE MANAGEMENT ---
+enum ScreenState { initial, loading, review, success, error }
 
 class RecipeSuggestion extends StatefulWidget {
   const RecipeSuggestion({super.key});
-
   @override
   State<RecipeSuggestion> createState() => _RecipeSuggestionState();
 }
 
 class _RecipeSuggestionState extends State<RecipeSuggestion> {
   ScreenState _currentState = ScreenState.initial;
+  List<DetectedIngredient> _detectedIngredients = [];
+  List<String> _finalIngredients = [];
+  ImageDimensions? _imageDimensions;
+  String? _imagePath;
   List<Recipe> _recipes = [];
   String _errorMessage = '';
+  final _ingredientTextController = TextEditingController();
+  
+  // NOTE: Server IP moved to constant above for clarity
+  final String _detectionServerUrl = '$_serverIp/api/detect-ingredients';
 
-  // --- Core Logic ---
-  Future<void> _getRecipesFromImage(String imagePath) async {
+
+  // --- API LOGIC ---
+  Future<void> _detectIngredients(String imagePath) async {
     setState(() {
       _currentState = ScreenState.loading;
+      _imagePath = imagePath;
     });
 
     try {
-      // Replace with your actual server IP/domain
-      var uri = Uri.parse('http://192.168.1.10:5000/api/generate-recipe'); // <-- IMPORTANT: Use your PC's IP address
-      var request = http.MultipartRequest('POST', uri);
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          imagePath,
-          contentType: MediaType('image', 'jpeg'),
-        ),
-      );
-
+      var uri = Uri.parse(_detectionServerUrl);
+      var request = http.MultipartRequest('POST', uri)
+        ..files.add(await http.MultipartFile.fromPath('image', imagePath));
       var response = await request.send();
+// recipe_suggestions.dart (inside _detectIngredients)
 
+// ...
       if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        final decodedResponse = json.decode(responseBody);
+        final respStr = await response.stream.bytesToString();
+        // The response is now the direct JSON from the detection script.
+        final result = json.decode(respStr);
         
-        if(decodedResponse['success'] == true) {
-            final List<dynamic> recipeData = decodedResponse['data'];
-            setState(() {
-              _recipes = recipeData.map((data) => Recipe.fromJson(data)).toList();
-              _currentState = ScreenState.success;
-            });
-        } else {
-             throw Exception(decodedResponse['message'] ?? 'Failed to get recipes');
-        }
+        final List<dynamic> detections = result['detections'];
+        final Map<String, dynamic> dims = result['image_dimensions']; // <-- Use Map<String, dynamic> for type safety
+
+        setState(() {
+          _detectedIngredients = detections.map((d) => DetectedIngredient(
+            name: d['name'],
+            box: List<double>.from(d['box']),
+          )).toList();
+          _finalIngredients = _detectedIngredients.map((e) => e.name).toSet().toList(); // Unique names
+          
+          // CRITICAL FIX: Explicitly cast to num before calling toDouble()
+          _imageDimensions = ImageDimensions(
+            width: (dims['width'] as num).toDouble(), 
+            height: (dims['height'] as num).toDouble()
+          );
+
+          _currentState = ScreenState.review;
+        });
       } else {
-        throw Exception('Server error: ${response.statusCode}');
+        final respStr = await response.stream.bytesToString();
+        final errorJson = json.decode(respStr);
+        throw Exception('Detection failed: ${errorJson['message'] ?? response.reasonPhrase}');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'An error occurred: $e';
-        _currentState = ScreenState.error;
+      setState(() { _errorMessage = e is Exception ? e.toString() : 'An unexpected error occurred: $e'; _currentState = ScreenState.error; });
+    }
+  }
+
+  // MODIFIED: Find recipes by calling Spoonacular directly
+  Future<void> _findRecipes() async {
+    setState(() => _currentState = ScreenState.loading);
+    try {
+      if (_finalIngredients.isEmpty) {
+        throw Exception('No ingredients selected to find recipes.');
+      }
+      
+      final ingredientsString = _finalIngredients.join(',');
+      final uri = Uri.https(
+        'api.spoonacular.com', 
+        '/recipes/findByIngredients', 
+        {
+          'ingredients': ingredientsString,
+          'number': '10', // Get up to 10 recipes
+          'ranking': '1', // Minimize missing ingredients
+          'apiKey': _spoonacularApiKey,
+        }
+      );
+      
+      var response = await http.get(uri);
+      
+      if(response.statusCode == 200) {
+        // Spoonacular returns an array of recipes directly
+        final List<dynamic> recipeData = json.decode(response.body); 
+        setState(() {
+          _recipes = recipeData.map((data) => Recipe.fromJson(data)).toList();
+          _currentState = ScreenState.success;
+        });
+      } else {
+        // Attempt to parse Spoonacular's error message if available
+        final errorJson = json.decode(response.body);
+        final errorMessage = errorJson['message'] ?? 'Failed to find recipes with status: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      setState(() { 
+        _errorMessage = e is Exception ? 'Recipe Search Error: ${e.toString()}' : 'An unexpected error occurred: $e'; 
+        _currentState = ScreenState.error; 
       });
     }
   }
 
+  // --- UI ACTIONS ---
   void _startCooking() async {
-    // Navigate to the camera screen and wait for a result
     final imagePath = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (context) => const CameraScreen()),
     );
-
-    if (imagePath != null && imagePath.isNotEmpty) {
-      _getRecipesFromImage(imagePath);
+    if (imagePath != null) _detectIngredients(imagePath);
+  }
+  
+  void _addIngredient() {
+    final text = _ingredientTextController.text.trim();
+    if(text.isNotEmpty && !_finalIngredients.contains(text.toLowerCase())) {
+        setState(() => _finalIngredients.add(text.toLowerCase()));
     }
+    _ingredientTextController.clear();
+    FocusScope.of(context).unfocus();
   }
 
   void _resetScreen() {
-      setState(() {
-          _currentState = ScreenState.initial;
-          _recipes = [];
-          _errorMessage = '';
-      });
+    setState(() {
+      _currentState = ScreenState.initial;
+      _detectedIngredients = [];
+      _finalIngredients = [];
+      _recipes = [];
+      _imagePath = null;
+    });
   }
 
-
-  // --- UI Building ---
+  // --- WIDGET BUILDERS (REMAINS UNCHANGED) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Recipe Suggestions'),
         actions: [
-            if (_currentState != ScreenState.initial)
-            IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _resetScreen,
-            )
+          if (_currentState != ScreenState.initial)
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _resetScreen)
         ],
       ),
-      body: Center(child: _buildBody()),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _buildBody(),
+      ),
     );
   }
 
   Widget _buildBody() {
     switch (_currentState) {
-      case ScreenState.loading:
-        return _buildLoadingUI();
-      case ScreenState.success:
-        return _buildResultsUI();
-      case ScreenState.error:
-        return _buildErrorUI();
+      case ScreenState.review: return _buildReviewUI();
+      case ScreenState.success: return _buildResultsUI();
+      case ScreenState.loading: return const Center(child: CircularProgressIndicator());
+      case ScreenState.error: return _buildErrorUI();
       case ScreenState.initial:
-      default:
-        return _buildInitialUI();
+      default: return _buildInitialUI();
     }
+  }
+  
+  Widget _buildReviewUI() {
+    return SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("We found these ingredients...", style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            if (_imagePath != null && _imageDimensions != null)
+              BoundingBoxImage(
+                imagePath: _imagePath!,
+                ingredients: _detectedIngredients,
+                originalImageDims: _imageDimensions!,
+              ),
+            const SizedBox(height: 24),
+            Text("Confirm or add more:", style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: _finalIngredients.map((ingredient) => Chip(
+                label: Text(ingredient),
+                onDeleted: () => setState(() => _finalIngredients.remove(ingredient)),
+              )).toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _ingredientTextController,
+                  decoration: const InputDecoration(
+                    labelText: 'Add an ingredient',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                icon: const Icon(Icons.add),
+                onPressed: _addIngredient,
+              )
+            ]),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.search),
+                label: const Text('Find Recipes'),
+                onPressed: _findRecipes,
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+              ),
+            )
+          ],
+        ),
+      );
   }
   
   Widget _buildInitialUI() {
@@ -184,20 +322,6 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
     );
   }
 
-  Widget _buildLoadingUI() {
-    return const Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CircularProgressIndicator(),
-        SizedBox(height: 20),
-        Text(
-          'Finding delicious recipes...',
-          style: TextStyle(fontSize: 18, color: Colors.grey),
-        ),
-      ],
-    );
-  }
-
   Widget _buildErrorUI() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -233,14 +357,91 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
   }
 }
 
-// A dedicated widget for displaying a single recipe
+// --- CUSTOM WIDGET FOR IMAGE WITH BOUNDING BOXES (REMAINS UNCHANGED) ---
+class BoundingBoxImage extends StatelessWidget {
+  final String imagePath;
+  final List<DetectedIngredient> ingredients;
+  final ImageDimensions originalImageDims;
+
+  const BoundingBoxImage({
+    super.key,
+    required this.imagePath,
+    required this.ingredients,
+    required this.originalImageDims,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate scaling factors to draw boxes on the displayed image
+        final double scaleX = constraints.maxWidth / originalImageDims.width;
+        final double scaleY = (constraints.maxWidth / originalImageDims.width) * originalImageDims.height > 400 
+                              ? 400 / originalImageDims.height 
+                              : scaleX;
+
+        // Limiting the height of the image container for better layout
+        final double containerHeight = originalImageDims.height * scaleY;
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12.0),
+          child: SizedBox(
+            height: containerHeight,
+            child: Stack(
+              children: [
+                Image.file(File(imagePath), fit: BoxFit.contain, width: double.infinity),
+                ...ingredients.map((ing) {
+                  return Positioned(
+                    left: ing.box[0] * scaleX,
+                    top: ing.box[1] * scaleY,
+                    width: (ing.box[2] - ing.box[0]) * scaleX,
+                    height: (ing.box[3] - ing.box[1]) * scaleY,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.redAccent, width: 2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Container(
+                          color: Colors.redAccent,
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Text(
+                            ing.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// A dedicated widget for displaying a single recipe (REMAINS UNCHANGED)
 class RecipeCard extends StatelessWidget {
   final Recipe recipe;
   const RecipeCard({super.key, required this.recipe});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return InkWell(
+      onTap: () {
+        // Navigate to the detail screen when tapped
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RecipeDetailScreen(recipeId: recipe.id.toInt()),
+          ),
+        );
+      },
+      child: Card(
       margin: const EdgeInsets.all(10.0),
       elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -292,6 +493,7 @@ class RecipeCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
