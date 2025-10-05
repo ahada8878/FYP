@@ -18,6 +18,14 @@ static String getAuthToken() {
   return _prefs?.getString('authToken') ?? '';
 }
 
+static Future<void> setUser(String user) async {
+  await _prefs?.setString('user', user);
+}
+
+static String getUser() {
+  return _prefs?.getString('user') ?? '';
+}
+
  /// -- User Name --
 static Future<void> setUserName(String name) async {
   await _prefs?.setString('userName', name);

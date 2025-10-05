@@ -23,6 +23,7 @@ import 'package:fyp/models/user_details.dart';
 
 Widget getIncompleteStepView()  {
   final user = UserDetails(
+    user: LocalDB.getUser(),
     authToken: LocalDB.getAuthToken(),
     userName: LocalDB.getUserName(),
     selectedMonth: LocalDB.getSelectedMonth(),
