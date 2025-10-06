@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import '../../app_config.dart';
 
 // --- API Configuration ---
 // IMPORTANT: Use 10.0.2.2 for Android Emulator, or your actual local IP for a physical device.
-const String apiUrl = "http://192.168.100.110:3000/upload";
+const String apiUrl = "http://$apiIpAddress:3000/upload";
 
 // --- Formal Color Palette: Dark Gray and Teal ---
 const MaterialColor primaryAppColor = MaterialColor(0xFF37474F, <int, Color>{
