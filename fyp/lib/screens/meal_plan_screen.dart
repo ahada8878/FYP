@@ -37,12 +37,12 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
   void _updateTotalCalories() {
     int total = 0;
     _loggedMeals.forEach((day, mealIds) {
-      mealIds.forEach((mealId) {
+      for (var mealId in mealIds) {
         final originalMeal = getDayMeals(day).firstWhere((m) => m.id == mealId);
         final replacementMeal = _mealReplacements[day]?[mealId];
         final meal = replacementMeal ?? originalMeal;
         total += meal.calories;
-      });
+      }
     });
 
     final calorieTracker = Provider.of<CalorieTrackerController>(context, listen: false);

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'package:fyp/LocalDB.dart';
 import 'dart:math' as math;
-import 'DietryRestrictionPage.dart';
 import 'EatingTime.dart';
 
 class EatingStylePage extends StatefulWidget {

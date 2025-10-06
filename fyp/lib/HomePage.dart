@@ -6,7 +6,8 @@ import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/water_tracker.dart';
 import 'package:fyp/screens/camera_screen.dart';
 import 'package:fyp/screens/describe_meal_screen.dart';
-import 'package:fyp/screens/ai_scanner_result_page.dart'; // Import the new page
+import 'package:fyp/screens/ai_scanner_result_page.dart';
+import 'package:fyp/screens/settings_screen.dart'; // Import the settings screen
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
@@ -45,33 +46,20 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-  // Add this new function inside _MealTrackingPageState
-
   Future<void> _openCameraScreen() async {
-    // Hide the main overlay before navigating
     Provider.of<CameraOverlayController>(context, listen: false).hide();
-
-    // Navigate to CameraScreen and wait for a result (the image path)
     final imagePath = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (context) => const CameraScreen()),
     );
-
-    // If the user took a picture (imagePath is not null), create a File and
-    // navigate to the result page.
     if (imagePath != null) {
       final imageFile = File(imagePath);
-      // The 'true' value indicates the image came from a camera flow.
-      // We reuse your existing navigation logic here!
       _navigateToResultPage(imageFile, true);
     }
   }
 
   void _navigateToResultPage(File imageFile, bool fromCamera) {
-    // Hide camera overlay and reset scanning state
     Provider.of<CameraOverlayController>(context, listen: false).hide();
-    
-    // Navigate to the result page
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -82,7 +70,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       ),
     );
   }
-
 
   @override
   void dispose() {
@@ -110,6 +97,18 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 floating: true,
                 pinned: true,
                 backgroundColor: Colors.transparent,
+                // *** ACTION ICON TO OPEN SETTINGS ***
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 28),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      );
+                    },
+                  ),
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
                     'NutriWise',
@@ -262,7 +261,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: ScannerPulseAnimation(
@@ -358,6 +356,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                           builder: (context) => const ActivityLogSheet(),
                         ).then((selectedActivity) {
                           if (selectedActivity != null) {
+                            // ignore: avoid_print
                             print('Logged activity: ${selectedActivity.name}');
                           }
                         });

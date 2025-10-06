@@ -1,13 +1,9 @@
-import 'package:fyp/HomePage.dart';
 import 'package:fyp/LoadingPage.dart';
 import 'package:fyp/LocalDB.dart';
-import 'package:fyp/models/user_details.dart';
 
-import 'EatingStylePage.dart';
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'dart:math' as math;
-import '../HomePage.dart';
 
 class MealTimingPage extends StatefulWidget {
   const MealTimingPage({super.key});

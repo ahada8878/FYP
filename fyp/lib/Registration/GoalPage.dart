@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:fyp/LocalDB.dart';
-import 'GoalWeightPage.dart';
 import 'ActivityPage.dart';
 
 class GoalPage extends StatefulWidget {

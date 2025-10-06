@@ -211,8 +211,8 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     final bool isSafe = overallStatus['is_safe'];
 
     // Use defined formal colors
-    final Color safeColor = safeGreen;
-    final Color riskColor = riskyRed;
+    const Color safeColor = safeGreen;
+    const Color riskColor = riskyRed;
 
     final Color cardColor =
         isSafe ? primaryAppColor.shade50 : Colors.red.shade50;
@@ -414,11 +414,11 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
 
           const SizedBox(height: 20),
 
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.local_dining, color: Colors.black87, size: 24),
-              const SizedBox(width: 8),
-              const Text(
+              Icon(Icons.local_dining, color: Colors.black87, size: 24),
+              SizedBox(width: 8),
+              Text(
                 'Better Alternatives:',
                 style: TextStyle(
                     fontSize: 18,
@@ -438,7 +438,7 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
             ...limitedAlternatives
                 .map((alt) => _buildProductCard(alt as Map<String, dynamic>,
                     isAlternative: true))
-                .toList(),
+                ,
         ],
       ),
     );
@@ -506,10 +506,10 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
               borderRadius: BorderRadius.circular(60),
               child: Center(
                 child: _isLoading
-                    ? Row(
+                    ? const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 24,
                             height: 24,
                             child: CircularProgressIndicator(
@@ -517,8 +517,8 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
                               strokeWidth: 3,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          const Text(
+                          SizedBox(width: 10),
+                          Text(
                             'Scanning...',
                             style: TextStyle(
                               color: Colors.white,

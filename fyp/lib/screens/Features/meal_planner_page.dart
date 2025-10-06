@@ -21,9 +21,9 @@ class MealPlannerPage extends StatelessWidget {
               color: Colors.blue[400],
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               'Meal Planner',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,

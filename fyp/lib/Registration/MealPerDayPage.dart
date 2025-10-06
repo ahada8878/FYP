@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/LocalDB.dart';
 import 'dart:math' as math; // Add this import to fix the Random class error
-import 'BadHabitsPage.dart';
 import 'WaterIntakePage.dart';
 
 class MealsPerDayPage extends StatefulWidget {

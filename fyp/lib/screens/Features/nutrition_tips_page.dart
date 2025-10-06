@@ -21,9 +21,9 @@ class NutritionTipsPage extends StatelessWidget {
               color: Colors.purple[400],
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               'Nutrition Tips',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,

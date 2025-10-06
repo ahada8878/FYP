@@ -60,7 +60,7 @@ class CustomNavBar extends StatelessWidget {
     const Features(),
     const MealTrackingPage(),
     const MealPlanScreen(),
-    MyProgressScreen(),
+    const MyProgressScreen(),
   ];
 
   List<PersistentBottomNavBarItem> _navBarsItems(BuildContext context) {

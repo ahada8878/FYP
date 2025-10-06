@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/Registration/NamePage.dart';
 import '../../services/auth_service.dart'; // Import your auth service

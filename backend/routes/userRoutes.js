@@ -12,22 +12,18 @@ router.post('/register', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Create new user
     user = new User({
       email,
       password
     });
 
-    // Save user (password will be hashed by pre-save hook)
     await user.save();
 
-    // Create and return JWT token
     const payload = {
       user: {
         id: user.id
@@ -54,7 +50,6 @@ router.post('/register', async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    // Exclude passwords from the response
     const users = await User.find().select('-password');
     res.json(users);
   } catch (err) {
@@ -84,45 +79,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// @route   POST api/users/login
-// @desc    Authenticate user & get token
-// @access  Public
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Check if user exists
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Create and return JWT token
-    const payload = {
-      user: {
-        id: user.id
-      }
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token, user:user._id });
-      }
-    );
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
+// --- REMOVED LOGIN ROUTE FROM THIS FILE ---
+// The /login route is now correctly handled by authRoutes.js
 
 module.exports = router;

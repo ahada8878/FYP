@@ -202,7 +202,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     return Chip(
       avatar: Icon(icon, size: 20),
       label: Text(label),
-      backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
     );
   }
 }
