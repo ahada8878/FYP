@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:fyp/Registration/SignUpPage.dart';
 import 'package:fyp/main_navigation.dart';
 import '../services/auth_service.dart';
@@ -39,7 +38,8 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
         _passwordController.text.trim(),
       ).timeout(const Duration(seconds: 10));
 
-      if (token != null) {
+      // The `mounted` check here is an extra safeguard before navigating
+      if (token != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -69,7 +69,12 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
         ),
       );
     } finally {
-      setState(() => _isLoading = false);
+      // ✅ --- THIS IS THE FIX ---
+      // This `if (mounted)` check prevents an error by ensuring the widget
+      // is still in the tree before trying to update its state.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

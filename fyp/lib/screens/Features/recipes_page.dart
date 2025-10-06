@@ -21,9 +21,9 @@ class RecipesPage extends StatelessWidget {
               color: Colors.orange[400],
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               'Recipes',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,

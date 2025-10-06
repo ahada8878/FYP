@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});

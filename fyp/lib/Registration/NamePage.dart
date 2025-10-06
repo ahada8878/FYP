@@ -1,9 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:fyp/LocalDB.dart';
 import 'BirthdayPage.dart';
-import '../models/user_details.dart';
 
 class NamePage extends StatefulWidget {
   const NamePage({super.key});

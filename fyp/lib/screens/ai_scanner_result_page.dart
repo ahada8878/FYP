@@ -130,13 +130,13 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           ? Column(
               key: const ValueKey('processing'),
               children: [
-                ShimmeringIcon(
+                const ShimmeringIcon(
                   icon: Icons.auto_awesome,
                   size: 50, // Reduced from 60
                   color: Colors.blueAccent,
                 ),
                 const SizedBox(height: 12), // Reduced from 16
-                Text(
+                const Text(
                   "Analyzing Your Food...",
                   style: TextStyle(
                     fontSize: 20, // Reduced from 24

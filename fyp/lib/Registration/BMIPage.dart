@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:confetti/confetti.dart'; // Add this to pubspec.yaml
 import '../WrongThingPage.dart';
 
@@ -498,7 +497,6 @@ class _AnimatedCounter extends StatelessWidget {
   final TextStyle? style;
   
   const _AnimatedCounter({
-    super.key,
     required this.value,
     required this.duration,
     this.style,
