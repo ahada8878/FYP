@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../app_config.dart'; // Make sure you have this file with your apiIpAddress
+import 'config_service.dart';
 
 class AuthService {
   // The base URL for your authentication endpoints.
@@ -181,4 +181,3 @@ class AuthService {
     return token != null;
   }
 }
-

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart'; // Add this to pubspec.yaml
+import 'dart:math'; // Imported for BMI calculation
 import '../WrongThingPage.dart';
+import 'package:fyp/LocalDB.dart';
 
 
 class PersonalSummaryPage extends StatefulWidget {
@@ -9,18 +11,22 @@ class PersonalSummaryPage extends StatefulWidget {
   @override
   State<PersonalSummaryPage> createState() => _PersonalSummaryPageState();
 }
-
+ 
 class _PersonalSummaryPageState extends State<PersonalSummaryPage> 
     with SingleTickerProviderStateMixin {
-  // Dummy values - these would be replaced with real data
-  double bmiValue = 19.2;
-  String bmiCategory = "Normal";
-  String bmiComment = "A balanced BMI supports overall health";
+
+  // --- MODIFIED: Removed dummy data and declared variables to hold real-time values ---
+  late double bmiValue;
+  late String bmiCategory;
+  late String bmiComment;
   
-  double targetWeight = 70.0;
-  String experienceLevel = "Beginner";
-  String activityLevel = "I'm not that active";
-  String illnessAttention = "None";
+  // These values are fetched directly from LocalDB
+  final String height = LocalDB.getHeight();
+  final String currentWeight = LocalDB.getCurrentWeight();
+  final String targetWeight = LocalDB.getTargetWeight();
+  final String experienceLevel = "Beginner"; // This remains a placeholder as per original code
+  final String activityLevel = LocalDB.getActivityLevels();
+  final Map<String, bool> illnessAttention = LocalDB.getHealthConcerns();
   
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -34,6 +40,9 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
   void initState() {
     super.initState();
     
+    // --- ADDED: Real-time BMI calculation logic ---
+    _calculateAndSetBmi();
+
     // Initialize ConfettiController
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
 
@@ -58,6 +67,56 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
     _animationController.forward();
   }
 
+  // --- ADDED: Method to calculate and set BMI data ---
+// --- REVISED: Method to handle complex string formats for height and weight ---
+void _calculateAndSetBmi() {
+  // Use regular expressions to extract numbers from the strings.
+  // This will find the first sequence of digits and dots.
+  final RegExp numberExtractor = RegExp(r'[\d.]+');
+
+  final String? heightString = numberExtractor.firstMatch(height)?.group(0);
+  final String? weightString = numberExtractor.firstMatch(currentWeight)?.group(0);
+
+  double heightCm = double.tryParse(heightString ?? "") ?? 0;
+  final double weightKg = double.tryParse(weightString ?? "") ?? 0;
+
+  // --- ADDED: Unit Conversion for Height ---
+  // Check if the original height string contains "feet".
+  if (height.toLowerCase().contains("feet")) {
+    // Assuming "7.11 feet" means 7.11 decimal feet.
+    // 1 foot = 30.48 cm.
+    heightCm = heightCm * 30.48;
+  }
+  // You could add more conversions here if needed (e.g., for inches or meters).
+
+  // Basic validation to prevent division by zero or invalid calculations
+  if (heightCm > 0 && weightKg > 0) {
+    final double heightM = heightCm / 100;
+    // BMI formula: weight (kg) / [height (m)]^2
+    bmiValue = weightKg / (heightM * heightM);
+
+    // Determine category and comment based on calculated BMI
+    if (bmiValue < 18.5) {
+      bmiCategory = "Underweight";
+      bmiComment = "A balanced diet can help you reach a healthier weight.";
+    } else if (bmiValue < 24.9) {
+      bmiCategory = "Normal";
+      bmiComment = "Excellent! Your BMI is in a healthy range.";
+    } else if (bmiValue < 29.9) {
+      bmiCategory = "Overweight";
+      bmiComment = "A healthier lifestyle can help you achieve your target weight.";
+    } else {
+      bmiCategory = "Obese";
+      bmiComment = "Consulting a health professional is a great next step.";
+    }
+  } else {
+    // Set default values in case of invalid data
+    bmiValue = 0.0;
+    bmiCategory = "Error";
+    bmiComment = "Could not calculate BMI. Please check your profile data.";
+  }
+}
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -80,6 +139,12 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
+    // --- ADDED: Formatting for health concerns map to display as a string ---
+    final String healthConcernsText = illnessAttention.entries
+        .where((entry) => entry.value) // Filter for true values
+        .map((entry) => entry.key)     // Get the name of the concern
+        .join(', ');                   // Join them with a comma
 
     return Scaffold(
       body: Stack(
@@ -354,11 +419,12 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
                                       title: "Activity level",
                                       value: activityLevel,
                                     ),
+                                    // --- MODIFIED: Fixed the data type mismatch ---
                                     _buildDetailItem(
                                       context,
                                       icon: Icons.health_and_safety,
                                       title: "Health considerations",
-                                      value: illnessAttention,
+                                      value: healthConcernsText.isNotEmpty ? healthConcernsText : "None",
                                     ),
                                   ],
                                 ),
@@ -469,13 +535,21 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Text(value),
+          // Use a Flexible widget to prevent text overflow
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
   }
   
   Color _getBmiColor(double bmi) {
+    if (bmi <= 0) return Colors.grey; // Handle error case
     if (bmi < 18.5) return Colors.blue; // Underweight
     if (bmi < 24.9) return Colors.green; // Normal
     if (bmi < 29.9) return Colors.orange; // Overweight
@@ -483,10 +557,11 @@ class _PersonalSummaryPageState extends State<PersonalSummaryPage>
   }
   
   double _calculateBmiProgress(double bmi) {
-    if (bmi < 18.5) return 0.2;
-    if (bmi < 24.9) return 0.6;
-    if (bmi < 29.9) return 0.8;
-    return 1.0;
+    if (bmi <= 0) return 0.0;
+    if (bmi < 18.5) return bmi / 18.5 * 0.25; // Progress within underweight
+    if (bmi < 24.9) return 0.25 + ((bmi - 18.5) / (24.9 - 18.5)) * 0.5; // Progress within normal
+    if (bmi < 29.9) return 0.75 + ((bmi - 24.9) / (29.9 - 24.9)) * 0.25; // Progress within overweight
+    return 1.0; // Obese or higher
   }
 }
 
@@ -509,7 +584,8 @@ class _AnimatedCounter extends StatelessWidget {
       duration: duration,
       builder: (context, value, child) {
         return Text(
-          value.toStringAsFixed(1),
+          // Ensure a non-negative value is displayed
+          value < 0 ? "0.0" : value.toStringAsFixed(1),
           style: style,
         );
       },

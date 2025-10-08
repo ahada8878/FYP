@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:fyp/app_config.dart';
+import '../../services/config_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import '../camera_screen.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
-import '../../app_config.dart';
+import '../../services/config_service.dart';
 
 // --- API Configuration ---
 // IMPORTANT: Use 10.0.2.2 for Android Emulator, or your actual local IP for a physical device.
