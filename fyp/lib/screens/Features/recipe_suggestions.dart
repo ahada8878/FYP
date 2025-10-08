@@ -220,7 +220,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
       case ScreenState.loading: return const Center(child: CircularProgressIndicator());
       case ScreenState.error: return _buildErrorUI();
       case ScreenState.initial:
-      default: return _buildInitialUI();
+      return _buildInitialUI();
     }
   }
   

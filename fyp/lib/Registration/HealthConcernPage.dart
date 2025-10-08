@@ -342,7 +342,7 @@ class _CreativeHealthConcernsPageState extends State<HealthConcernsPage>
       case 'High Cholesterol':
         return colorScheme.errorContainer.withOpacity(0.7);
       case 'Obesity':
-        return colorScheme.tertiaryContainer ?? colorScheme.secondaryContainer;
+        return colorScheme.tertiaryContainer;
       case 'Diabetes':
         return colorScheme.secondaryContainer;
       case 'Heart Disease':

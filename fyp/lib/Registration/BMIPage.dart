@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart'; // Add this to pubspec.yaml
-import 'dart:math'; // Imported for BMI calculation
 import '../WrongThingPage.dart';
 import 'package:fyp/LocalDB.dart';
 
@@ -446,7 +445,7 @@ void _calculateAndSetBmi() {
                           gradient: LinearGradient(
                             colors: [
                               colorScheme.primary,
-                              colorScheme.tertiary ?? colorScheme.secondary,
+                              colorScheme.tertiary,
                             ],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
