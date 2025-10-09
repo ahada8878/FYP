@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 
 // Import the separate landing pages
 import 'Features/meal_planner_page.dart';
 import 'Features/label_scanner_page.dart';
-import 'Features/recipes_page.dart';
+import 'Features/cravings_page.dart';
 import 'Features/nutrition_tips_page.dart';
 import 'Features/recipe_suggestions.dart';
 
@@ -155,15 +156,15 @@ class _FeaturesState extends State<Features>
         'title': 'Label Scanner',
         'icon': Icons.scanner,
         'color': Colors.green,
-        'subtitle': 'Analyze the Grocery!',
+        'subtitle': 'Analyze the Grocery',
         'page': const LabelScannerPage(),
       },
       {
-        'title': 'Recipes',
-        'icon': Icons.menu_book,
+        'title': 'Craving Hunt',
+        'icon': Icons.food_bank,
         'color': Colors.orange,
-        'subtitle': 'Discover healthy recipes',
-        'page': const RecipesPage(),
+        'subtitle': 'Get craving recommendations',
+        'page': const CravingsPage(),
       },
       {
         'title': 'Nutrition Tips',

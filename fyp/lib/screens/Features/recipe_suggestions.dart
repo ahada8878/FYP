@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:fyp/app_config.dart';
+import 'package:fyp/services/config_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import '../camera_screen.dart';
@@ -201,6 +201,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Recipe Suggestions'),
+        centerTitle: true,
         actions: [
           if (_currentState != ScreenState.initial)
             IconButton(icon: const Icon(Icons.refresh), onPressed: _resetScreen)

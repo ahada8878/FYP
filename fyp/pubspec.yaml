@@ -51,6 +51,14 @@ dependencies:
   provider: ^6.1.5
   fl_chart: ^1.0.0
   google_fonts: ^4.0.4
+  url_launcher: ^6.2.2  # Use the latest stable version
+  flutter_secure_storage: ^9.2.4
+
+
+
+
+
+
   
 
 dev_dependencies:
@@ -79,6 +87,7 @@ flutter:
   assets:
     - assets/images/
     - assets/animation/cooking_animation.json
+    - assets/animation/
   
 
   # An image asset can refer to one or more resolution-specific "variants", see
