@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:fyp/services/config_service.dart';
+import '../../services/config_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import '../camera_screen.dart';
@@ -221,7 +221,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
       case ScreenState.loading: return const Center(child: CircularProgressIndicator());
       case ScreenState.error: return _buildErrorUI();
       case ScreenState.initial:
-      default: return _buildInitialUI();
+      return _buildInitialUI();
     }
   }
   

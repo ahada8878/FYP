@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:convert';
+import '../../services/config_service.dart';
 
 // Configuration constant
 const String apiUrl = "http://$apiIpAddress:5000/upload";

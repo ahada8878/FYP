@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:fyp/HomePage.dart';
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/models/user_details.dart';
-import 'package:fyp/services/user_details_service.dart';
 
 class FoodieAnalysisPage extends StatefulWidget {
   const FoodieAnalysisPage({super.key});
@@ -112,7 +111,6 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
 
   Future<void> _callAPIs() async {
   try {
-    final response = await UserDetailsService.postUserDetails(profile);
     print("All API calls completed successfully");
   } catch (e) {
     print("Error in API calls: $e");

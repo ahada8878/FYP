@@ -9,7 +9,8 @@ const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const mealRoutes = require('./routes/mealRoutes');
 const userDetailsRoutes = require('./routes/userDetailsRoutes');
-const axios = require('axios');
+const activityRoutes = require('./routes/activityRoutes');
+const rewardRoutes = require('./routes/rewardRoutes');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
@@ -99,8 +100,9 @@ const protect = (req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
-app.use('/api/user-details', userDetailsRoutes); // Contains /my-profile
-
+app.use('/api/user-details', userDetailsRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/rewards', rewardRoutes);
 
 app.post('/api/predict', upload.single('image'), (req, res) => {
   if (!req.file) {

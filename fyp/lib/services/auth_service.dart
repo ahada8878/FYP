@@ -4,29 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'config_service.dart'; // Assumed to contain apiIpAddress
-
-// NOTE ON SECURITY: shared_preferences is NOT secure for storing JWTs. 
-// This is used here for compatibility with your existing code structure,
-// but should be replaced by flutter_secure_storage in a production app.
+import 'config_service.dart';
 
 class AuthService {
-  // =========================================================
-  // ✅ FIX 1: Implementation of the Singleton Pattern
-  // This ensures all parts of the app use the same, correct instance.
-  static final AuthService _instance = AuthService._internal();
-
-  factory AuthService() {
-    return _instance;
-  }
-
-  AuthService._internal(); // Private constructor
-  // =========================================================
-
   // The base URL for your authentication endpoints.
   static const String baseUrl = 'http://$apiIpAddress:5000/api/auth';
 
-  // Keys for storing user data locally.
+  // Keys for storing user data securely on the device.
   static const String _tokenKey = 'auth_token';
   static const String _userEmailKey = 'user_email';
   static const String _userIdKey = 'user_id';
@@ -38,13 +22,21 @@ class AuthService {
     if (kDebugMode) {
       print('--- ATTEMPTING TO LOG IN ---');
     }
-
+ 
     try {
       final response = await http.post(
         loginUrl,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
+
+      if (kDebugMode) {
+        print('--- LOGIN RESPONSE ---');
+        print('Status Code: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+        print('----------------------');
+      }
+
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -59,8 +51,7 @@ class AuthService {
         throw Exception(responseData['message'] ?? 'Invalid credentials');
       }
     } catch (e) {
-        if (e is SocketException) throw Exception('Network Error: Could not connect to the server.');
-        throw Exception(e.toString().replaceAll('Exception: ', ''));
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -93,6 +84,10 @@ class AuthService {
       } else {
         throw Exception(responseData['message'] ?? 'Registration failed');
       }
+    } on SocketException {
+      throw Exception('Network Error: Could not connect to the server.');
+    } on FormatException {
+       throw Exception('The server returned an invalid response. Check the server logs.');
     } catch (e) {
         if (e is SocketException) throw Exception('Network Error: Could not connect to the server.');
         throw Exception('Failed to register: ${e.toString().replaceAll('Exception: ', '')}');
@@ -103,6 +98,12 @@ class AuthService {
   Future<void> deleteAccount() async {
     final deleteUrl = Uri.parse('$baseUrl/delete');
     
+    if (kDebugMode) {
+      print('--- ATTEMPTING TO DELETE ACCOUNT ---');
+      print('Target URL: $deleteUrl');
+      print('---------------------------------');
+    }
+
     try {
       final token = await getToken();
       if (token == null) {
@@ -113,19 +114,29 @@ class AuthService {
         deleteUrl,
         headers: {
           'Content-Type': 'application/json',
-          // CRITICAL FIX: Use the standard Bearer token header for consistency
-          'Authorization': 'Bearer $token', 
+          'x-auth-token': token, // Send the token to authenticate the request
         },
       );
 
+      if (kDebugMode) {
+        print('--- DELETE ACCOUNT RESPONSE ---');
+        print('Status Code: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+        print('-----------------------------');
+      }
+
       if (response.statusCode == 200) {
+        // If deletion is successful on the server, log the user out locally.
         await logout();
       } else {
         final responseData = jsonDecode(response.body);
         throw Exception(responseData['message'] ?? 'Failed to delete account.');
       }
+    } on SocketException {
+      throw Exception('Network Error: Could not connect to the server.');
+    } on FormatException {
+       throw Exception('The server returned an invalid response during account deletion.');
     } catch (e) {
-      if (e is SocketException) throw Exception('Network Error: Could not connect to the server.');
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
@@ -148,12 +159,6 @@ class AuthService {
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
-  }
-
-  /// Retrieves the user's ID from local storage.
-  Future<String?> getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_userIdKey);
   }
 
   /// Checks if a user is currently logged in by looking for a token.

@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const rewardSchema = new mongoose.Schema({
+  name: String,
+  unlocked: { type: Boolean, default: false },
+  dateUnlocked: Date
+});
+
 const UserSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -17,7 +23,8 @@ const UserSchema = new mongoose.Schema({
   spoonacular: {
     username: { type: String },
     hash: { type: String }
-  }
+  },
+  rewards: [rewardSchema]
 });
 
 // ✅ Auto-hash password before save
