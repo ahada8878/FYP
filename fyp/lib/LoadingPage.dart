@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:fyp/HomePage.dart';
 import 'package:fyp/LocalDB.dart';
+import 'package:fyp/main_navigation.dart';
 import 'package:fyp/models/user_details.dart';
 
 class FoodieAnalysisPage extends StatefulWidget {
@@ -307,7 +308,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                           //on tap here
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
-                                builder: (_) => const MealTrackingPage()),
+                                builder: (_) => const MainNavigationWrapper()),
                             (Route<dynamic> route) => false,
                           );
                         },

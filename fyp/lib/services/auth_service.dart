@@ -44,12 +44,16 @@ class AuthService {
         await _saveAuthData(
           responseData['token'],
           responseData['email'],
-          responseData['user'], 
+          responseData['user'], // The server sends the user ID in the 'user' field
         );
         return responseData['token'];
       } else {
         throw Exception(responseData['message'] ?? 'Invalid credentials');
       }
+    } on SocketException {
+      throw Exception('Network Error: Could not connect to the server.');
+    } on FormatException {
+      throw Exception('The server returned an invalid response. Please check the server logs.');
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
@@ -89,8 +93,7 @@ class AuthService {
     } on FormatException {
        throw Exception('The server returned an invalid response. Check the server logs.');
     } catch (e) {
-        if (e is SocketException) throw Exception('Network Error: Could not connect to the server.');
-        throw Exception('Failed to register: ${e.toString().replaceAll('Exception: ', '')}');
+      throw Exception('Failed to register: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 

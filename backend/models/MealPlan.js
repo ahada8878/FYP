@@ -1,13 +1,34 @@
-// models/MealPlan.js
 const mongoose = require("mongoose");
 
-const mealSchema = new mongoose.Schema({
+const detailedRecipeSchema = new mongoose.Schema({
   id: Number,
   title: String,
-  imageType: String,
+  image: String,
   readyInMinutes: Number,
   servings: Number,
   sourceUrl: String,
+  ingredients: [
+    {
+      id: Number,
+      name: String,
+      amount: Number,
+      unit: String,
+    },
+  ],
+  instructions: String,
+  nutrients: {
+    calories: Number,
+    carbs: Number,
+    protein: Number,
+    fat: Number,
+    fiber: Number,
+  },
+  // --- ✅ NEW FIELD ---
+  // Stores the timestamp when a meal is logged. Defaults to null.
+  loggedAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 const mealPlanSchema = new mongoose.Schema({
@@ -21,8 +42,18 @@ const mealPlanSchema = new mongoose.Schema({
     default: Date.now,
   },
   meals: {
-    type: Object, // stores the full "week" object from Spoonacular
-    required: true,
+  type: Map,
+  of: new mongoose.Schema({
+    date: { type: Date, required: true },
+    meals: { type: Array, required: true },
+    nutrients: { type: Object, default: {} },
+  }),
+  required: true,
+},
+
+  detailedRecipes: {
+    type: [detailedRecipeSchema],
+    default: [],
   },
   nutrients: {
     type: Object,

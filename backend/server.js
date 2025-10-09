@@ -18,6 +18,8 @@ require('dotenv').config();
 // Mongoose Models
 const User = require('./models/User'); 
 const UserDetails = require('./models/UserDetails'); 
+const mealPlanRoutes = require("./routes/mealPlanRoutes.js");
+
 
 const app = express();
 
@@ -103,6 +105,7 @@ app.use('/api/meals', mealRoutes);
 app.use('/api/user-details', userDetailsRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/rewards', rewardRoutes);
+app.use("/api/mealplan", mealPlanRoutes);
 
 app.post('/api/predict', upload.single('image'), (req, res) => {
   if (!req.file) {
