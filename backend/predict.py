@@ -15,22 +15,22 @@ logging.getLogger('PIL').setLevel(logging.WARNING)
 
 # Load class labels (replace with your actual class labels)
 CLASS_LABELS = [
-    "apple_pie", "baby_back_ribs", "baklava", "beef_carpaccio", "beef_tartare", "beet_salad", 
-    "beignets", "bibimbap", "bread_pudding", "breakfast_burrito", "bruschetta", "caesar_salad", 
-    "cannoli", "caprese_salad", "carrot_cake", "ceviche", "cheese_plate", "cheesecake", 
-    "chicken_curry", "chicken_quesadilla", "chicken_wings", "chocolate_cake", "chocolate_mousse", 
-    "churros", "clam_chowder", "club_sandwich", "crab_cakes", "creme_brulee", "croque_madame", 
-    "cup_cakes", "deviled_eggs", "donuts", "dumplings", "edamame", "eggs_benedict", "escargots", 
-    "falafel", "filet_mignon", "fish_and_chips", "foie_gras", "french_fries", "french_onion_soup", 
-    "french_toast", "fried_calamari", "fried_rice", "frozen_yogurt", "garlic_bread", "gnocchi", 
-    "greek_salad", "grilled_cheese_sandwich", "grilled_salmon", "guacamole", "gyoza", "Hamburger", 
-    "hot_and_sour_soup", "hot_dog", "huevos_rancheros", "hummus", "ice_cream", "lasagna", "lobster_bisque", 
-    "lobster_roll_sandwich", "macaroni_and_cheese", "macarons", "miso_soup", "mussels", "nachos", "omelette", 
-    "onion_rings", "oysters", "pad_thai", "paella", "pancakes", "panna_cotta", "peking_duck", "pho", "pizza", 
-    "pork_chop", "poutine", "prime_rib", "pulled_pork_sandwich", "ramen", "ravioli", "red_velvet_cake", 
-    "risotto", "samosa", "sashimi", "scallops", "seaweed_salad", "shrimp_and_grits", "spaghetti_bolognese", 
-    "spaghetti_carbonara", "spring_rolls", "steak", "strawberry_shortcake", "sushi", "tacos", "takoyaki", 
-    "tiramisu", "tuna_tartare", "waffles"
+    "Apple Pie", "Baby Back Ribs", "Baklava", "Beef Carpaccio", "Beef Tartare", "Beet Salad",
+    "Beignets", "Bibimbap", "Bread Pudding", "Breakfast Burrito", "Bruschetta", "Caesar Salad",
+    "Cannoli", "Caprese Salad", "Carrot Cake", "Ceviche", "Cheese Plate", "Cheesecake",
+    "Chicken Curry", "Chicken Quesadilla", "Chicken Wings", "Chocolate Cake", "Chocolate Mousse",
+    "Churros", "Clam Chowder", "Club Sandwich", "Crab Cakes", "Creme Brulee", "Croque Madame",
+    "Cup Cakes", "Deviled Eggs", "Donuts", "Dumplings", "Edamame", "Eggs Benedict", "Escargots",
+    "Falafel", "Filet Mignon", "Fish And Chips", "Foie Gras", "French Fries", "French Onion Soup",
+    "French Toast", "Fried Calamari", "Fried Rice", "Frozen Yogurt", "Garlic Bread", "Gnocchi",
+    "Greek Salad", "Grilled Cheese Sandwich", "Grilled Salmon", "Guacamole", "Gyoza", "Hamburger",
+    "Hot And Sour Soup", "Hot Dog", "Huevos Rancheros", "Hummus", "Ice Cream", "Lasagna", "Lobster Bisque",
+    "Lobster Roll Sandwich", "Macaroni And Cheese", "Macarons", "Miso Soup", "Mussels", "Nachos", "Omelette",
+    "Onion Rings", "Oysters", "Pad Thai", "Paella", "Pancakes", "Panna Cotta", "Peking Duck", "Pho", "Pizza",
+    "Pork Chop", "Poutine", "Prime Rib", "Pulled Pork Sandwich", "Ramen", "Ravioli", "Red Velvet Cake",
+    "Risotto", "Samosa", "Sashimi", "Scallops", "Seaweed Salad", "Shrimp And Grits", "Spaghetti Bolognese",
+    "Spaghetti Carbonara", "Spring Rolls", "Steak", "Strawberry Shortcake", "Sushi", "Tacos", "Takoyaki",
+    "Tiramisu", "Tuna Tartare", "Waffles"
 ]
 
 def load_model():

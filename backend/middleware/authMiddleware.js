@@ -3,24 +3,30 @@ require('dotenv').config();
 
 // This function acts as a gatekeeper for protected routes
 module.exports = function(req, res, next) {
-    // Get token from the 'x-auth-token' header sent by Flutter
-    const token = req.header('x-auth-token');
+    let token;
+    
+    // CRITICAL FIX: Get token from the standard 'Authorization: Bearer <token>' header
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
 
     // If no token is provided, deny access
     if (!token) {
-        return res.status(401).json({ message: 'No token, authorization denied' });
+        return res.status(401).json({ success: false, message: 'Not authorized, token missing' });
     }
 
     // If a token exists, verify it
     try {
-        // Decode the token using your JWT_SECRET
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        // Attach the user's ID from the token to the request object
+        
+        // Attach the user's ID to req.user (assuming payload is { user: { id: '...' } })
         req.user = decoded.user;
-        // Proceed to the next step (the actual delete logic)
+        
+        // Proceed to the next step
         next();
     } catch (err) {
         // If the token is invalid, deny access
-        res.status(401).json({ message: 'Token is not valid' });
+        console.error("JWT Verification Error in authMiddleware:", err.message);
+        res.status(401).json({ success: false, message: 'Not authorized, token failed' });
     }
 };

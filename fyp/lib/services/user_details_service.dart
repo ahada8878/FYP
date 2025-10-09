@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_details.dart';
-import '../app_config.dart';
+import 'config_service.dart';
 
 class UserDetailsService {
   static const String baseUrl = 'http://$apiIpAddress:5000/api';

@@ -5,6 +5,9 @@ import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:fyp/screens/settings_screen.dart';
 import 'package:fyp/widgets/weight_chart.dart';
 import 'package:fyp/widgets/water_intake_chart.dart';
+import 'package:fyp/screens/rewards_screen.dart';
+import 'package:fyp/Widgets/reward_card.dart';
+import 'package:fyp/services/reward_service.dart';
 
 class MyProgressScreen extends StatefulWidget {
   const MyProgressScreen({super.key});
@@ -20,6 +23,24 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
   double bmi = 24.8;
   String bmiCategory = "Healthy";
   bool _showWeeklyWaterData = true;
+
+  late Future<List<Reward>> _rewardsFuture;
+  final RewardService _rewardService = RewardService();
+
+  @override
+  void initState() {
+    super.initState();
+    // 3. Initialize the future in initState
+    _rewardsFuture = _rewardService.getRewards();
+  }
+
+
+  // Helper function to refresh data when needed
+  void _refreshData() {
+    setState(() {
+      _rewardsFuture = _rewardService.getRewards();
+    });
+  }
 
   final List<Map<String, dynamic>> achievements = [
     {
@@ -76,6 +97,8 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
           children: [
             _buildSectionTitle('Achievements'),
             _buildAchievementsSection(),
+            const SizedBox(height: 24),
+            _buildRewards(),
             const SizedBox(height: 24),
             _buildSectionTitle('Weight Log'),
             _buildWeightLogSection(),
@@ -198,6 +221,68 @@ class _MyProgressScreenState extends State<MyProgressScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // 5. Refactor the _buildRewards method to use the FutureBuilder
+  Widget _buildRewards() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Rewards', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RewardsScreen()),
+                    ).then((_) => _refreshData()); // Refresh data when returning from rewards screen
+                  },
+                  child: const Text('See All'),
+                )
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 180,
+              child: FutureBuilder<List<Reward>>(
+                future: _rewardsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Center(child: Text('Could not load rewards.'));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No rewards yet!'));
+                  }
+
+                  final rewards = snapshot.data!;
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: rewards.length > 3 ? 3 : rewards.length, // Show up to 3
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        width: 150,
+                        child: RewardCard(reward: rewards[index]),
+                      );
+                    },
+                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

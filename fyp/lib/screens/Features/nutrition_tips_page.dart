@@ -1,43 +1,30 @@
 import 'package:flutter/material.dart';
 
-class NutritionTipsPage extends StatelessWidget {
+
+class NutritionTipsPage extends StatefulWidget {
   const NutritionTipsPage({super.key});
+
+  @override
+  State<NutritionTipsPage> createState() => _NutritionTipsPageState();
+}
+
+class _NutritionTipsPageState extends State<NutritionTipsPage> {
+
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nutrition Tips'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text("Health Data")),
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.lightbulb_outline,
-              size: 80,
-              color: Colors.purple[400],
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Nutrition Tips',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Get expert advice here',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
+
         ),
       ),
     );

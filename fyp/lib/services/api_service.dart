@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import '../app_config.dart'; // Import the config file for IP and port
+import 'config_service.dart';
  
 class ApiService {
   static const String _baseUrl = 'http://$apiIpAddress:5000/api/predict';

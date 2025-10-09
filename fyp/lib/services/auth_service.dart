@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../app_config.dart'; // Make sure you have this file with your apiIpAddress
+import 'config_service.dart';
 
 class AuthService {
   // The base URL for your authentication endpoints.
@@ -21,10 +21,8 @@ class AuthService {
 
     if (kDebugMode) {
       print('--- ATTEMPTING TO LOG IN ---');
-      print('Target URL: $loginUrl');
-      print('---------------------------');
     }
-
+ 
     try {
       final response = await http.post(
         loginUrl,
@@ -42,6 +40,7 @@ class AuthService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        // The server sends the user ID in the 'user' field in login
         await _saveAuthData(
           responseData['token'],
           responseData['email'],
@@ -63,11 +62,9 @@ class AuthService {
   /// Registers a new user on the server.
   Future<dynamic> register(String email, String password, BuildContext context) async {
     final registerUrl = Uri.parse('$baseUrl/register');
-
+    
     if (kDebugMode) {
       print('--- ATTEMPTING TO REGISTER ---');
-      print('Target URL: $registerUrl');
-      print('-----------------------------');
     }
     
     try {
@@ -76,14 +73,6 @@ class AuthService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
-
-       if (kDebugMode) {
-        print('--- REGISTER RESPONSE ---');
-        print('Status Code: ${response.statusCode}');
-        print('Response Body: ${response.body}');
-        print('-------------------------');
-      }
-
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
