@@ -3,6 +3,8 @@ import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/models/activity_model.dart';
 import 'package:provider/provider.dart';
+import '../services/activity_service.dart';
+import '../services/reward_service.dart';
 
 class ActivityDetailsSheet extends StatefulWidget {
   final Activity activity;
@@ -122,12 +124,25 @@ class _ActivityDetailsSheetState extends State<ActivityDetailsSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final duration = int.tryParse(_durationController.text);
                 if (duration != null) {
+                  // 1. Log the activity to the backend
+                  final activityService = ActivityService();
+                  final calories = widget.activity.caloriesPerMin * duration;
+                  await activityService.logActivity(
+                    activityType: widget.activity.name,
+                    duration: duration,
+                    caloriesBurned: calories.toDouble(),
+                  );
+
+                  // 2. Check for new rewards
+                  final rewardService = RewardService();
+                  await rewardService.checkAndUnlockRewards();
+
+                  // Update the local tracker and close the sheet
                   final tracker = Provider.of<CalorieTrackerController>(context,
                       listen: false);
-                  final calories = widget.activity.caloriesPerMin * duration;
                   tracker.addBurnedCalories(calories);
                   tracker.updateLatestActivity(
                     widget.activity.name,
