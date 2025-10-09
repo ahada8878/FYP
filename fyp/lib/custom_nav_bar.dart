@@ -3,6 +3,7 @@ import 'package:fyp/HomePage.dart';
 import 'package:fyp/screens/meal_plan_screen.dart';
 import 'package:fyp/screens/progress_screen.dart';
 import 'package:fyp/screens/features.dart';
+import 'package:fyp/screens/userMealPlanScreen.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 
 class CustomNavBar extends StatelessWidget {
@@ -59,7 +60,7 @@ class CustomNavBar extends StatelessWidget {
     const MealTrackingPage(),
     const Features(),
     const MealTrackingPage(),
-    const MealPlanScreen(),
+    const UserMealPlanScreen(),
     const MyProgressScreen(),
   ];
 

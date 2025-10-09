@@ -12,6 +12,8 @@ const userDetailsRoutes = require('./routes/userDetailsRoutes');
 // const axios = require('axios'); // REMOVED: No longer needed for recipe finding 
 const fs = require('fs');
 require('dotenv').config();
+const mealPlanRoutes = require("./routes/mealPlanRoutes.js");
+
 
 const app = express();
 
@@ -43,6 +45,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
 app.use('/api/user-details', userDetailsRoutes);
+app.use("/api/mealplan", mealPlanRoutes);
 
 // --- ORIGINAL IMAGE PREDICTION ENDPOINT (REMAINS UNCHANGED) ---
 app.post('/api/predict', upload.single('image'), (req, res) => {
