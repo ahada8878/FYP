@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-import 'package:fyp/HomePage.dart';
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/main_navigation.dart';
 import 'package:fyp/models/user_details.dart';
+import 'package:fyp/services/config_service.dart';
 
 class FoodieAnalysisPage extends StatefulWidget {
   const FoodieAnalysisPage({super.key});
@@ -21,17 +23,9 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
   late Animation<Color?> _colorAnim;
 
   bool _isComplete = false;
-  final List<String> _foodEmojis = [
-    '🍎',
-    '🥑',
-    '🍗',
-    '🥦',
-    '🍓',
-    '🥚',
-    '🍕',
-    '🍣'
-  ];
+  final List<String> _foodEmojis = ['🍎', '🥑', '🍗', '🥦', '🍓', '🥚', '🍕', '🍣'];
   final List<Offset> _emojiPositions = [];
+  
   final profile = UserDetails(
     user: LocalDB.getUser(),
     authToken: LocalDB.getAuthToken(),
@@ -60,63 +54,85 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
   @override
   void initState() {
     super.initState();
+    // DEBUG: 1. Confirm the page is being initialized.
+    print("--- DEBUG: FoodieAnalysisPage initState() CALLED. ---");
 
-    // Start the animation
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 5),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 5));
+    _progressAnim = Tween(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _bounceAnim = Tween(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    _colorAnim = ColorTween(begin: Colors.orange[200], end: Colors.purple[200]).animate(_controller);
 
-    _progressAnim = Tween(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-
-    _bounceAnim = Tween(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
-
-    _colorAnim = ColorTween(
-      begin: Colors.orange[200],
-      end: Colors.purple[200],
-    ).animate(_controller);
-
-    // Initialize random emoji positions
     for (int i = 0; i < _foodEmojis.length; i++) {
-      _emojiPositions.add(Offset(
-        math.Random().nextDouble() * 300,
-        math.Random().nextDouble() * 300,
-      ));
+      _emojiPositions.add(Offset(math.Random().nextDouble() * 300, math.Random().nextDouble() * 300));
     }
 
-    // Start the animation and then call the APIs
     _controller.forward().then((_) {
-      // After animation, call APIs and then set state to complete
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('api call! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      // DEBUG: 2. Confirm the animation has finished and _callAPIs is about to run.
+      print("--- DEBUG: Animation complete. Triggering _callAPIs(). ---");
       
       _callAPIs().then((_) {
-        setState(() => _isComplete = true);
-             ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('api call! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // DEBUG: 7. This will print only if the API call finishes (success or failure).
+        print("--- DEBUG: _callAPIs() has finished. Setting state to complete. ---");
+        if (mounted) { // Check if the widget is still in the tree
+          setState(() => _isComplete = true);
+        }
       });
     });
   }
 
-  Future<void> _callAPIs() async {
-  try {
-    print("All API calls completed successfully");
-  } catch (e) {
-    print("Error in API calls: $e");
+  // FINAL CORRECTED VERSION: Handles Maps and converts Sets to Lists.
+  Map<String, dynamic> profileToJson(UserDetails profile) {
+    return {
+      'height': profile.height,
+      'currentWeight': profile.currentWeight,
+      'targetWeight': profile.targetWeight,
+      'activityLevels': profile.activityLevels,
+      'healthConcerns': profile.healthConcerns ?? {},
+      'restrictions': profile.restrictions ?? {},
+      'eatingStyles': profile.eatingStyles ?? {},
+      // THE FIX IS HERE: Convert the Set to a List for JSON encoding.
+      'selectedSubGoals': profile.selectedSubGoals?.toList() ?? [],
+      'selectedHabits': profile.selectedHabits?.toList() ?? [],
+    };
   }
-}
+
+  Future<void> _callAPIs() async {
+    // DEBUG: 3. Confirm this function has started.
+    print("--- DEBUG: Inside _callAPIs(). Attempting to save profile. ---");
+    
+    try {
+      final authToken = await LocalDB.getAuthToken();
+      // DEBUG: 4. Check if the auth token was found.
+      print("--- DEBUG: Auth Token from LocalDB: $authToken ---");
+
+      if (authToken == null) {
+        print("--- DEBUG: ERROR - Auth token is null. Halting API call. ---");
+        return;
+      }
+
+      final url = Uri.parse('http://$apiIpAddress:5000/api/user-details/my-profile');
+      final headers = {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $authToken',
+      };
+      
+      final body = jsonEncode(profileToJson(profile));
+      // DEBUG: 5. Check the exact data being sent.
+      print("--- DEBUG: Preparing to send POST request. URL: $url ---");
+      print("--- DEBUG: Request Body: $body ---");
+      
+      final response = await http.post(url, headers: headers, body: body);
+
+      // DEBUG: 6. Check the response from the server.
+      print("--- DEBUG: Response Received. Status Code: ${response.statusCode} ---");
+      print("--- DEBUG: Response Body: ${response.body} ---");
+
+    } catch (e, stackTrace) {
+      // DEBUG: This will catch any crash inside the try block.
+      print("--- DEBUG: CRITICAL ERROR in _callAPIs(): $e ---");
+      print("--- DEBUG: Stack Trace: $stackTrace ---");
+    }
+  }
 
   @override
   void dispose() {
@@ -130,7 +146,6 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
-          // **Animated Gradient Kitchen Background**
           AnimatedBuilder(
             animation: _colorAnim,
             builder: (_, __) => Container(
@@ -146,8 +161,6 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
               ),
             ),
           ),
-
-          // **Floating Food Emojis**
           for (int i = 0; i < _foodEmojis.length; i++)
             Positioned(
               left: _emojiPositions[i].dx,
@@ -167,11 +180,8 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                 ),
               ),
             ),
-
-          // **Main Content**
           Column(
             children: [
-              // **Animated Chef Hat Header**
               AnimatedBuilder(
                 animation: _bounceAnim,
                 builder: (_, __) => Transform.translate(
@@ -196,10 +206,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // **Progress Title**
               Text(
                 'Cooking Up Your Perfect Plan!',
                 style: TextStyle(
@@ -214,10 +221,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                   ],
                 ),
               ),
-
               const SizedBox(height: 40),
-
-              // **Food Processor Animation**
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -251,10 +255,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                   ),
                 ],
               ),
-
               const SizedBox(height: 40),
-
-              // **Recipe Card Steps**
               SizedBox(
                 height: 200,
                 child: PageView.builder(
@@ -291,10 +292,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                   },
                 ),
               ),
-
               const Spacer(),
-
-              // **Complete Button**
               if (_isComplete)
                 AnimatedBuilder(
                   animation: _controller,
@@ -305,7 +303,6 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
                       padding: const EdgeInsets.all(20),
                       child: ElevatedButton(
                         onPressed: () {
-                          //on tap here
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
                                 builder: (_) => const MainNavigationWrapper()),
@@ -349,43 +346,22 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
 
 class _FoodProcessorPainter extends CustomPainter {
   final double progress;
-
   _FoodProcessorPainter(this.progress);
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    final paint = Paint()
-      ..color = Colors.orange
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10;
+    final paint = Paint()..color = Colors.orange..style = PaintingStyle.stroke..strokeWidth = 10;
 
-    // Draw processor blades
     for (int i = 0; i < 3; i++) {
       final angle = 2 * math.pi * i / 3 + progress * 2 * math.pi;
-      canvas.drawLine(
-        center,
-        Offset(
-          center.dx + radius * 0.7 * math.cos(angle),
-          center.dy + radius * 0.7 * math.sin(angle),
-        ),
-        paint,
-      );
+      canvas.drawLine(center, Offset(center.dx + radius * 0.7 * math.cos(angle), center.dy + radius * 0.7 * math.sin(angle)), paint);
     }
-
-    // Draw food pieces
     for (int i = 0; i < 8; i++) {
       final angle = 2 * math.pi * i / 8;
       final dist = radius * 0.3 + radius * 0.4 * progress;
-      canvas.drawCircle(
-        Offset(
-          center.dx + dist * math.cos(angle),
-          center.dy + dist * math.sin(angle),
-        ),
-        5 + 10 * progress,
-        Paint()..color = Colors.primaries[i % Colors.primaries.length],
-      );
+      canvas.drawCircle(Offset(center.dx + dist * math.cos(angle), center.dy + dist * math.sin(angle)), 5 + 10 * progress, Paint()..color = Colors.primaries[i % Colors.primaries.length]);
     }
   }
 

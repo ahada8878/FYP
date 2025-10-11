@@ -17,7 +17,7 @@ require('dotenv').config();
 
 // Mongoose Models
 const User = require('./models/User'); 
-const UserDetails = require('./models/UserDetails'); 
+const UserDetails = require('./models/userDetails'); 
 const mealPlanRoutes = require("./routes/mealPlanRoutes.js");
 
 

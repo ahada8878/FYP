@@ -87,10 +87,10 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    // const isMatch = await bcrypt.compare(password, user.password); // Ensure bcrypt is used correctly
-    // if (!isMatch) {
-    //   return res.status(400).json({ message: 'Invalid credentials' });
-    // }
+    const isMatch = await bcrypt.compare(password, user.password); // Ensure bcrypt is used correctly
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
     
     const payload = {
       user: {
@@ -118,27 +118,26 @@ router.post('/login', async (req, res) => {
 });
 
 // --- DELETE route ---
-router.delete('/delete', 
-  // Note: You must use the correct middleware here (either `protect` or `authMiddleware` if defined elsewhere)
-  // Assuming 'protect' is defined in server.js, you need an exported version.
-  // We'll assume the original imported 'authMiddleware' is used, which must also be correct.
-  (req, res, next) => { 
-    // This placeholder is only for completeness, use your actual auth middleware
-    req.user = { id: req.query.temp_user_id || '12345' }; 
-    next(); 
-  }, 
-  async (req, res) => {
+router.delete('/delete', authMiddleware, async (req, res) => {
     try {
-      const userId = req.user.id; 
-      
-      // ... (Deletion logic for Spoonacular and User remains the same) ...
+        // authMiddleware provides the correct, valid user ID
+        const userId = req.user.id; 
+        
+        const user = await User.findById(userId);
 
-      // await User.findByIdAndDelete(userId);
-      res.status(200).json({ message: 'Account deleted successfully' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        // Optional: Add logic here to delete the user from Spoonacular
+        
+        await user.deleteOne();
+        res.status(200).json({ message: 'Account deleted successfully' });
+
     } catch (err) {
-      console.error(`Error deleting account for user ${req.user?.id}: ${err.message}`);
-      res.status(500).send('Server error during account deletion.');
+        console.error(`Error deleting account for user ${req.user?.id}: ${err.message}`);
+        res.status(500).send('Server error during account deletion.');
     }
-  });
+});
 
 module.exports = router;

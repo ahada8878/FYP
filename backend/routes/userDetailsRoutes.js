@@ -1,31 +1,33 @@
 const express = require("express");
-const {
-  getUserDetail,
-  getAllUserDetails,
-  getUserDetailsById,
-  createUserDetails,
-  updateUserDetails,
-  deleteUserDetails,
-  getMyProfile, // 1. Must be added to your controller file
-} = require( "../controllers/userDetailsController.js");
-
-// 2. Import the authentication middleware
-const authMiddleware = require('../middleware/authMiddleware'); 
-
 const router = express.Router();
 
-// ======================================================================
-// ✅ FIX: Fixed path must come BEFORE the dynamic path to resolve conflict
-// ======================================================================
+const {
+  getMyProfile,
+  saveMyProfile,
+  getAllUserDetails,
+  deleteUserDetails,
+} = require("../controllers/userDetailsController.js");
 
-// 3. Define the fixed route for the authenticated user's profile
+const authMiddleware = require('../middleware/authMiddleware');
+
+// === PRIMARY USER PROFILE ROUTES ===
+
+// GET /api/user-details/my-profile
+// Securely fetches the profile for the currently logged-in user.
 router.get("/my-profile", authMiddleware, getMyProfile);
 
-// Dynamic routes (will not conflict with /my-profile now)
-router.get("/", getAllUserDetails);
-router.get("/:id", getUserDetail, getUserDetailsById);
-router.post("/", createUserDetails);
-router.patch("/:id", getUserDetail, updateUserDetails);
-router.delete("/:id", getUserDetail, deleteUserDetails);
+// POST /api/user-details/my-profile
+// Securely CREATES or UPDATES the profile for the logged-in user.
+router.post("/my-profile", authMiddleware, saveMyProfile);
+
+
+// === OPTIONAL ADMIN ROUTES ===
+
+// GET /api/user-details/
+router.get("/", authMiddleware, getAllUserDetails);
+
+// DELETE /api/user-details/:id
+router.delete("/:id", authMiddleware, deleteUserDetails);
+
 
 module.exports = router;

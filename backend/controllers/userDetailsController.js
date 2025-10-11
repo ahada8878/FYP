@@ -1,360 +1,190 @@
 const UserDetails = require("../models/userDetails.js");
 const User = require("../models/User.js");
+const MealPlan = require("../models/mealPlan.js");
 const axios = require("axios");
+
+// Utility function imports
 const { getExcludedIngredientsFromHealthConcerns } = require("../utils/diseaseMapping.js");
 const { mapEatingStylesToDiet } = require("../utils/eatingStylesMapping.js");
-const MealPlan = require("../models/mealPlan.js");
 const { calculateCalories } = require("../utils/calculateCalories.js");
 const { extractRecipeDetails } = require("../utils/extractRecipeDetails.js");
 
+// ======================================================================
+// 헬 Helper Function for Meal Plan Generation
+// ======================================================================
 
+const generateWeeklyMealPlan = async (userDetails, user) => {
+    const linkedUser = await User.findById(user._id || user.id).lean();
+    if (!linkedUser?.spoonacular) {
+        throw new Error("User not connected to Spoonacular");
+    }
+    const { username, hash } = linkedUser.spoonacular;
 
-const getAllUserDetails = async (req, res) => {
-  try {
-    const userDetails = await UserDetails.find();
-    res.status(200).json(userDetails);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    const targetCalories = calculateCalories(userDetails.height, userDetails.currentWeight, userDetails.targetWeight, userDetails.activityLevels);
+    const ingredientExclusions = getExcludedIngredientsFromHealthConcerns(userDetails.healthConcerns);
+    const diet = mapEatingStylesToDiet(userDetails.eatingStyles);
+
+    console.log(`📊 Generating meal plan for user ${user._id || user.id} with target calories: ${targetCalories}`);
+
+    const weekPlan = {};
+    const allRecipeIds = new Set();
+    const API_KEY = process.env.SPOONACULAR_API_KEY;
+
+    for (let i = 0; i < 7; i++) {
+        const dayName = `day${i + 1}`;
+        try {
+            const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
+                params: { apiKey: API_KEY, timeFrame: "day", targetCalories, diet, exclude: ingredientExclusions },
+            });
+            data.meals.forEach(meal => allRecipeIds.add(meal.id));
+            weekPlan[dayName] = { date: new Date(new Date().setDate(new Date().getDate() + i)), meals: data.meals, nutrients: data.nutrients };
+        } catch (error) {
+            console.error(`❌ Spoonacular API error for ${dayName}:`, error.response?.data || error.message);
+            throw new Error(`Failed to generate meals for ${dayName}. Please check your diet preferences.`);
+        }
+    }
+
+    if (allRecipeIds.size === 0) {
+        console.log("No recipes found from Spoonacular generation.");
+        return null; // Return null if no recipes were generated
+    }
+    
+    const idsParam = Array.from(allRecipeIds).join(",");
+    const { data: recipeDetails } = await axios.get(`https://api.spoonacular.com/recipes/informationBulk`, {
+        params: { apiKey: API_KEY, ids: idsParam, includeNutrition: true },
+    });
+
+    const filteredRecipes = recipeDetails.map(extractRecipeDetails);
+    const newMealPlan = new MealPlan({ userId: user._id || user.id, meals: weekPlan, detailedRecipes: filteredRecipes });
+    const savedPlan = await newMealPlan.save();
+    console.log(`✅ Meal plan ${savedPlan._id} saved successfully in MongoDB.`);
+
+    // Add meals to Spoonacular user's meal planner
+    const addMealPromises = recipeDetails.map(meal =>
+        axios.post(`https://api.spoonacular.com/mealplanner/${username}/items`, {
+            date: Math.floor(new Date().getTime() / 1000),
+            slot: 1,
+            position: 0,
+            type: "RECIPE",
+            value: { id: meal.id, servings: 1, title: meal.title, imageType: meal.imageType },
+        }, { params: { hash, apiKey: API_KEY } })
+    );
+
+    try {
+        await Promise.all(addMealPromises);
+        console.log("✅ Meals added to Spoonacular user account.");
+    } catch (spoonErr) {
+        console.error("⚠️ Failed to save meal plan on Spoonacular:", spoonErr.response?.data || spoonErr.message);
+    }
+    
+    return savedPlan;
 };
 
 // ======================================================================
-// ✅ FIX: New controller function for fetching the currently authenticated 
-// user's profile details. This relies on the ID provided by authMiddleware.
+// ✅ Primary Controller Functions
 // ======================================================================
-const getMyProfile = async (req, res) => {
+
+/**
+ * @desc    Create or Update the profile for the logged-in user and generate a meal plan.
+ * @route   POST /api/user-details/my-profile
+ * @access  Private
+ */
+const saveMyProfile = async (req, res) => {
+    console.log('--- Attempting to save user profile ---');
+    console.log('🔑 Authenticated User ID:', req.user?.id);
+    console.log('📦 Request Body Payload:', JSON.stringify(req.body, null, 2));
+
     try {
-        // ID comes from the JWT via authMiddleware, stored as req.user.id
-        const userId = req.user.id; 
-        
-        // Find the UserDetails document linked to the User ID.
-        // Assuming the UserDetails schema has a field named 'user' that references the User model.
-        const userDetails = await UserDetails.findOne({ user: userId }); 
-
-        if (!userDetails) {
-            // It's common for a user to exist but not have set up their details yet.
-            return res.status(404).json({ message: 'User profile details not set up.' });
+        const userId = req.user.id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication error: User ID not found.' });
         }
+        
+        // 1. Create or update the user's details using findOneAndUpdate with upsert
+        const userDetails = await UserDetails.findOneAndUpdate(
+            { user: userId },
+            { ...req.body, user: userId },
+            { new: true, upsert: true, runValidators: true }
+        );
+        console.log(`✅ User details successfully saved for user: ${userId}`);
 
-        // Return only the fields required by the Flutter app's CravingsPage
-        // (which are typically healthConcerns and restrictions for validation logic)
-        res.json({
-            healthConcerns: userDetails.healthConcerns, 
-            restrictions: userDetails.restrictions,
+        // 2. Generate a fresh weekly meal plan based on the new details
+        console.log('⚙️ Generating new meal plan...');
+        const mealPlan = await generateWeeklyMealPlan(userDetails, req.user);
+
+        // 3. Respond with success
+        res.status(201).json({
+            message: "Profile saved and weekly meal plan generated successfully!",
+            details: userDetails,
+            mealPlan,
         });
 
-    } catch (err) {
-        console.error("❌ getMyProfile failed:", err.message);
+    } catch (error) {
+        console.error("❌ Critical error in saveMyProfile:", error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation failed. Please check your input.', errors: error.message });
+        }
+        res.status(500).json({ message: error.message || "An internal server error occurred." });
+    }
+};
+
+/**
+ * @desc    Get the profile for the currently logged-in user
+ * @route   GET /api/user-details/my-profile
+ * @access  Private
+ */
+const getMyProfile = async (req, res) => {
+    try {
+        const userDetails = await UserDetails.findOne({ user: req.user.id });
+        if (!userDetails) {
+            return res.status(404).json({ message: 'User profile not yet created.' });
+        }
+        res.status(200).json(userDetails);
+    } catch (error) {
+        console.error("❌ getMyProfile failed:", error.message);
         res.status(500).send('Server Error');
     }
 };
 
+// ======================================================================
+// ⚙️ Admin & Utility Controller Functions
+// ======================================================================
 
-const getUserDetailsById = async (req, res) => {
-  res.json(res.userDetails);
+/**
+ * @desc    Get all user profiles (Admin Only)
+ * @route   GET /api/user-details
+ * @access  Private/Admin
+ */
+const getAllUserDetails = async (req, res) => {
+    try {
+        const allDetails = await UserDetails.find().populate('user', 'name email');
+        res.status(200).json(allDetails);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
 
-const createUserDetails = async (req, res) => {
-  const {
-    user,
-    authToken,
-    userName,
-    selectedMonth,
-    selectedDay,
-    selectedYear,
-    height,
-    currentWeight,
-    targetWeight,
-    selectedSubGoals,
-    selectedHabits,
-    activityLevels,
-    scheduleIcons,
-    healthConcerns,
-    levels,
-    options,
-    mealOptions,
-    waterOptions,
-    restrictions,
-    eatingStyles,
-    startTimes,
-    endTimes,
-  } = req.body;
-
-  try {
-    console.log("🟡 Incoming req.body received for user:", userName);
-
-    // 1️⃣ Save user details
-    const userDetails = new UserDetails({
-      user,
-      authToken,
-      userName,
-      selectedMonth,
-      selectedDay,
-      selectedYear,
-      height,
-      currentWeight,
-      targetWeight,
-      selectedSubGoals,
-      selectedHabits,
-      activityLevels,
-      scheduleIcons,
-      healthConcerns,
-      levels,
-      options,
-      mealOptions,
-      waterOptions,
-      restrictions,
-      eatingStyles,
-      startTimes,
-      endTimes,
-    });
-    const newUserDetails = await userDetails.save();
-
-    // 2️⃣ Fetch linked user
-    const linkedUser = await User.findById(user).lean();
-    if (!linkedUser || !linkedUser.spoonacular) {
-      return res.status(400).json({ message: "User not connected to Spoonacular" });
-    }
-    const { username, hash } = linkedUser.spoonacular;
-
-    // 3️⃣ Calculate calories (with activity level)
-    const targetCalories = calculateCalories(height, currentWeight, targetWeight, activityLevels);
-    console.log(`📊 Target calories: ${targetCalories}`);
-
-    // 4️⃣ Get excluded ingredients
-    const ingredientExclusions = getExcludedIngredientsFromHealthConcerns(healthConcerns);
-    if (ingredientExclusions) console.log(`🚫 Excluding: ${ingredientExclusions}`);
-
-    // 5️⃣ Determine diet
-    const diet = mapEatingStylesToDiet(eatingStyles);
-    if (diet) console.log(`🥗 Diet: ${diet}`);
-
-    // 6️⃣ Generate weekly meal plan
-    const weekPlan = {};
-    const allRecipeIds = new Set();
-    const minCalories = Math.max(1200, targetCalories - 300);
-    const maxCalories = targetCalories + 100;
-    console.log(`🔥 Generating meal plan (calories: ${minCalories}-${maxCalories})`);
-
-    for (let i = 0; i < 7; i++) {
-      const dayName = `day${i + 1}`;
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      const dailyMeals = [];
-      let finalNutrients = {};
-      let attempts = 0;
-      const MAX_ATTEMPTS = 10;
-      const MEALS_PER_DAY = 3;
-
-      while (dailyMeals.length < MEALS_PER_DAY && attempts < MAX_ATTEMPTS) {
-        attempts++;
-        const randomCalories = Math.floor(Math.random() * (maxCalories - minCalories + 1)) + minCalories;
-
-        try {
-          const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
-            params: {
-              apiKey: process.env.SPOONACULAR_API_KEY,
-              timeFrame: "day",
-              targetCalories: randomCalories,
-              diet,
-              exclude: ingredientExclusions,
-              seed: Date.now() + i + attempts,
-            },
-          });
-
-          const meals = data.meals || [];
-          finalNutrients = data.nutrients;
-
-          for (const meal of meals) {
-            if (!allRecipeIds.has(meal.id)) {
-              allRecipeIds.add(meal.id);
-              dailyMeals.push(meal);
-              if (dailyMeals.length >= MEALS_PER_DAY) break;
-            }
-          }
-        } catch (err) {
-          console.error(`❌ API error for ${dayName}:`, err.response?.data || err.message);
-        }
-      }
-
-      if (dailyMeals.length < MEALS_PER_DAY) {
-        return res.status(500).json({
-          message: `Failed to find enough unique recipes for ${dayName}. Try adjusting your restrictions.`,
-        });
-      }
-
-      weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
-    }
-
-    // ✅ Fetch full recipe info
-    if (allRecipeIds.size === 0) {
-      return res.status(200).json({
-        message: "User details saved, but no recipes generated.",
-        details: newUserDetails,
-      });
-    }
-
-    console.log(`🔍 Fetching details for ${allRecipeIds.size} recipes...`);
-    const idsParam = Array.from(allRecipeIds).join(",");
-    const recipeDetailsResponse = await axios.get(
-      `https://api.spoonacular.com/recipes/informationBulk`,
-      {
-        params: {
-          apiKey: process.env.SPOONACULAR_API_KEY,
-          ids: idsParam,
-          includeNutrition: true,
-        },
-      }
-    );
-
-    const allRecipes = recipeDetailsResponse.data;
-    const filteredRecipes = allRecipes.map(extractRecipeDetails);
-    console.log("✅ Filtered recipe data ready:", filteredRecipes.length);
-
-    // 7️⃣ Save meal plan in MongoDB
-    console.log("🟢 Saving MealPlan for user:", user);
-    console.log("🟢 Week plan keys:", Object.keys(weekPlan));
-
-    const newMealPlan = new MealPlan({
-      userId: user,
-      meals: weekPlan,
-      detailedRecipes: filteredRecipes,
-      nutrients: {},
-    });
-
-    const savedPlan = await newMealPlan.save();
-    console.log("✅ Meal plan saved:", savedPlan._id);
-
-
-    // 8️⃣ Store meal plan on Spoonacular
-    // 8️⃣ Store each meal on Spoonacular
-try {
-  const addMealPromises = [];
-
-  // Loop through each day in the week
-  for (const [day, data] of Object.entries(mealPlan.week)) {
-    if (data.meals && Array.isArray(data.meals)) {
-      for (const meal of data.meals) {
-        addMealPromises.push(
-          axios.post(
-            `https://api.spoonacular.com/mealplanner/${username}/items`,
-            {
-              date: Math.floor(Date.now() / 1000), // you could offset by day if needed
-              slot: 1,
-              position: 0,
-              type: "RECIPE", // ✅ correct enum
-              value: {
-                id: meal.id,
-                title: meal.title,
-                imageType: meal.imageType,
-              },
-            },
-            {
-              params: {
-                apiKey: process.env.SPOONACULAR_API_KEY,
-                hash,
-              },
-            }
-          )
-        );
-      }
-    }
-  }
-
-  await Promise.all(addMealPromises);
-  console.log("✅ All meals saved individually on Spoonacular");
-} catch (spoonErr) {
-  console.error("⚠️ Failed to save meal plan on Spoonacular:", spoonErr.response?.data || spoonErr.message);
-}
-
-    // 8️⃣ Respond
-    res.status(201).json({
-      message: "User details saved & weekly meal plan generated",
-      details: newUserDetails,
-      mealPlan: savedPlan,
-    });
-
-  } catch (error) {
-    console.error("❌ Critical error in createUserDetails:", error);
-    if (!res.headersSent) {
-      res.status(500).json({ message: error.message || "Internal server error" });
-    }
-  }
-};
-
-
-
-const updateUserDetails = async (req, res) => {
-  const updatableFields = [
-    "authToken",
-    "userName",
-    "selectedMonth",
-    "selectedDay",
-    "selectedYear",
-    "height",
-    "currentWeight",
-    "targetWeight",
-    "selectedSubGoals",
-    "selectedHabits",
-    "activityLevels",
-    "scheduleIcons",
-    "healthConcerns",
-    "levels",
-    "options",
-    "mealOptions",
-    "waterOptions",
-    "restrictions",
-    "eatingStyles",
-    "startTimes",
-    "endTimes",
-  ];
-
-  updatableFields.forEach((field) => {
-    if (req.body[field] != null) {
-      res.userDetails[field] = req.body[field];
-    }
-  });
-
-  try {
-    const updatedUserDetails = await res.userDetails.save();
-    res.json(updatedUserDetails);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
+/**
+ * @desc    Delete a user profile by its ID (Admin Only)
+ * @route   DELETE /api/user-details/:id
+ * @access  Private/Admin
+ */
 const deleteUserDetails = async (req, res) => {
-  try {
-    await res.userDetails.deleteOne();
-    res.json({ message: "User details deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Middleware
-const getUserDetail = async (req, res, next) => {
-  let userDetails;
-  try {
-    // This middleware is used for routes like /:id, /:id/update, /:id/delete
-    userDetails = await UserDetails.findById(req.params.id);
-    if (userDetails == null) {
-      return res.status(404).json({ message: "Cannot find user details" });
-    }
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-
-  res.userDetails = userDetails;
-  next();
+    try {
+        const userDetails = await UserDetails.findById(req.params.id);
+        if (!userDetails) {
+            return res.status(404).json({ message: "Cannot find user details to delete." });
+        }
+        await userDetails.deleteOne();
+        res.json({ message: "User details deleted successfully." });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
 
 module.exports = {
-  getUserDetail,
-  getAllUserDetails,
-  getUserDetailsById,
-  createUserDetails,
-  updateUserDetails,
-  deleteUserDetails,
-  getMyProfile, // ✅ FIX: Export the new function
+    saveMyProfile,
+    getMyProfile,
+    getAllUserDetails,
+    deleteUserDetails,
 };

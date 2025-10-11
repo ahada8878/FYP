@@ -1,32 +1,43 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// This function acts as a gatekeeper for protected routes
 module.exports = function(req, res, next) {
+    console.log('--- Auth Middleware triggered ---');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+
     let token;
     
-    // CRITICAL FIX: Get token from the standard 'Authorization: Bearer <token>' header
+    // ✅ CHANGED: Logic to check for both 'Authorization' and 'x-auth-token' headers.
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        // This is the standard way.
         token = req.headers.authorization.split(' ')[1];
+        console.log('✅ Token found in "Authorization" header.');
+    } else if (req.headers['x-auth-token']) {
+        // This is the fallback for your current Flutter setup.
+        token = req.headers['x-auth-token'];
+        console.log('✅ Token found in "x-auth-token" header.');
     }
 
-    // If no token is provided, deny access
     if (!token) {
+        console.error('❌ FAILURE: Token missing from headers. Sending 401.');
         return res.status(401).json({ success: false, message: 'Not authorized, token missing' });
     }
 
-    // If a token exists, verify it
     try {
+        console.log('⚙️ Verifying token...');
+        if (!process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET is not defined in .env file.');
+        }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('✅ SUCCESS: Token verified. Decoded Payload:', JSON.stringify(decoded, null, 2));
         
-        // Attach the user's ID to req.user (assuming payload is { user: { id: '...' } })
         req.user = decoded.user;
         
-        // Proceed to the next step
+        console.log('🚀 Proceeding to controller...');
         next();
+
     } catch (err) {
-        // If the token is invalid, deny access
-        console.error("JWT Verification Error in authMiddleware:", err.message);
+        console.error('❌ FAILURE: JWT Verification Error in authMiddleware:', err.message);
         res.status(401).json({ success: false, message: 'Not authorized, token failed' });
     }
 };
