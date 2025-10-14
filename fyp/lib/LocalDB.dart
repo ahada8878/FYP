@@ -54,7 +54,7 @@ static String getUserName() {
 
   static Future<void> setCurrentWeight(String weight) async =>
       await _prefs?.setString('currentWeight', weight);
-  static String getCurrentWeight() => _prefs?.getString('currentWeight') ?? '';
+  static String getCurrentWeight() => _prefs?.getString('currentWeight') ?? '0';
 
   static Future<void> setTargetWeight(String weight) async =>
       await _prefs?.setString('targetWeight', weight);

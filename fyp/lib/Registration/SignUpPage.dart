@@ -53,12 +53,7 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
           MaterialPageRoute(builder: (context) => const NamePage()),
         );
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Signup successful! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:fyp/services/auth_service.dart';
 import 'package:fyp/main.dart'; // Needed to restart the app
+import 'package:fyp/services/auth_service.dart';
+import 'dart:ui'; // Needed for BackdropFilter
+
+// --- Main Settings Screen Widget ---
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,41 +18,175 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Define text styles for consistency
+    final titleStyle = TextStyle(
+      color: Colors.grey[800],
+      fontWeight: FontWeight.w600,
+      fontSize: 16,
+    );
+    final valueStyle = TextStyle(
+      color: Colors.grey[600],
+      fontSize: 15,
+    );
+
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Settings',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
+      body: Stack(
+        children: [
+          // The same animated background from the homepage for a consistent theme
+          const _LivingAnimatedBackground(),
+
+          // Use a CustomScrollView for better control over scrolling elements
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                title: const Text('Settings'),
+                titleTextStyle: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                backgroundColor: Colors.transparent, // Make app bar see-through
+                elevation: 0,
+                pinned: true,
+                centerTitle: true,
+              ),
+
+              // Add padding to the main content list
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // --- System Section ---
+                    _buildSectionHeader('System'),
+                    _SettingsCard(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text('Current Weight', style: titleStyle),
+                            trailing: Text('82.0 kg', style: valueStyle),
+                          ),
+                          const _StyledDivider(),
+                          ListTile(
+                            title: Text('Target Weight', style: titleStyle),
+                            trailing: Text('76.0 kg', style: valueStyle),
+                          ),
+                          const _StyledDivider(),
+                          ListTile(
+                            title: Text('Height', style: titleStyle),
+                            trailing: Text('6.0 ft', style: valueStyle),
+                          ),
+                           const _StyledDivider(),
+                           ListTile(
+                            title: Text('Gender', style: titleStyle),
+                            trailing: Text('Male', style: valueStyle),
+                          ),
+                          const _StyledDivider(),
+                           ListTile(
+                            title: Text('Water Goal', style: titleStyle),
+                            trailing: Text('2.00 L', style: valueStyle),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // --- Notifications Section ---
+                    _buildSectionHeader('Notifications'),
+                    _SettingsCard(
+                      child: SwitchListTile(
+                        title: Text('Enable Notifications', style: titleStyle),
+                        value: _notificationsEnabled,
+                        onChanged: (value) {
+                          setState(() => _notificationsEnabled = value);
+                        },
+                        activeColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+
+                    // --- Support Section ---
+                     _buildSectionHeader('Support'),
+                    _SettingsCard(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text('Rate us', style: titleStyle),
+                            trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                            onTap: () {},
+                          ),
+                          const _StyledDivider(),
+                          ListTile(
+                            title: Text('Email Support', style: titleStyle),
+                            trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                            onTap: () {},
+                          ),
+                           const _StyledDivider(),
+                          ListTile(
+                            title: Text('Privacy Policy', style: titleStyle),
+                            trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                            onTap: () {},
+                          ),
+                        ],
+                      )
+                    ),
+
+
+                    // --- Account Section ---
+                    _buildSectionHeader('Account'),
+                    _SettingsCard(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text('Log Out', style: titleStyle),
+                            trailing: Icon(Icons.logout, color: Colors.grey[400]),
+                            onTap: () => _showLogoutConfirmationDialog(context),
+                          ),
+                          const _StyledDivider(),
+                          ListTile(
+                            title: Text(
+                              'Delete Account',
+                              style: titleStyle.copyWith(color: Colors.red.shade700),
+                            ),
+                            trailing: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                            onTap: () => _showDeleteConfirmationDialog(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildSystemSection(),
-            const SizedBox(height: 16),
-            _buildShareSection(),
-            const SizedBox(height: 16),
-            _buildNotificationsSection(),
-            const SizedBox(height: 16),
-            _buildServicesSection(),
-            const SizedBox(height: 24),
-            _buildSupportSection(),
-            const SizedBox(height: 24),
-            _buildAccountSection(),
-          ],
+    );
+  }
+
+  // --- UI BUILDER WIDGETS ---
+
+  /// Builds the header for each section, matching the homepage style.
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 12),
+      child: Center(
+        child: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.grey[800],
+          ),
         ),
       ),
     );
   }
 
-  // --- DIALOGS AND HANDLERS ---
+  // --- DIALOGS AND HANDLERS (Functionality is unchanged) ---
 
-  /// Shows a confirmation dialog before logging out.
   void _showLogoutConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -58,6 +194,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return AlertDialog(
           title: const Text('Log Out'),
           content: const Text('Are you sure you want to log out?'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           actions: [
             TextButton(
               child: const Text('Cancel'),
@@ -68,9 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 await _authService.logout();
-                if (mounted) {
-                  MyApp.restartApp(context);
-                }
+                if (mounted) MyApp.restartApp(context);
               },
             ),
           ],
@@ -79,15 +214,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// Shows a final confirmation dialog before deleting the user's account.
   void _showDeleteConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Delete Account'),
-          content: const Text(
-              'Are you sure? This action is permanent and cannot be undone.'),
+          content: const Text('Are you sure? This action is permanent and cannot be undone.'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -96,8 +230,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(
               child: const Text('Delete', style: TextStyle(color: Colors.red)),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Close the dialog first
-                _handleAccountDeletion(); // Call the deletion handler
+                Navigator.of(dialogContext).pop();
+                _handleAccountDeletion();
               },
             ),
           ],
@@ -106,211 +240,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// Handles the call to the auth service and provides UI feedback.
   Future<void> _handleAccountDeletion() async {
     try {
-      // Call the service to delete the account
       await _authService.deleteAccount();
-
-      // If successful, the user is already logged out. Restart the app.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account deleted successfully.'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Account deleted successfully.'), backgroundColor: Colors.green),
         );
         MyApp.restartApp(context);
       }
     } catch (e) {
-      // Show an error message if something goes wrong
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(e.toString().replaceFirst("Exception: ", "")), backgroundColor: Colors.red),
         );
       }
     }
   }
+}
 
-  // --- UI BUILDER WIDGETS ---
+// --- HELPER WIDGETS FOR THE NEW DESIGN ---
 
-  Widget _buildSectionCard(List<Widget> children) {
-    return Card(
-      color: Colors.white,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: children,
-        ),
-      ),
-    );
-  }
+/// A card that mimics the semi-transparent white style from the homepage.
+class _SettingsCard extends StatelessWidget {
+  final Widget child;
+  const _SettingsCard({required this.child});
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, bottom: 8, top: 16),
-      child: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          color: Colors.grey[600],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAccountSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Account'),
-        _buildSectionCard([
-          ListTile(
-            title: Text('Log Out', style: GoogleFonts.poppins(fontSize: 16)),
-            trailing: const Icon(Icons.logout, color: Colors.grey),
-            onTap: () => _showLogoutConfirmationDialog(context),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: Text(
-              'Delete Account',
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.red),
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white.withOpacity(0.85), Colors.white.withOpacity(0.7)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            trailing: const Icon(Icons.delete_outline, color: Colors.red),
-            onTap: () => _showDeleteConfirmationDialog(context),
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: Colors.white.withOpacity(0.3)),
           ),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildSystemSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('System'),
-        _buildSectionCard([
-          _buildListTile('Current Weight', '82.0 kg'),
-          const Divider(height: 1),
-          _buildListTile('Target Weight', '76.0 kg'),
-          const Divider(height: 1),
-          _buildListTile('Height', '6.0 ft'),
-          const Divider(height: 1),
-          _buildListTile('Gender', 'Male'),
-          const Divider(height: 1),
-          _buildListTile('Water Goal', '2.00 L'),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildListTile(String title, String value) {
-    return ListTile(
-      title: Text(title, style: GoogleFonts.poppins(fontSize: 16)),
-      trailing: Text(
-        value,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF4CAF50),
-          fontWeight: FontWeight.w500,
+          child: child,
         ),
       ),
     );
   }
+}
 
-  Widget _buildShareSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Share'),
-        _buildSectionCard([
-          ListTile(
-            title: Text(
-              'Share Nutriwise',
-              style: GoogleFonts.poppins(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.share, color: Colors.grey),
-            onTap: () {},
-          ),
-        ]),
-      ],
+/// A consistently styled divider for use inside the settings cards.
+class _StyledDivider extends StatelessWidget {
+  const _StyledDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: Colors.black.withOpacity(0.05),
+      indent: 16,
+      endIndent: 16,
     );
   }
+}
 
-  Widget _buildNotificationsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Notifications'),
-        _buildSectionCard([
-          SwitchListTile(
-            title: Text(
-              'Enable Notifications',
-              style: GoogleFonts.poppins(fontSize: 16),
-            ),
-            value: _notificationsEnabled,
-            onChanged: (value) {
-              setState(() {
-                _notificationsEnabled = value;
-              });
-            },
-            activeColor: Colors.deepPurple,
-          ),
-        ]),
-      ],
-    );
+
+/// The animated gradient background from the home page.
+class _LivingAnimatedBackground extends StatefulWidget {
+  const _LivingAnimatedBackground();
+  @override
+  State<_LivingAnimatedBackground> createState() => _LivingAnimatedBackgroundState();
+}
+
+class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground> with TickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 40))..repeat(reverse: true);
   }
 
-  Widget _buildServicesSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildSectionTitle('Services'),
-      _buildSectionCard([
-        ListTile(
-          title: Text(
-            'Health Connect',
-            style: GoogleFonts.poppins(fontSize: 16),
-          ),
-          trailing: const Icon(Icons.link, color: Colors.grey),
-          onTap: () {},
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      Color.lerp(const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
+      Color.lerp(const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
+    ];
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
         ),
-      ])
-    ]);
-  }
-
-  Widget _buildSupportSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Support'),
-        _buildSectionCard([
-          _buildSupportItem('Like us'),
-          const Divider(height: 1),
-          _buildSupportItem('Rate us'),
-          const Divider(height: 1),
-          _buildSupportItem('Email Support'),
-          const Divider(height: 1),
-          _buildSupportItem('Privacy Policy'),
-          const Divider(height: 1),
-          _buildSupportItem('Terms of Service'),
-          const Divider(height: 1),
-          _buildSupportItem('Community Guidelines'),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildSupportItem(String title) {
-    return ListTile(
-      title: Text(title, style: GoogleFonts.poppins(fontSize: 16)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-      onTap: () {},
+      ),
     );
   }
 }

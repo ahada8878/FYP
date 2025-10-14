@@ -44,6 +44,9 @@ dependencies:
   path: ^1.8.2
   lottie: ^3.0.0
   flutter_html: ^3.0.0-beta.2
+  sensors_plus: ^5.0.1
+  flip_card: ^0.7.0 # Add this line
+
   
 
   # The following adds the Cupertino Icons font to your application.
@@ -55,6 +58,8 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.2.2  # Use the latest stable version
   flutter_secure_storage: ^9.2.4
+  cached_network_image: ^3.3.1 
+
 
 
 

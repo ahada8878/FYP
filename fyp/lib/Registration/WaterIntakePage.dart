@@ -1,6 +1,4 @@
 import 'package:fyp/LocalDB.dart';
-
-
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'DietryRestrictionPage.dart';
@@ -135,7 +133,6 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                 AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                 
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -293,9 +290,10 @@ class _WaterIntakePageState extends State<WaterIntakePage>
                           child: InkWell(
                             borderRadius: BorderRadius.circular(30),
                             onTap: _selectedOption != null
-                                ? ()async {
-                                   await LocalDB.setWaterOptions(waterOptions[_selectedOption!]['title']);
-                                  // waterOptions[selectedOption] map
+                                ? () async {
+                                    await LocalDB.setWaterOptions(waterOptions[
+                                        _selectedOption!]['title']);
+                                    // waterOptions[selectedOption] map
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -348,40 +346,46 @@ class _WaterGlassPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
+    // 1. Define the shape of the glass.
     final glassPath = Path()
-      ..moveTo(size.width * 0.2, 0)
-      ..lineTo(size.width * 0.8, 0)
-      ..lineTo(size.width * 0.9, size.height)
-      ..lineTo(size.width * 0.1, size.height)
+      // Top of the glass (wider)
+      ..moveTo(size.width * 0.1, 0)
+      ..lineTo(size.width * 0.9, 0)
+      // Bottom of the glass (narrower)
+      ..lineTo(size.width * 0.7, size.height)
+      ..lineTo(size.width * 0.3, size.height)
       ..close();
 
-    // Draw glass outline
-    canvas.drawPath(glassPath, paint);
-
-    // Draw water with wave effect
+    // 2. Define the water's fill area (a simple rectangle with a wavy top).
+    // This no longer needs complex calculations because the clip will shape it.
     final waterPaint = Paint()..color = color.withOpacity(0.6);
     final waterPath = Path();
+    final waveHeight = isSelected ? 4.0 : 2.0;
+    final baseWaterY = size.height * (1 - waterLevel);
 
-    final waveHeight = isSelected ? 5.0 : 2.0;
-    final baseWaterLevel = size.height * (1 - waterLevel);
-
-    waterPath.moveTo(0, baseWaterLevel);
-
+    waterPath.moveTo(0, baseWaterY); // Start at the left edge
     for (double x = 0; x <= size.width; x++) {
-      final y = baseWaterLevel + math.sin(waveValue + x * 0.1) * waveHeight;
+      final y = baseWaterY + math.sin(waveValue + x * 0.1) * waveHeight;
       waterPath.lineTo(x, y);
     }
-
-    waterPath.lineTo(size.width * 0.9, size.height);
-    waterPath.lineTo(size.width * 0.1, size.height);
+    // Complete the rectangle for the water fill
+    waterPath.lineTo(size.width, size.height);
+    waterPath.lineTo(0, size.height);
     waterPath.close();
 
-    canvas.drawPath(waterPath, waterPaint);
+    // 3. Apply the clip and draw the water.
+    // This is the key step: it uses the glass shape as a stencil.
+    canvas.save();
+    canvas.clipPath(glassPath);
+    canvas.drawPath(waterPath, waterPaint); // Draw the water, which is now clipped.
+    canvas.restore(); // Remove the clip.
+
+    // 4. Draw the glass outline on top of everything.
+    final glassOutlinePaint = Paint()
+      ..color = color.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawPath(glassPath, glassOutlinePaint);
   }
 
   @override

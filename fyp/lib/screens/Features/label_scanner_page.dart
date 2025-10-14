@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:convert';
+import 'dart:ui'; // Added for color interpolation
 import '../../services/config_service.dart';
 
 // Configuration constant
@@ -530,19 +531,74 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // MODIFIED: Make scaffold and appbar transparent for the background to show through
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Food Scanner'),
         centerTitle: true,
-
+        backgroundColor: Color(0xffa8edea),
+       
+        elevation: 0,
         actions: [
           if (_currentState != ScreenState.initial)
             IconButton(icon: const Icon(Icons.refresh), onPressed: _resetScreen)
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _buildBody(),
+      // MODIFIED: Use a Stack to layer the background behind the main content
+      body: Stack(
+        children: [
+          const _LivingAnimatedBackground(), // Layer 1: The background
+          AnimatedSwitcher( // Layer 2: The original page content
+            duration: const Duration(milliseconds: 300),
+            child: _buildBody(),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+// NEW: The animated background widget
+class _LivingAnimatedBackground extends StatefulWidget {
+  const _LivingAnimatedBackground({super.key});
+  @override
+  State<_LivingAnimatedBackground> createState() =>
+      _LivingAnimatedBackgroundState();
+}
+
+class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground>
+    with TickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 40))
+          ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      Color.lerp(
+          const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
+      Color.lerp(
+          const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
+    ];
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Container(
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: colors))),
     );
   }
 }

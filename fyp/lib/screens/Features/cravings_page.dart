@@ -8,6 +8,8 @@ import 'dart:async';
 import 'dart:ui';
 import 'dart:math';
 import 'package:fyp/services/auth_service.dart';
+import 'package:fyp/screens/camera_screen.dart'; // Assuming camera_screen.dart is in this path
+
 
 // Assumes apiIpAddress is available from config_service.dart
 final AuthService _authService = AuthService();
@@ -418,71 +420,73 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildInitialUI() {
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24.0,
-          24.0,
-          24.0,
-          24.0 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _searchController,
-              onSubmitted: _searchProducts,
-              onChanged: (text) {
-                if (text.isEmpty) _searchProducts('');
-              },
-              decoration: InputDecoration(
-                hintText: 'Crave something specific...',
-                prefixIcon: Icon(Icons.search, color: primaryAppColor.shade800),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: Colors.grey[400]),
-                        onPressed: () {
-                          _searchController.clear();
-                          _searchProducts('');
-                          FocusScope.of(context).unfocus();
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30.0),
-                  borderSide: BorderSide(color: primaryAppColor.shade600),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30.0),
-                  borderSide: BorderSide(color: primaryAppColor.shade600),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30.0),
-                  borderSide: BorderSide(color: secondaryAccentColor, width: 2),
+    // MODIFIED: Wrapped in Center
+    return Center(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            24.0,
+            24.0,
+            24.0,
+            24.0 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextField(
+                controller: _searchController,
+                onSubmitted: _searchProducts,
+                onChanged: (text) {
+                  if (text.isEmpty) _searchProducts('');
+                },
+                decoration: InputDecoration(
+                  hintText: 'Crave something specific...',
+                  prefixIcon: Icon(Icons.search, color: primaryAppColor.shade800),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.clear, color: Colors.grey[400]),
+                          onPressed: () {
+                            _searchController.clear();
+                            _searchProducts('');
+                            FocusScope.of(context).unfocus();
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                    borderSide: BorderSide(color: primaryAppColor.shade600),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                    borderSide: BorderSide(color: primaryAppColor.shade600),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                    borderSide: BorderSide(color: secondaryAccentColor, width: 2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            
-            const SizedBox(height: 10),
-            Text(
-              'Search for restaurant dishes or packaged goods tailored to your health profile.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 20),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.5,
-                maxWidth: MediaQuery.of(context).size.width * 0.8,
+              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              Text(
+                'Search for restaurant dishes or packaged goods tailored to your health profile.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
               ),
-              child: Lottie.asset(
-                'assets/animation/food_animation.json',
-                fit: BoxFit.contain,
+              const SizedBox(height: 20),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  maxWidth: MediaQuery.of(context).size.width * 0.8,
+                ),
+                child: Lottie.asset(
+                  'assets/animation/food_animation.json',
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -497,46 +501,51 @@ class _SearchScreenState extends State<SearchScreen> {
     } else if (_isLoadingFactory) {
       loadingText = 'Analyzing products based on your health profile...';
     }
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: secondaryAccentColor),
-          const SizedBox(height: 20),
-          Text(
-            loadingText,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
+    // MODIFIED: Wrapped in Center
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: secondaryAccentColor),
+            const SizedBox(height: 20),
+            Text(
+              loadingText,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorUI() {
     String errorMessage = _profileErrorMessage ?? 'No items matched your craving. Try a different dish or snack!';
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 60),
-          const SizedBox(height: 20),
-          const Text('Oops!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Text(errorMessage, textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _resetScreen,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: secondaryAccentColor,
-              foregroundColor: Colors.white,
+    // MODIFIED: Wrapped in Center
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 60),
+            const SizedBox(height: 20),
+            const Text('Oops!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Text(errorMessage, textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _resetScreen,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: secondaryAccentColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Try Again'),
             ),
-            child: const Text('Try Again'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -677,10 +686,12 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     debugPrint('Current state: $_currentState'); // Debug state
     return Scaffold(
+        backgroundColor: Color(0xffa8edea),
       appBar: AppBar(
+        iconTheme: IconThemeData(color: primaryAppColor.shade800), // MODIFIED for visibility
         leading: _currentState == ScreenState.initial
             ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                icon: const Icon(Icons.arrow_back),
                 onPressed: () {
                   if (Navigator.canPop(context)) {
                     Navigator.pop(context);
@@ -688,20 +699,29 @@ class _SearchScreenState extends State<SearchScreen> {
                 },
               )
             : null,
-        title:  const Text('Cravings Search', style: TextStyle(color: Colors.black)),
+        title: Text(
+          'Cravings Search',
+          style: TextStyle(color: primaryAppColor.shade900), // MODIFIED for visibility
+        ),
         actions: [
           if (_currentState != ScreenState.initial)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.black),
+              icon: const Icon(Icons.refresh),
               onPressed: _resetScreen,
             ),
         ],
-        backgroundColor: Colors.white,
-        centerTitle: true, // Center the title text
+        backgroundColor: Colors.transparent, // MODIFIED
+        elevation: 0, // MODIFIED
+        centerTitle: true,
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _buildBody(),
+      body: Stack( // MODIFIED
+        children: [
+          const _LivingAnimatedBackground(),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _buildBody(),
+          ),
+        ],
       ),
     );
   }
@@ -792,7 +812,7 @@ class FactoryProductListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
     final imageUrl = product.imageUrl;
-    Widget imageWidget = imageUrl != null 
+    Widget imageWidget = imageUrl != null
         ? Image.network(
             imageUrl,
             fit: BoxFit.cover,
@@ -1109,6 +1129,51 @@ class RestaurantProductCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// NEW: The animated background widget
+class _LivingAnimatedBackground extends StatefulWidget {
+  const _LivingAnimatedBackground({super.key});
+  @override
+  State<_LivingAnimatedBackground> createState() =>
+      _LivingAnimatedBackgroundState();
+}
+
+class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground>
+    with TickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 40))
+          ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      Color.lerp(
+          const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
+      Color.lerp(
+          const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
+    ];
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Container(
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: colors))),
     );
   }
 }

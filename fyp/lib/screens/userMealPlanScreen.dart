@@ -1,18 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart'; // Re-added for reliable images
+
+// Your original imports
 import 'package:fyp/services/meal_service.dart';
 import 'package:fyp/screens/user_meal_details_screen.dart';
 
-class UserMealPlanScreen extends StatefulWidget {
-  const UserMealPlanScreen({super.key});  
+// --- ROBUST DATA MODELS (Unchanged) ---
+class NutrientSummary {
+  final int calories; final int protein; final int carbs; final int fat;
+  NutrientSummary({this.calories = 0, this.protein = 0, this.carbs = 0, this.fat = 0});
+  factory NutrientSummary.fromMealList(List<MealInfo> meals) {
+    double c = 0, p = 0, rb = 0, f = 0;
+    for (var meal in meals) { c += meal.calories; p += meal.protein; rb += meal.carbs; f += meal.fat; }
+    return NutrientSummary(calories: c.toInt(), protein: p.toInt(), carbs: rb.toInt(), fat: f.toInt());
+  }
+}
+class MealInfo {
+  final int id; final String title; final String imageUrl; final bool isLogged; final Map<String, dynamic> rawData;
+  final double calories; final double protein; final double carbs; final double fat;
+  MealInfo({ required this.id, required this.title, required this.imageUrl, required this.isLogged, required this.rawData,
+    this.calories = 0, this.protein = 0, this.carbs = 0, this.fat = 0 });
+  factory MealInfo.fromJson(Map<String, dynamic> mealJson, Map<int, dynamic> detailedRecipes) {
+    final detailedMeal = detailedRecipes[mealJson['id']];
+    final nutrients = detailedMeal?['nutrition']?['nutrients'] as List<dynamic>? ?? [];
+    double getNutrient(String name) {
+      try {
+        final n = nutrients.firstWhere((n) => n['name'] == name, orElse: () => null);
+        return (n?['amount'] ?? 0.0).toDouble();
+      } catch (e) { return 0.0; }
+    }
+    return MealInfo(
+      id: mealJson['id'] ?? 0, title: mealJson['title'] ?? 'Untitled Meal',
+      imageUrl: detailedMeal?['image'] ?? "https://spoonacular.com/recipeImages/${mealJson['id']}-556x370.${mealJson['imageType'] ?? 'jpg'}",
+      isLogged: detailedMeal?['loggedAt'] != null, rawData: detailedMeal ?? mealJson,
+      calories: getNutrient('Calories'), protein: getNutrient('Protein'), carbs: getNutrient('Carbohydrates'), fat: getNutrient('Fat'),
+    );
+  }
+}
+class DayPlan {
+  final String dayName; final DateTime date; final List<MealInfo> meals; final NutrientSummary summary;
+  DayPlan({required this.dayName, required this.date, required this.meals, required this.summary});
+  factory DayPlan.fromJson(MapEntry<String, dynamic> entry, Map<int, dynamic> detailedRecipes) {
+    final dayData = entry.value as Map<String, dynamic>? ?? {};
+    final mealListJson = dayData['meals'] as List<dynamic>? ?? [];
+    final meals = mealListJson.map((mealJson) => MealInfo.fromJson(mealJson, detailedRecipes)).toList();
+    return DayPlan(
+      dayName: entry.key, date: DateTime.tryParse(dayData['date'] as String? ?? '') ?? DateTime.now(),
+      meals: meals, summary: NutrientSummary.fromMealList(meals),
+    );
+  }
+}
+// --- END OF DATA MODELS ---
 
+
+class UserMealPlanScreen extends StatefulWidget {
+  const UserMealPlanScreen({super.key});
   @override
   State<UserMealPlanScreen> createState() => _UserMealPlanScreenState();
 }
 
 class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
-  Map<String, dynamic>? mealPlan;
+  List<DayPlan>? dayPlans;
   bool isLoading = true;
   String errorMessage = '';
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -21,199 +74,350 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
   }
 
   Future<void> _loadMealPlan() async {
-    // Avoid showing loader on refresh unless it's the initial load
-    if (mealPlan == null) {
-       setState(() {
-        isLoading = true;
-        errorMessage = '';
-      });
-    }
-
+    if (dayPlans == null) { setState(() { isLoading = true; errorMessage = ''; }); }
     try {
       final response = await MealService.fetchUserMealPlan();
-      if (mounted) {
-        setState(() {
-          mealPlan = response;
-          isLoading = false;
-        });
-      }
+      final detailedRecipes = response['detailedRecipes'] as List<dynamic>? ?? [];
+      final Map<int, dynamic> recipeDetailsMap = {for (var recipe in detailedRecipes) recipe['id']: recipe};
+      final weekMeals = response['meals'] as Map<String, dynamic>? ?? {};
+      final newDayPlans = weekMeals.entries.map((entry) => DayPlan.fromJson(entry, recipeDetailsMap)).toList();
+      if (mounted) { setState(() { dayPlans = newDayPlans; isLoading = false; }); }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          errorMessage = e.toString().replaceAll("Exception: ", "");
-          isLoading = false;
-        });
-      }
+      if (mounted) { setState(() { errorMessage = "Failed to load meal plan."; isLoading = false; }); }
     }
+  }
+
+  Future<void> _navigateToDetails(MealInfo meal, DateTime date) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => MealDetailsScreen(meal: meal.rawData, date: date)),
+    );
+    if (result == true) { _loadMealPlan(); }
+  }
+  
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFDFB),
-      appBar: AppBar(
-        title: const Text(
-          "Your Spoonacular Meal Plan",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF212121),
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage.isNotEmpty
-              ? Center(
-                  child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    errorMessage,
-                    textAlign: TextAlign.center,
-                  ),
-                ))
-              : mealPlan == null
-                  ? const Center(child: Text("No meal plan available"))
-                  : _buildMealPlanView(),
-    );
-  }
-
-  Widget _buildMealPlanView() {
-    final weekMeals = mealPlan!['meals'] as Map<String, dynamic>? ?? {};
-    final nutrients = mealPlan!['nutrients'] ?? {};
-    final detailedRecipes = mealPlan!['detailedRecipes'] as List<dynamic>? ?? [];
-
-    final Map<int, dynamic> recipeDetailsMap = {
-      for (var recipe in detailedRecipes) recipe['id']: recipe
-    };
-
-    return RefreshIndicator(
-      onRefresh: _loadMealPlan, // Allow pull-to-refresh
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      backgroundColor: Colors.transparent,
+      body: Stack(
         children: [
-          // ... (rest of your ListView children are mostly the same)
-          ...weekMeals.entries.map((entry) {
-            final dayName = entry.key;
-            final dayData = entry.value as Map<String, dynamic>? ?? {};
-            final meals = dayData['meals'] as List<dynamic>? ?? [];
-            final mealDate=DateTime.parse( dayData['date'] as String);
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                  child: Text(
-                    dayName[0].toUpperCase() + dayName.substring(1),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF212121),
-                    ),
-                  ),
-                ),
-                Column(
-                  children: meals.map((meal) {
-                    final detailedMeal = recipeDetailsMap[meal['id']];
-                    return _buildMealCard(meal, detailedMeal,mealDate);
-                  }).toList(),
-                ),
-                const SizedBox(height: 12),
+          const _LivingAnimatedBackground(),
+          RefreshIndicator(
+            onRefresh: _loadMealPlan,
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                _buildHeader(context),
+                if (isLoading)
+                  const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+                if (!isLoading && errorMessage.isNotEmpty)
+                  SliverFillRemaining(child: Center(child: Text(errorMessage))),
+                if (!isLoading && errorMessage.isEmpty && (dayPlans == null || dayPlans!.isEmpty))
+                  const SliverFillRemaining(child: Center(child: Text("No meal plan available"))),
+                if (!isLoading && errorMessage.isEmpty && dayPlans != null && dayPlans!.isNotEmpty)
+                  ..._buildMealPlanSlivers(),
               ],
-            );
-          }),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // --- ✅ MODIFIED WIDGET ---
-  Widget _buildMealCard(Map<String, dynamic> meal, dynamic detailedMeal,DateTime date) {
-    final imageUrl = detailedMeal?['image'] ??
-        "https://spoonacular.com/recipeImages/${meal['id']}-480x360.${meal['imageType']}";
-    
-    // Determine if the meal has been logged
-    final bool isLogged = detailedMeal?['loggedAt'] != null;
-
-    return GestureDetector(
-      onTap: () async { // Make onTap async
-        // Navigate to the details screen and wait for a result
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MealDetailsScreen(
-              meal: detailedMeal ?? meal,
-              date: date,
-            ),
-          ),
-        );
-
-        // If the result is 'true', it means a meal was successfully logged.
-        // Refresh the meal plan to get the latest data.
-        if (result == true) {
-          _loadMealPlan();
-        }
-      },
-      child: Opacity(
-        // Add opacity to give a greyed-out effect
-        opacity: isLogged ? 0.65 : 1.0,
-        child: Card(
-          // Change color slightly when logged
-          color: isLogged ? Colors.grey[200] : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          elevation: 1,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    imageUrl,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.restaurant, size: 60),
+  SliverAppBar _buildHeader(BuildContext context) {
+    const String imageUrl = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=2070&q=80';
+    return SliverAppBar(
+      expandedHeight: 250,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        background: ClipRRect(
+          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Using CachedNetworkImage for header for reliability
+              CachedNetworkImage(
+                imageUrl: imageUrl, fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.grey[300]),
+                errorWidget: (context, url, error) => Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, color: Colors.grey)),
+              ),
+              Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.7)]))),
+              AnimatedBuilder(
+                animation: _scrollController,
+                builder: (context, child) {
+                  final offset = _scrollController.hasClients ? _scrollController.offset : 0;
+                  return Transform.translate(offset: Offset(0, offset * 0.5), child: child);
+                },
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [Spacer(), _AnimatedHeaderGreeting(greeting: "Your Meal Plan", subtitle: "A roadmap to a healthier week."), Spacer()],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        meal['title'] ?? 'Untitled',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF212121),
-                          // Add a line-through decoration if logged
-                          decoration: isLogged ? TextDecoration.lineThrough : TextDecoration.none,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // ... (rest of the card content remains the same)
-                    ],
-                  ),
-                ),
-                 // Add a checkmark icon if the meal is logged
-                if (isLogged)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8.0),
-                    child: Icon(Icons.check_circle, color: Colors.green, size: 24),
-                  )
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  List<Widget> _buildMealPlanSlivers() {
+    List<Widget> slivers = [];
+    int animationIndex = 0;
+
+    for (var dayPlan in dayPlans!) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: _DayHeader(
+            dayName: dayPlan.dayName, date: dayPlan.date, totalCalories: dayPlan.summary.calories,
+            animationIndex: animationIndex++,
+          ),
+        ),
+      );
+      slivers.add(SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        sliver: SliverList.builder(
+          itemCount: dayPlan.meals.length,
+          itemBuilder: (context, index) {
+            return StaggeredAnimation(
+              index: animationIndex++,
+              child: _MealCard(
+                meal: dayPlan.meals[index],
+                onTap: () => _navigateToDetails(dayPlan.meals[index], dayPlan.date),
+              ),
+            );
+          },
+        ),
+      ));
+    }
+    return slivers;
+  }
+}
+
+// --- WIDGETS ---
+
+class _DayHeader extends StatelessWidget {
+  final String dayName; final DateTime date; final int totalCalories; final int animationIndex;
+  const _DayHeader({required this.dayName, required this.date, required this.totalCalories, required this.animationIndex});
+
+  String _formatDate(DateTime date) {
+    const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return '${monthNames[date.month]} ${date.day}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StaggeredAnimation(
+      index: animationIndex,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(dayName[0].toUpperCase() + dayName.substring(1), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2.0),
+              child: Text(_formatDate(date), style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2.0),
+              child: Text('$totalCalories kcal', style: TextStyle(fontSize: 14, color: Colors.grey[700], fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MealCard extends StatelessWidget {
+  final MealInfo meal; final VoidCallback onTap;
+  const _MealCard({required this.meal, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = const Color(0xFF3a5a64).withOpacity(meal.isLogged ? 0.6 : 1.0);
+
+    return _InteractiveCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(12.0),
+      child: RepaintBoundary( // Performance optimization for smooth scrolling
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              // Using CachedNetworkImage for reliability and performance
+              child: CachedNetworkImage(
+                imageUrl: meal.imageUrl, width: 80, height: 80, fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.black.withOpacity(0.05)),
+                errorWidget: (context, url, error) => Container(width: 80, height: 80, color: Colors.black.withOpacity(0.05), child: Icon(Icons.restaurant, color: Colors.grey[400])),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(meal.title, style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold, color: textColor,
+                      decoration: meal.isLogged ? TextDecoration.lineThrough : TextDecoration.none,
+                    ), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _NutrientInfo(icon: Icons.local_fire_department_rounded, value: '${meal.calories.toInt()} kcal', color: Colors.orange.shade700, textColor: textColor),
+                      const SizedBox(width: 12),
+                      _NutrientInfo(icon: Icons.egg_outlined, value: '${meal.protein.toInt()}g', color: Colors.lightBlue.shade700, textColor: textColor),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (meal.isLogged)
+              const Padding(padding: EdgeInsets.only(left: 8.0), child: Icon(Icons.check_circle, color: Colors.green))
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NutrientInfo extends StatelessWidget {
+  final IconData icon; final String value; final Color color; final Color textColor;
+  const _NutrientInfo({required this.icon, required this.value, required this.color, required this.textColor});
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 4),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor.withOpacity(0.8))),
+      ],
+    );
+  }
+}
+
+
+// --- THEME & ANIMATION HELPER WIDGETS ---
+class _LivingAnimatedBackground extends StatefulWidget {
+  const _LivingAnimatedBackground();
+  @override
+  State<_LivingAnimatedBackground> createState() => _LivingAnimatedBackgroundState();
+}
+class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground> with TickerProviderStateMixin {
+  late AnimationController _controller;
+  @override void initState() { super.initState(); _controller = AnimationController(vsync: this, duration: const Duration(seconds: 40))..repeat(reverse: true); }
+  @override void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      Color.lerp(const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
+      Color.lerp(const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
+    ];
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors))),
+    );
+  }
+}
+
+class _AnimatedHeaderGreeting extends StatelessWidget {
+  final String greeting; final String subtitle;
+  const _AnimatedHeaderGreeting({required this.greeting, required this.subtitle});
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0.0, end: 1.0), duration: const Duration(milliseconds: 800), curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(greeting, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// PERFORMANCE-OPTIMIZED CARD WIDGET
+class _InteractiveCard extends StatefulWidget {
+  final Widget child; final VoidCallback? onTap; final EdgeInsetsGeometry padding;
+  const _InteractiveCard({required this.child, this.onTap, this.padding = EdgeInsets.zero});
+  @override
+  State<_InteractiveCard> createState() => _InteractiveCardState();
+}
+class _InteractiveCardState extends State<_InteractiveCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  @override void initState() { super.initState(); _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 200)); _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)); }
+  @override void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) { _controller.reverse(); if(widget.onTap != null) widget.onTap!(); },
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16.0),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 15, offset: const Offset(0, 5))]
+          ),
+          child: Container(
+            padding: widget.padding,
+            decoration: BoxDecoration(
+               gradient: LinearGradient(
+                colors: [Colors.white.withOpacity(0.85), Colors.white.withOpacity(0.75)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+               ),
+               borderRadius: BorderRadius.circular(16.0),
+               border: Border.all(color: Colors.white.withOpacity(0.3))
+            ),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class StaggeredAnimation extends StatefulWidget {
+  final Widget child; final int index;
+  const StaggeredAnimation({super.key, required this.child, required this.index});
+  @override
+  State<StaggeredAnimation> createState() => _StaggeredAnimationState();
+}
+class _StaggeredAnimationState extends State<StaggeredAnimation> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _slide;
+  @override void initState() { super.initState(); _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 500)); final delay = (widget.index * 50).clamp(0, 400); _opacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)); _slide = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)); Future.delayed(Duration(milliseconds: delay), () { if (mounted) _controller.forward(); }); }
+  @override void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => FadeTransition(opacity: _opacity, child: SlideTransition(position: _slide, child: widget.child));
 }

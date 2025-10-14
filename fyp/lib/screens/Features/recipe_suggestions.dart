@@ -7,6 +7,7 @@ import 'package:lottie/lottie.dart';
 import '../camera_screen.dart';
 import 'dart:async'; // For Completer
 import 'recipe_detail_screen.dart';
+import 'dart:ui'; // Already here, but needed for the background
 
 // --- CONFIGURATION CONSTANTS (ADD THESE) ---
 // NOTE: For a real app, use a proper environment variable solution
@@ -45,7 +46,7 @@ class Recipe {
   factory Recipe.fromJson(Map<String, dynamic> json) {
     // Spoonacular IDs are often integers, but using double for safety with JSON parsing
     return Recipe(
-      id: (json['id'] as num).toDouble(), 
+      id: (json['id'] as num).toDouble(),
       title: json['title'],
       imageUrl: json['image'],
       usedIngredientCount: json['usedIngredientCount'] ?? 0,
@@ -72,7 +73,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
   List<Recipe> _recipes = [];
   String _errorMessage = '';
   final _ingredientTextController = TextEditingController();
-  
+
   // NOTE: Server IP moved to constant above for clarity
   final String _detectionServerUrl = '$_serverIp/api/detect-ingredients';
 
@@ -96,7 +97,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
         final respStr = await response.stream.bytesToString();
         // The response is now the direct JSON from the detection script.
         final result = json.decode(respStr);
-        
+
         final List<dynamic> detections = result['detections'];
         final Map<String, dynamic> dims = result['image_dimensions']; // <-- Use Map<String, dynamic> for type safety
 
@@ -106,10 +107,10 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
             box: List<double>.from(d['box']),
           )).toList();
           _finalIngredients = _detectedIngredients.map((e) => e.name).toSet().toList(); // Unique names
-          
+
           // CRITICAL FIX: Explicitly cast to num before calling toDouble()
           _imageDimensions = ImageDimensions(
-            width: (dims['width'] as num).toDouble(), 
+            width: (dims['width'] as num).toDouble(),
             height: (dims['height'] as num).toDouble()
           );
 
@@ -132,11 +133,11 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
       if (_finalIngredients.isEmpty) {
         throw Exception('No ingredients selected to find recipes.');
       }
-      
+
       final ingredientsString = _finalIngredients.join(',');
       final uri = Uri.https(
-        'api.spoonacular.com', 
-        '/recipes/findByIngredients', 
+        'api.spoonacular.com',
+        '/recipes/findByIngredients',
         {
           'ingredients': ingredientsString,
           'number': '10', // Get up to 10 recipes
@@ -144,12 +145,12 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
           'apiKey': _spoonacularApiKey,
         }
       );
-      
+
       var response = await http.get(uri);
-      
+
       if(response.statusCode == 200) {
         // Spoonacular returns an array of recipes directly
-        final List<dynamic> recipeData = json.decode(response.body); 
+        final List<dynamic> recipeData = json.decode(response.body);
         setState(() {
           _recipes = recipeData.map((data) => Recipe.fromJson(data)).toList();
           _currentState = ScreenState.success;
@@ -161,9 +162,9 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
         throw Exception(errorMessage);
       }
     } catch (e) {
-      setState(() { 
-        _errorMessage = e is Exception ? 'Recipe Search Error: ${e.toString()}' : 'An unexpected error occurred: $e'; 
-        _currentState = ScreenState.error; 
+      setState(() {
+        _errorMessage = e is Exception ? 'Recipe Search Error: ${e.toString()}' : 'An unexpected error occurred: $e';
+        _currentState = ScreenState.error;
       });
     }
   }
@@ -175,7 +176,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
     );
     if (imagePath != null) _detectIngredients(imagePath);
   }
-  
+
   void _addIngredient() {
     final text = _ingredientTextController.text.trim();
     if(text.isNotEmpty && !_finalIngredients.contains(text.toLowerCase())) {
@@ -195,21 +196,31 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
     });
   }
 
-  // --- WIDGET BUILDERS (REMAINS UNCHANGED) ---
+  // --- WIDGET BUILDERS ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // MODIFIED: Make scaffold and appbar transparent
+        backgroundColor: Color(0xffa8edea),
       appBar: AppBar(
         title: const Text('Recipe Suggestions'),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           if (_currentState != ScreenState.initial)
             IconButton(icon: const Icon(Icons.refresh), onPressed: _resetScreen)
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _buildBody(),
+      // MODIFIED: Use a Stack to layer the background behind the content
+      body: Stack(
+        children: [
+          const _LivingAnimatedBackground(),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _buildBody(),
+          ),
+        ],
       ),
     );
   }
@@ -224,7 +235,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
       return _buildInitialUI();
     }
   }
-  
+
   Widget _buildReviewUI() {
     return SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -281,7 +292,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
         ),
       );
   }
-  
+
   Widget _buildInitialUI() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -376,9 +387,9 @@ class BoundingBoxImage extends StatelessWidget {
       builder: (context, constraints) {
         // Calculate scaling factors to draw boxes on the displayed image
         final double scaleX = constraints.maxWidth / originalImageDims.width;
-        final double scaleY = (constraints.maxWidth / originalImageDims.width) * originalImageDims.height > 400 
-                              ? 400 / originalImageDims.height 
-                              : scaleX;
+        final double scaleY = (constraints.maxWidth / originalImageDims.width) * originalImageDims.height > 400
+                            ? 400 / originalImageDims.height
+                            : scaleX;
 
         // Limiting the height of the image container for better layout
         final double containerHeight = originalImageDims.height * scaleY;
@@ -471,30 +482,75 @@ class RecipeCard extends StatelessWidget {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    Text(
-                        recipe.title,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                        children: [
-                            const Icon(Icons.check_circle, color: Colors.green, size: 18),
-                            const SizedBox(width: 4),
-                            Text('${recipe.usedIngredientCount} ingredients you have'),
-                            const Spacer(),
-                            const Icon(Icons.remove_circle, color: Colors.red, size: 18),
-                            const SizedBox(width: 4),
-                            Text('${recipe.missedIngredientCount} missing'),
-                        ],
-                    ),
+                  Text(
+                    recipe.title,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      const SizedBox(width: 4),
+                      Text('${recipe.usedIngredientCount} ingredients you have'),
+                      const Spacer(),
+                      const Icon(Icons.remove_circle, color: Colors.red, size: 18),
+                      const SizedBox(width: 4),
+                      Text('${recipe.missedIngredientCount} missing'),
+                    ],
+                  ),
                 ],
             ),
           ),
         ],
       ),
       ),
+    );
+  }
+}
+
+// NEW: The animated background widget
+class _LivingAnimatedBackground extends StatefulWidget {
+  const _LivingAnimatedBackground({super.key});
+  @override
+  State<_LivingAnimatedBackground> createState() =>
+      _LivingAnimatedBackgroundState();
+}
+
+class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground>
+    with TickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 40))
+          ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      Color.lerp(
+          const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
+      Color.lerp(
+          const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
+    ];
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Container(
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: colors))),
     );
   }
 }

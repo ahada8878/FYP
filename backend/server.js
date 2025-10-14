@@ -107,6 +107,45 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use("/api/mealplan", mealPlanRoutes);
 
+
+// --- ADDED: New route to get user's name and calorie goal ---
+app.get('/api/user/profile-summary', protect, async (req, res) => {
+    const userId = req.userId;
+    console.log(`➡️  Request Received: GET /api/user/profile-summary for User ID: ${userId}`);
+
+    try {
+        // Fetch user's name from the User collection
+
+        const user = await UserDetails.findOne({ user: userId }).select('userName').lean();
+        
+        // Fetch user's details to get the calorie goal
+        const userDetails = await UserDetails.findOne({ user: userId }).select('options').lean();
+
+        if (!user) {
+            console.log(`   ❌ User not found for ID: ${userId}`);
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        // Use the calorie goal from user details, or default to 2000 if not set
+        const caloriesGoal = userDetails?.options?.maxCalories || 2000; 
+
+        console.log(`   ✅ Successfully fetched data: Name='${user.userName}', Calories=${caloriesGoal}`);
+        
+        res.status(200).json({
+            success: true,
+            userName: user.name,
+            caloriesGoal: caloriesGoal
+        });
+
+    } catch (err) {
+        console.error(`   ❌ Error fetching profile summary for User ID ${userId}: ${err.message}`);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to fetch user profile summary.' 
+        });
+    }
+});
+
 app.post('/api/predict', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No image uploaded' });

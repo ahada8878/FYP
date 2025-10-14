@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/LocalDB.dart';
-import 'dart:math' as math; // Add this import to fix the Random class error
+import 'dart:math' as math;
 import 'WaterIntakePage.dart';
 
 class MealsPerDayPage extends StatefulWidget {
@@ -132,7 +132,10 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                 child: Text(
                   ['🍎', '🥑', '🥦', '🍗', '🥕', '🍇'][index % 6],
                   style: TextStyle(
-                    fontSize: 16 + (index * 2).toDouble(),
+                    // --- THIS IS THE FIX ---
+                    // This now cycles through a small set of font sizes (16, 20, 24)
+                    // instead of growing infinitely, preventing overflow errors.
+                    fontSize: 16.0 + (index % 3) * 4,
                   ),
                 ),
               ),
@@ -145,7 +148,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                 AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                 
+                  
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -326,7 +329,7 @@ class _MealsPerDayPageState extends State<MealsPerDayPage>
                             borderRadius: BorderRadius.circular(30),
                             onTap: _selectedOption != null
                                 ? () async{
-                                   await LocalDB.setMealOptions(mealOptions[_selectedOption!]['count']);
+                                    await LocalDB.setMealOptions(mealOptions[_selectedOption!]['count']);
 
                                     Navigator.push(
                                       context,
