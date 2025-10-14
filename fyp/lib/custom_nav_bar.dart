@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/HomePage.dart';
+import 'package:fyp/HomePage.dart' hide CameraScreen;
+import 'package:fyp/screens/ai_scanner_result_page.dart';
+import 'package:fyp/screens/camera_screen.dart'; // Added missing import
 import 'package:fyp/screens/meal_plan_screen.dart';
 import 'package:fyp/screens/progress_screen.dart';
 import 'package:fyp/screens/features.dart';
@@ -16,7 +18,7 @@ class CustomNavBar extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onItemSelected,
-    required this.onCameraPressed, 
+    required this.onCameraPressed,
     required this.tabController,
   });
 
@@ -45,25 +47,25 @@ class CustomNavBar extends StatelessWidget {
         ],
       ),
       onItemSelected: (index) {
-        if (index == 2) {
-          onCameraPressed();
-          tabController.index = tabController.index;
-        } else {
-          onItemSelected(index);
-          
-        }
+        // UPDATED: Removed the special condition for the camera button (index 2).
+        // This now allows the PersistentTabView to handle the navigation to
+        // the CameraScreen just like any other tab.
+        onItemSelected(index);
       },
     );
   }
 
+  // The list of screens that corresponds to the nav bar items.
+  // CameraScreen is at index 2.
   List<Widget> _buildScreens() => [
-    const MealTrackingPage(),
-    const Features(),
-    const MealTrackingPage(),
-    const UserMealPlanScreen(),
-    const MyProgressScreen(),
-  ];
+        const MealTrackingPage(),
+        const Features(),
+        const CameraScreen(),
+        const UserMealPlanScreen(),
+        const MyProgressScreen(),
+      ];
 
+  // The list of navigation bar items.
   List<PersistentBottomNavBarItem> _navBarsItems(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -82,6 +84,7 @@ class CustomNavBar extends StatelessWidget {
         label: 'Track',
         colorScheme: colorScheme,
       ),
+      // This is the center camera button at index 2.
       PersistentBottomNavBarItem(
         icon: Center(
           child: Container(
@@ -121,6 +124,7 @@ class CustomNavBar extends StatelessWidget {
     ];
   }
 
+  // Helper method to build a standard navigation item.
   PersistentBottomNavBarItem _buildNavItem({
     required bool active,
     required IconData icon,

@@ -37,7 +37,7 @@ class _FeaturesPageState extends State<Features> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white.withOpacity(0.65),
       body: Stack(
         children: [
           const _LivingAnimatedBackground(),
@@ -203,7 +203,7 @@ class _FeaturesPageState extends State<Features> {
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios, color: Colors.grey.withOpacity(0.7), size: 16),
+                  Icon(Icons.arrow_forward_ios, color: Colors.black.withOpacity(0.7), size: 16),
                 ],
               ),
             ),
@@ -353,7 +353,7 @@ class _InteractiveCardState extends State<_InteractiveCard> with SingleTickerPro
               child: Container(
                 padding: widget.padding,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withOpacity(0.65),
                   borderRadius: BorderRadius.circular(24.0),
                   border: Border.all(color: Colors.white.withOpacity(0.3)),
                 ),
