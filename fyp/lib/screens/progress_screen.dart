@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:ui'; // Used for ImageFilter.blur
 import 'dart:math' as math; // For math functions like clamp
 import 'package:confetti/confetti.dart'; // Ensure you have 'confetti: ^0.7.0' in pubspec.yaml
-import 'package:flutter/services.dart'; // For HapticFeedback
+import 'package:flutter/services.dart';
+import 'package:fyp/screens/settings_screen.dart'; // For HapticFeedback
 
-// --- PLACEHOLDER IMPORTS ---
-class SettingsScreen extends StatelessWidget { const SettingsScreen({super.key}); @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Settings')));}
-// --- END PLACEHOLDER IMPORTS ---
+
 
 // --- 1. DATA MODELS ---
 class Achievement {
