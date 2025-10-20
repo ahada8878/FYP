@@ -85,10 +85,39 @@ for (let i = 0; i < 7; i++) {
   }
 
   if (dailyMeals.length < MEALS_PER_DAY) {
-    return res.status(500).json({
-      message: `Failed to find enough unique recipes for ${dayName}. Try adjusting your restrictions.`,
+  console.warn(`⚠️ Could not generate ${MEALS_PER_DAY} unique meals for ${dayName} after ${MAX_ATTEMPTS} attempts.`);
+
+  // ✅ Allow similar (non-unique) meals instead of throwing error
+  try {
+    const fallbackCalories = Math.floor((minCalories + maxCalories) / 2);
+    const { data: fallbackData } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
+      params: {
+        apiKey: process.env.SPOONACULAR_API_KEY,
+        timeFrame: "day",
+        targetCalories: fallbackCalories,
+        diet,
+        exclude: ingredientExclusions,
+      },
     });
+
+    const fallbackMeals = fallbackData.meals || [];
+    for (const meal of fallbackMeals) {
+      if (dailyMeals.length >= MEALS_PER_DAY) break;
+
+      // Push similar (possibly duplicate) meals to complete the day
+      dailyMeals.push({
+        ...meal,
+        loggedAt: null,
+      });
+    }
+
+    finalNutrients = fallbackData.nutrients || finalNutrients;
+    console.log(`✅ Used similar meals to complete ${dayName}.`);
+  } catch (fallbackErr) {
+    console.error(`❌ Fallback failed for ${dayName}:`, fallbackErr.response?.data || fallbackErr.message);
   }
+}
+
 
   // ✅ store per-day meals with their own loggedAt fields
   weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
@@ -130,7 +159,6 @@ for (let i = 0; i < 7; i++) {
     } catch (spoonErr) {
         console.error("⚠️ Failed to save meal plan on Spoonacular:", spoonErr.response?.data || spoonErr.message);
     }
-    
     return savedPlan;
 };
 

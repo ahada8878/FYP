@@ -53,33 +53,32 @@ class MealInfo {
       this.carbs = 0,
       this.fat = 0});
   factory MealInfo.fromJson(
-      Map<String, dynamic> mealJson, Map<int, dynamic> detailedRecipes) {
-    final detailedMeal = detailedRecipes[mealJson['id']];
-    final nutrients =
-        detailedMeal?['nutrition']?['nutrients'] as List<dynamic>? ?? [];
-    double getNutrient(String name) {
-      try {
-        final n =
-            nutrients.firstWhere((n) => n['name'] == name, orElse: () => null);
-        return (n?['amount'] ?? 0.0).toDouble();
-      } catch (e) {
-        return 0.0;
-      }
-    }
+    Map<String, dynamic> mealJson, Map<int, dynamic> detailedRecipes) {
+  final detailedMeal = detailedRecipes[mealJson['id']];
+  final nutrients = detailedMeal?['nutrients'] ?? {};
 
-    return MealInfo(
-      id: mealJson['id'] ?? 0,
-      title: mealJson['title'] ?? 'Untitled Meal',
-      imageUrl: detailedMeal?['image'] ??
-          "https://spoonacular.com/recipeImages/${mealJson['id']}-556x370.${mealJson['imageType'] ?? 'jpg'}",
-      isLogged: mealJson['loggedAt'] != null,
-      rawData: detailedMeal ?? mealJson,
-      calories: getNutrient('Calories'),
-      protein: getNutrient('Protein'),
-      carbs: getNutrient('Carbohydrates'),
-      fat: getNutrient('Fat'),
-    );
+  double getValue(String key) {
+    try {
+      return (nutrients[key.toLowerCase()] ?? nutrients[key] ?? 0.0).toDouble();
+    } catch (_) {
+      return 0.0;
+    }
   }
+
+  return MealInfo(
+    id: mealJson['id'] ?? 0,
+    title: mealJson['title'] ?? 'Untitled Meal',
+    imageUrl: detailedMeal?['image'] ??
+        "https://spoonacular.com/recipeImages/${mealJson['id']}-556x370.${mealJson['imageType'] ?? 'jpg'}",
+    isLogged: mealJson['loggedAt'] != null,
+    rawData: detailedMeal ?? mealJson,
+    calories: getValue('calories'),
+    protein: getValue('protein'),
+    carbs: getValue('carbs'),
+    fat: getValue('fat'),
+  );
+}
+
 }
 
 class DayPlan {
