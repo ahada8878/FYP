@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/HomePage.dart' hide CameraScreen;
-import 'package:fyp/screens/ai_scanner_result_page.dart';
-import 'package:fyp/screens/camera_screen.dart'; // Added missing import
-import 'package:fyp/screens/meal_plan_screen.dart';
+import 'package:fyp/screens/camera_screen.dart';
 import 'package:fyp/screens/progress_screen.dart';
 import 'package:fyp/screens/features.dart';
 import 'package:fyp/screens/userMealPlanScreen.dart';
@@ -47,10 +45,13 @@ class CustomNavBar extends StatelessWidget {
         ],
       ),
       onItemSelected: (index) {
-        // UPDATED: Removed the special condition for the camera button (index 2).
-        // This now allows the PersistentTabView to handle the navigation to
-        // the CameraScreen just like any other tab.
-        onItemSelected(index);
+        if (index == 2) {
+          onCameraPressed();
+          tabController.index = tabController.index;
+        } else {
+          onItemSelected(index);
+          
+        }
       },
     );
   }
@@ -60,7 +61,7 @@ class CustomNavBar extends StatelessWidget {
   List<Widget> _buildScreens() => [
         const MealTrackingPage(),
         const Features(),
-        const CameraScreen(),
+        const MealTrackingPage(),
         const UserMealPlanScreen(),
         const MyProgressScreen(),
       ];
@@ -84,7 +85,6 @@ class CustomNavBar extends StatelessWidget {
         label: 'Track',
         colorScheme: colorScheme,
       ),
-      // This is the center camera button at index 2.
       PersistentBottomNavBarItem(
         icon: Center(
           child: Container(
