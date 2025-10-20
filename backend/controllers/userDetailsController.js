@@ -20,36 +20,77 @@ const generateWeeklyMealPlan = async (userDetails, user) => {
     }
     const { username, hash } = linkedUser.spoonacular;
 
-    // <-- ✅ CHANGED: Read the pre-calculated value from the model.
-    // This value was set by the 'pre-save' hook when userDetails was saved.
     const targetCalories = userDetails.caloriesGoal;
     
     const ingredientExclusions = getExcludedIngredientsFromHealthConcerns(userDetails.healthConcerns);
+    if (ingredientExclusions) console.log(`🚫 Excluding: ${ingredientExclusions}`);
     const diet = mapEatingStylesToDiet(userDetails.eatingStyles);
+    if (diet) console.log(`🥗 Diet: ${diet}`);
 
     console.log(`📊 Generating meal plan for user ${user._id || user.id} with target calories: ${targetCalories}`);
 
     const weekPlan = {};
     const allRecipeIds = new Set();
     const API_KEY = process.env.SPOONACULAR_API_KEY;
+    const minCalories = Math.max(1200, targetCalories - 300);
+    const maxCalories = targetCalories + 100;
+    console.log(`🔥 Generating meal plan (calories: ${minCalories}-${maxCalories})`);
 
-    for (let i = 0; i < 7; i++) {
-        const dayName = `day${i + 1}`;
+     for (let i = 0; i < 7; i++) {
+      const dayName = `day${i + 1}`;
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const dailyMeals = [];
+      let finalNutrients = {};
+      let attempts = 0;
+      const MAX_ATTEMPTS = 10;
+      const MEALS_PER_DAY = 3;
+
+      while (dailyMeals.length < MEALS_PER_DAY && attempts < MAX_ATTEMPTS) {
+        attempts++;
+        const randomCalories = Math.floor(Math.random() * (maxCalories - minCalories + 1)) + minCalories;
+
         try {
-            const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
-                params: { apiKey: API_KEY, timeFrame: "day", targetCalories, diet, exclude: ingredientExclusions },
-            });
-            data.meals.forEach(meal => allRecipeIds.add(meal.id));
-            weekPlan[dayName] = { date: new Date(new Date().setDate(new Date().getDate() + i)), meals: data.meals, nutrients: data.nutrients };
-        } catch (error) {
-            console.error(`❌ Spoonacular API error for ${dayName}:`, error.response?.data || error.message);
-            throw new Error(`Failed to generate meals for ${dayName}. Please check your diet preferences.`);
+          const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
+            params: {
+              apiKey: process.env.SPOONACULAR_API_KEY,
+              timeFrame: "day",
+              targetCalories: randomCalories,
+              diet,
+              exclude: ingredientExclusions,
+              seed: Date.now() + i + attempts,
+            },
+          });
+
+          const meals = data.meals || [];
+          finalNutrients = data.nutrients;
+           for (const meal of meals) {
+            if (!allRecipeIds.has(meal.id)) {
+              allRecipeIds.add(meal.id);
+              dailyMeals.push(meal);
+              if (dailyMeals.length >= MEALS_PER_DAY) break;
+            }
+          }
+        } catch (err) {
+          console.error(`❌ API error for ${dayName}:`, err.response?.data || err.message);
         }
     }
 
+      if (dailyMeals.length < MEALS_PER_DAY) {
+        return res.status(500).json({
+          message: `Failed to find enough unique recipes for ${dayName}. Try adjusting your restrictions.`,
+        });
+      }
+
+      weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
+    }
+
+    // ✅ Fetch full recipe info
     if (allRecipeIds.size === 0) {
-        console.log("No recipes found from Spoonacular generation.");
-        return null; // Return null if no recipes were generated
+      return res.status(200).json({
+        message: "User details saved, but no recipes generated.",
+        details: newUserDetails,
+      });
     }
     
     const idsParam = Array.from(allRecipeIds).join(",");
