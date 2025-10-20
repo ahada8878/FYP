@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+// Detailed recipe info (no more loggedAt here)
 const detailedRecipeSchema = new mongoose.Schema({
   id: Number,
   title: String,
@@ -23,12 +24,27 @@ const detailedRecipeSchema = new mongoose.Schema({
     fat: Number,
     fiber: Number,
   },
-  // --- ✅ NEW FIELD ---
-  // Stores the timestamp when a meal is logged. Defaults to null.
-  loggedAt: {
-    type: Date,
-    default: null,
-  },
+});
+
+// Meals for each day (✅ loggedAt moved here)
+const dailyMealSchema = new mongoose.Schema({
+  date: { type: Date, required: true },
+  meals: [
+    {
+      id: Number,
+      title: String,
+      image: String,
+      readyInMinutes: Number,
+      servings: Number,
+      sourceUrl: String,
+      // ✅ NEW FIELD: Logged time for each individual meal
+      loggedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+  ],
+  nutrients: { type: Object, default: {} },
 });
 
 const mealPlanSchema = new mongoose.Schema({
@@ -42,15 +58,10 @@ const mealPlanSchema = new mongoose.Schema({
     default: Date.now,
   },
   meals: {
-  type: Map,
-  of: new mongoose.Schema({
-    date: { type: Date, required: true },
-    meals: { type: Array, required: true },
-    nutrients: { type: Object, default: {} },
-  }),
-  required: true,
-},
-
+    type: Map,
+    of: dailyMealSchema,
+    required: true,
+  },
   detailedRecipes: {
     type: [detailedRecipeSchema],
     default: [],

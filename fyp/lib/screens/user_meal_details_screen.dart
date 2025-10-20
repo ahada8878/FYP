@@ -7,12 +7,11 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 
-// --- MOCK SERVICE ---
-class MealServices {
-  static Future<void> logMeal(String mealId) async {
-    await Future.delayed(const Duration(seconds: 2));
-  }
-}
+// --- SERVICE IMPORT ---
+// Removed the mock service and imported the real one.
+// Ensure this path is correct for your project structure.
+import 'package:fyp/services/meal_service.dart';
+
 
 // --- FINAL THEMED DESIGN SCREEN ---
 
@@ -486,18 +485,27 @@ class _AnimatedLogButtonState extends State<_AnimatedLogButton> {
     if (isLogged) _buttonState = 2;
   }
 
+  // --- MODIFIED: This function now calls the real MealService ---
   Future<void> _handleLog() async {
     if (_buttonState != 0) return;
     HapticFeedback.lightImpact();
     setState(() => _buttonState = 1);
     try {
-      await MealServices.logMeal(widget.meal['id']);
+      // Call the real service, ensuring the meal ID is an integer.
+      await MealService.logMeal(widget.meal['id'] as int);
       widget.confettiController.play();
       setState(() => _buttonState = 2);
       await Future.delayed(const Duration(milliseconds: 1500));
+      // Pop the screen and return 'true' to signal success.
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() => _buttonState = 0);
+      if (mounted) {
+        // Show an error message if something goes wrong.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'))
+        );
+        setState(() => _buttonState = 0);
+      }
     }
   }
 
@@ -527,9 +535,9 @@ class _AnimatedLogButtonState extends State<_AnimatedLogButton> {
             width: buttonWidth,
             height: 56,
             decoration: BoxDecoration(
-              color: _buttonState == 2 ? primaryColor : primaryColor,
+              color: _buttonState == 2 ? Colors.green : primaryColor,
               borderRadius: BorderRadius.circular(_buttonState == 1 ? 28.0 : 16.0),
-              boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.4), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 4))],
+              boxShadow: [BoxShadow(color: (_buttonState == 2 ? Colors.green : primaryColor).withOpacity(0.4), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 4))],
             ),
             child: Center(
               child: AnimatedSwitcher(

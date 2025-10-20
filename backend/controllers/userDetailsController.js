@@ -36,54 +36,64 @@ const generateWeeklyMealPlan = async (userDetails, user) => {
     const maxCalories = targetCalories + 100;
     console.log(`🔥 Generating meal plan (calories: ${minCalories}-${maxCalories})`);
 
-     for (let i = 0; i < 7; i++) {
-      const dayName = `day${i + 1}`;
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      const dailyMeals = [];
-      let finalNutrients = {};
-      let attempts = 0;
-      const MAX_ATTEMPTS = 10;
-      const MEALS_PER_DAY = 3;
+for (let i = 0; i < 7; i++) {
+  const dayName = `day${i + 1}`;
+  const date = new Date();
+  date.setDate(date.getDate() + i);
 
-      while (dailyMeals.length < MEALS_PER_DAY && attempts < MAX_ATTEMPTS) {
-        attempts++;
-        const randomCalories = Math.floor(Math.random() * (maxCalories - minCalories + 1)) + minCalories;
+  const dailyMeals = [];
+  let finalNutrients = {};
+  let attempts = 0;
+  const MAX_ATTEMPTS = 10;
+  const MEALS_PER_DAY = 3;
 
-        try {
-          const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
-            params: {
-              apiKey: process.env.SPOONACULAR_API_KEY,
-              timeFrame: "day",
-              targetCalories: randomCalories,
-              diet,
-              exclude: ingredientExclusions,
-              seed: Date.now() + i + attempts,
-            },
+  while (dailyMeals.length < MEALS_PER_DAY && attempts < MAX_ATTEMPTS) {
+    attempts++;
+    const randomCalories = Math.floor(Math.random() * (maxCalories - minCalories + 1)) + minCalories;
+
+    try {
+      const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
+        params: {
+          apiKey: process.env.SPOONACULAR_API_KEY,
+          timeFrame: "day",
+          targetCalories: randomCalories,
+          diet,
+          exclude: ingredientExclusions,
+          seed: Date.now() + i + attempts,
+        },
+      });
+
+      const meals = data.meals || [];
+      finalNutrients = data.nutrients;
+
+      for (const meal of meals) {
+        if (!allRecipeIds.has(meal.id)) {
+          allRecipeIds.add(meal.id);
+
+          // ✅ Add `loggedAt` to each individual meal object
+          dailyMeals.push({
+            ...meal,
+            loggedAt: null,
           });
 
-          const meals = data.meals || [];
-          finalNutrients = data.nutrients;
-           for (const meal of meals) {
-            if (!allRecipeIds.has(meal.id)) {
-              allRecipeIds.add(meal.id);
-              dailyMeals.push(meal);
-              if (dailyMeals.length >= MEALS_PER_DAY) break;
-            }
-          }
-        } catch (err) {
-          console.error(`❌ API error for ${dayName}:`, err.response?.data || err.message);
+          if (dailyMeals.length >= MEALS_PER_DAY) break;
         }
-    }
-
-      if (dailyMeals.length < MEALS_PER_DAY) {
-        return res.status(500).json({
-          message: `Failed to find enough unique recipes for ${dayName}. Try adjusting your restrictions.`,
-        });
       }
-
-      weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
+    } catch (err) {
+      console.error(`❌ API error for ${dayName}:`, err.response?.data || err.message);
     }
+  }
+
+  if (dailyMeals.length < MEALS_PER_DAY) {
+    return res.status(500).json({
+      message: `Failed to find enough unique recipes for ${dayName}. Try adjusting your restrictions.`,
+    });
+  }
+
+  // ✅ store per-day meals with their own loggedAt fields
+  weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
+}
+
 
     // ✅ Fetch full recipe info
     if (allRecipeIds.size === 0) {

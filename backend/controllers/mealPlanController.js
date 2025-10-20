@@ -27,6 +27,7 @@ const getMealPlanByUserId = async (req, res) => {
 };
 
 // Log a specific meal within a user's meal plan
+// ✅ Log a specific meal within a user's meal plan
 const logMeal = async (req, res) => {
   try {
     const { userId, mealId } = req.body;
@@ -46,35 +47,45 @@ const logMeal = async (req, res) => {
         .json({ message: "Meal plan not found for this user" });
     }
 
-    // Find the specific recipe in the detailedRecipes array
-    const recipeToLog = mealPlan.detailedRecipes.find(
-      (recipe) => recipe.id === mealId
-    );
+    let mealFound = false;
 
-    if (!recipeToLog) {
-      return res.status(404).json({ message: "Meal not found in this plan" });
+    // ✅ Iterate through Map safely using .entries()
+    for (const [dayKey, day] of mealPlan.meals.entries()) {
+      if (!day || !day.meals) continue;
+
+      for (const meal of day.meals) {
+        // ✅ Compare numerically to avoid string/number mismatch
+        if (Number(meal.id) === Number(mealId)) {
+          meal.loggedAt = new Date(); // log meal
+          mealFound = true;
+          console.log(`✅ Meal logged for ${dayKey} at ${meal.loggedAt}`);
+          break;
+        }
+      }
+
+      if (mealFound) break;
     }
 
-    // Update the loggedAt timestamp to the current time
-    recipeToLog.loggedAt = new Date();
+    if (!mealFound) {
+      return res
+        .status(404)
+        .json({ message: "Meal not found in any day" });
+    }
 
-    // Explicitly tell Mongoose that the nested 'detailedRecipes' array has changed.
-    mealPlan.markModified("detailedRecipes");
-
-    // Save the entire meal plan document with the updated recipe
+    // ✅ Important: tell Mongoose nested path changed
+    mealPlan.markModified("meals");
     await mealPlan.save();
 
-    // Return the updated meal plan
     res.status(200).json({
       message: "Meal logged successfully",
       mealPlan,
     });
   } catch (error) {
-    // It's helpful to log the actual error for better debugging
     console.error("❌ Detailed error logging meal:", error);
     res.status(500).json({ message: "Server error logging meal" });
   }
 };
+
 
 module.exports = {
   getMealPlanByUserId,
