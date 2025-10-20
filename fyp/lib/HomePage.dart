@@ -202,6 +202,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);
+    // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('hehehaha')));
     final colorScheme = Theme.of(context).colorScheme;
 
     return AnimatedPositioned(
