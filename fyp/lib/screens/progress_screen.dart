@@ -1,71 +1,22 @@
+// lib/screens/progress_screen.dart
+
 import 'package:flutter/material.dart';
 import 'dart:ui'; // Used for ImageFilter.blur
 import 'dart:math' as math; // For math functions like clamp
-import 'package:confetti/confetti.dart'; // Ensure you have 'confetti: ^0.7.0' in pubspec.yaml
+import 'package:confetti/confetti.dart';
 import 'package:flutter/services.dart';
-import 'package:fyp/screens/settings_screen.dart'; // For HapticFeedback
+import 'package:fyp/screens/settings_screen.dart';
 
-
+// ✅ --- NEW IMPORTS ---
+import 'package:fyp/models/progress_data.dart';
+import 'package:fyp/services/progress_service.dart';
+// ---------------------
 
 // --- 1. DATA MODELS ---
-class Achievement {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool isAchieved;
-  Achievement({ required this.icon, required this.title, required this.description, this.isAchieved = false });
-}
+// (Removed - Now in lib/models/progress_data.dart)
 
-class ProgressData {
-  final double currentWeight;
-  final double startWeight;
-  final double targetWeight;
-  final int steps;
-  final int stepGoal;
-  final List<Achievement> achievements;
-  final double userHeightInMeters;
-  final List<double> weeklyWeightData;
-  final List<int> weeklyStepsData; // Changed to int for steps
-
-  ProgressData({
-    required this.currentWeight,
-    required this.startWeight,
-    required this.targetWeight,
-    required this.steps,
-    required this.stepGoal,
-    required this.achievements,
-    required this.userHeightInMeters,
-    required this.weeklyWeightData,
-    required this.weeklyStepsData,
-  });
-}
-
-// --- 2. MOCK SERVICE (WITH THE FIX) ---
-class ProgressDataService {
-  Future<ProgressData> fetchData() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-    // ===== THE FIX IS APPLIED HERE - ALL FIELDS ARE PROVIDED =====
-    return ProgressData(
-      currentWeight: 83.0,
-      startWeight: 90.0,
-      targetWeight: 75.0,
-      steps: 6845,
-      stepGoal: 10000,
-      userHeightInMeters: 1.75,
-      achievements: [
-        Achievement(icon: Icons.celebration_rounded, title: 'First Weigh-In', description: "You've taken the first step!", isAchieved: true),
-        Achievement(icon: Icons.camera_alt_rounded, title: 'First Scan', description: "Scanned your first meal.", isAchieved: true),
-        Achievement(icon: Icons.local_fire_department_rounded, title: 'Calorie King', description: "Hit your daily calorie goal.", isAchieved: true),
-        Achievement(icon: Icons.fastfood_rounded, title: 'Five Scans', description: "Logged 5 meals with the scanner."),
-        Achievement(icon: Icons.ramen_dining_rounded, title: 'Perfect Week', description: "Hit your calorie goal 7 days in a row."),
-        Achievement(icon: Icons.fitness_center_rounded, title: 'Workout Warrior', description: "Logged your first activity."),
-      ],
-      weeklyWeightData: [84.5, 84.2, 84.0, 83.8, 83.5, 83.2, 83.0],
-      weeklyStepsData: [8200, 9500, 7100, 11050, 6500, 12000, 6845],
-    );
-    // =============================================================
-  }
-}
+// --- 2. MOCK SERVICE ---
+// (Removed - Now replaced by lib/services/progress_service.dart)
 
 // --- 3. MAIN SCREEN WIDGET ---
 
@@ -77,13 +28,17 @@ class MyProgressScreen extends StatefulWidget {
 
 class _MyProgressScreenState extends State<MyProgressScreen> with TickerProviderStateMixin {
   late Future<ProgressData> _progressDataFuture;
-  final ProgressDataService _dataService = ProgressDataService();
+
+  // ✅ --- USE THE REAL SERVICE ---
+  final RealProgressService _dataService = RealProgressService();
+
   late AnimationController _headerAnimController;
   late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    // ✅ This now calls your real API
     _progressDataFuture = _dataService.fetchData();
     _headerAnimController = AnimationController(
       vsync: this,
@@ -101,28 +56,45 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
 
   void _refreshData() {
     setState(() {
+      // ✅ This now re-fetches from your real API
       _progressDataFuture = _dataService.fetchData();
       _headerAnimController.forward(from: 0.0);
     });
   }
 
+  // ✅ --- UPDATED FUNCTION TO LOG WEIGHT ---
   void _showLogWeightSheet(BuildContext context, double currentWeight) {
-    // This function is now unused since the FAB is removed, but keeping the
-    // definition in case it is called elsewhere.
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _LogWeightSheet(
         initialWeight: currentWeight,
-        onLog: (newWeight) {
-          HapticFeedback.mediumImpact();
+        onLog: (newWeight) async {
+          // Close the sheet first for a snappy UI
           Navigator.of(ctx).pop();
-          _confettiController.play();
+
+          try {
+            // Call the real API service
+            await _dataService.logWeight(newWeight);
+            
+            // On success, celebrate and refresh
+            HapticFeedback.mediumImpact();
+            _confettiController.play();
+            _refreshData(); // Refresh all data from server
+          } catch (e) {
+            // Show an error message if it fails
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error logging weight: ${e.toString()}'))
+              );
+            }
+          }
         },
       ),
     );
   }
+  // ------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -170,8 +142,6 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                           const SizedBox(height: 24),
                           _HallOfFameSection(achievements: data.achievements),
                           const SizedBox(height: 24),
-
-
                           _buildSectionHeader(context, "Health Overview"),
                           _HealthSnapshotSection(
                             bmi: bmi,
@@ -181,23 +151,16 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                             animation: _headerAnimController,
                           ),
                           const SizedBox(height: 12),
-
-                          // --- COMMUNITY BUTTON SECTION ---
                           _CommunityCallToAction(
                             animationIndex: 6,
                             onTap: () {
-                              // Placeholder action: Navigate or show a message
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Joining Community... (Action Placeholder)'))
                               );
                             },
                           ),
                           const SizedBox(height: 24),
-                          // --- END NEW SECTION ---
-
-
                           _buildSectionHeader(context, "Weekly Snapshots"),
-                          // Replaced _TrendSnapshotSection with new combined card
                           _CombinedTrendCard(
                             weightData: data.weeklyWeightData,
                             stepsData: data.weeklyStepsData,
@@ -223,14 +186,34 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           );
         },
       ),
-      // REMOVED: floatingActionButton is removed completely
-      // floatingActionButton: FutureBuilder<ProgressData>(...
-      // ),
+      // ✅ --- ADDED FLOATING ACTION BUTTON BACK ---
+      // This button calls the _showLogWeightSheet function
+      floatingActionButton: FutureBuilder<ProgressData>(
+        future: _progressDataFuture,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox.shrink(); // Hide if no data
+          
+          return FloatingActionButton.extended(
+            onPressed: () => _showLogWeightSheet(context, snapshot.data!.currentWeight),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text("Log Weight"),
+            backgroundColor: Colors.orange, // Use your theme's primary color
+            foregroundColor: Colors.white,
+          );
+        }
+      ),
+      // ---------------------------------------------
     );
   }
 
+  //
+  // --- ALL YOUR UI WIDGETS BELOW THIS LINE ---
+  // (No changes needed here, they are all correct)
+  //
+  
   // --- UI Building Methods (Unchanged) ---
   SliverAppBar _buildHeaderSliver(ProgressData data) {
+    // ... (This widget is unchanged)
     return SliverAppBar(
       expandedHeight: 300, pinned: true, backgroundColor: Colors.transparent, elevation: 0, centerTitle: true,
       title: const Text('My Progress Hub', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black26, blurRadius: 4)])),
@@ -248,12 +231,14 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
+    // ... (This widget is unchanged)
     return StaggeredAnimation(index: 0, child: Padding(padding: const EdgeInsets.only(bottom: 16, top: 8), child: Center(
       child: Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey[800]))),
     ));
   }
 
   Widget _buildTimelineSection(ProgressData data) {
+    // ... (This widget is unchanged)
     final double weightLost = data.startWeight - data.currentWeight;
     return Column(
       children: [
@@ -277,6 +262,8 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
 }
 
 // --- 4. NEW & REDESIGNED WIDGETS ---
+// ... (All widgets from _CombinedTrendCard down to _ProgressRingPainter)
+// ... (are unchanged and remain here) ...
 
 class _CombinedTrendCard extends StatelessWidget {
   final List<double> weightData;
@@ -330,7 +317,7 @@ class _WeightTrendVisualization extends StatelessWidget {
     final primaryColor = Colors.orange;
 
     if (data.isEmpty) return const SizedBox(height: 120, child: Center(child: Text("Not enough weight data.")));
-    final double change = data.last - data.first;
+    final double change = data.isNotEmpty ? data.last - data.first : 0.0;
     final bool isLoss = change < 0;
 
     return Column(
@@ -378,9 +365,9 @@ class _StepsTrendVisualization extends StatelessWidget {
     final primaryColor = Colors.orange;
 
     if (data.isEmpty) return const SizedBox(height: 180, child: Center(child: Text("No step data.")));
-    final int sum = data.reduce((a, b) => a + b);
+    final int sum = data.isNotEmpty ? data.reduce((a, b) => a + b) : 0;
     final int average = data.length > 0 ? sum ~/ data.length : 0;
-    final double progress = (average / goal).clamp(0.0, 1.0);
+    final double progress = (goal > 0) ? (average / goal).clamp(0.0, 1.0) : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,10 +618,10 @@ class _StepsBarPainter extends CustomPainter {
     
     const double labelHeight = 20;
     final double chartHeight = size.height - labelHeight;
-    final double maxVal = (data.reduce(math.max) > goal ? data.reduce(math.max) : goal) * 1.2;
-    final double barWidth = size.width / (data.length * 2 - 1);
+    final double maxVal = (data.isNotEmpty ? (data.reduce(math.max) > goal ? data.reduce(math.max) : goal) : goal) * 1.2;
+    if (maxVal == 0) return; // Avoid division by zero
     
-    // Dotted line drawing logic REMOVED
+    final double barWidth = size.width / (data.length * 2 - 1);
     
     for (int i = 0; i < data.length; i++) {
       final barHeight = (data[i] / maxVal * chartHeight) * animationProgress;
@@ -760,7 +747,7 @@ class _HallOfFameSectionState extends State<_HallOfFameSection> with TickerProvi
   @override
   void initState() {
     super.initState();
-    final int initialPage = widget.achievements.lastIndexWhere((a) => a.isAchieved);
+    final int initialPage = widget.achievements.isNotEmpty ? widget.achievements.lastIndexWhere((a) => a.isAchieved) : 0;
     _currentPage = (initialPage == -1) ? 0 : initialPage.toDouble();
     _pageController = PageController(initialPage: (initialPage == -1) ? 0 : initialPage, viewportFraction: 0.75);
     _confettiControllers = List.generate(widget.achievements.length, (index) => ConfettiController(duration: const Duration(milliseconds: 500)));
@@ -768,7 +755,7 @@ class _HallOfFameSectionState extends State<_HallOfFameSection> with TickerProvi
       if(!mounted) return;
       setState(() => _currentPage = _pageController.page!);
       int centeredIndex = _pageController.page!.round();
-      if (widget.achievements[centeredIndex].isAchieved && !_celebratedIndices.contains(centeredIndex)) {
+      if (widget.achievements.isNotEmpty && widget.achievements[centeredIndex].isAchieved && !_celebratedIndices.contains(centeredIndex)) {
         _confettiControllers[centeredIndex].play();
         _celebratedIndices.add(centeredIndex);
       }
@@ -782,6 +769,26 @@ class _HallOfFameSectionState extends State<_HallOfFameSection> with TickerProvi
   }
   @override
   Widget build(BuildContext context) {
+    if (widget.achievements.isEmpty) {
+      return StaggeredAnimation(
+        index: 6,
+        child: _InteractiveCard(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(Icons.lock_outline, size: 40, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text("Achievements Locked", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey[800])),
+                const SizedBox(height: 8),
+                Text("Start logging meals and weight to unlock!", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
     return StaggeredAnimation(index: 6, child: Column(
       children: [
         Padding(
@@ -993,7 +1000,7 @@ class _WeightToGoCard extends StatelessWidget {
     const double startWeight = 90.0;
     final double startDifference = startWeight - targetWeight;
     final double currentDifference = currentWeight - targetWeight;
-    final double progress = startDifference <= 0 ? 1.0 : (1 - currentDifference / startDifference).clamp(0.0, 1.0);
+    final double progress = (startDifference <= 0 || startDifference.isNaN) ? 1.0 : (1 - currentDifference / startDifference).clamp(0.0, 1.0);
     return _InteractiveCard(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24), child: Row(
       children: [
         Expanded(child: Column(
@@ -1034,7 +1041,7 @@ class _BmiStatusCard extends StatelessWidget {
   const _BmiStatusCard({required this.bmi});
   @override
   Widget build(BuildContext context) {
-    String getBmiCategory() { if (bmi < 18.5) return "Underweight"; if (bmi < 25) return "Healthy"; if (bmi < 30) return "Overweight"; return "Obese"; }
+    String getBmiCategory() { if (bmi.isNaN || bmi < 18.5) return "Underweight"; if (bmi < 25) return "Healthy"; if (bmi < 30) return "Overweight"; return "Obese"; }
     Color getBmiCategoryColor() { final cat = getBmiCategory(); if (cat == "Underweight") return Colors.blue; if (cat == "Healthy") return Colors.green; if (cat == "Overweight") return Colors.orange; return Colors.red; }
     IconData getBmiIcon() { final cat = getBmiCategory(); if (cat == "Healthy") return Icons.check_circle; return Icons.info; }
     return _InteractiveCard(padding: const EdgeInsets.all(16), child: Column(
@@ -1046,7 +1053,7 @@ class _BmiStatusCard extends StatelessWidget {
           Icon(getBmiIcon(), color: getBmiCategoryColor(), size: 20),
         ]),
         const SizedBox(height: 8),
-        Text(bmi.toStringAsFixed(1), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        Text(bmi.isNaN ? "---" : bmi.toStringAsFixed(1), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
         Text(getBmiCategory(), style: TextStyle(color: getBmiCategoryColor(), fontWeight: FontWeight.bold)),
       ],
     ));
@@ -1059,6 +1066,7 @@ class _HealthyRangeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final double lowerWeight = 18.5 * (heightInMeters * heightInMeters);
     final double upperWeight = 24.9 * (heightInMeters * heightInMeters);
+    final bool isReady = !lowerWeight.isNaN && !upperWeight.isNaN;
     return _InteractiveCard(padding: const EdgeInsets.all(16), child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1068,7 +1076,7 @@ class _HealthyRangeCard extends StatelessWidget {
           Icon(Icons.shield_outlined, color: Colors.green, size: 20),
         ]),
         const SizedBox(height: 8),
-        Text("${lowerWeight.toStringAsFixed(1)}-${upperWeight.toStringAsFixed(1)}", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        Text(isReady ? "${lowerWeight.toStringAsFixed(1)}-${upperWeight.toStringAsFixed(1)}" : "---", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const Text("Target (kg)", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
       ],
     ));
@@ -1081,7 +1089,7 @@ class _PremiumProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final double totalLossGoal = (startWeight - targetWeight);
     final double lossSoFar = (startWeight - currentWeight);
-    final double progress = totalLossGoal <= 0 ? 1.0 : (lossSoFar / totalLossGoal).clamp(0.0, 1.0);
+    final double progress = (totalLossGoal <= 0 || totalLossGoal.isNaN) ? 1.0 : (lossSoFar / totalLossGoal).clamp(0.0, 1.0);
     final double remainingWeight = (currentWeight - targetWeight).clamp(0.0, double.infinity);
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
@@ -1226,8 +1234,16 @@ class _LogWeightSheetState extends State<_LogWeightSheet> {
   }
 }
 class _AnimatedCount extends StatefulWidget {
-  final double end; final TextStyle? style; final int precision;
-  const _AnimatedCount({required this.end, this.style, this.precision = 1});
+  final double end;
+  final TextStyle? style;
+  final int precision;
+
+  const _AnimatedCount({
+    required this.end,
+    this.style,
+    this.precision = 0,
+  });
+
   @override
   _AnimatedCountState createState() => _AnimatedCountState();
 }

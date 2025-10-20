@@ -118,7 +118,7 @@ router.post('/login', async (req, res) => {
 });
 
 // --- DELETE route ---
-router.delete('/delete', authMiddleware, async (req, res) => {
+router.delete('/delete', authMiddleware.protect, async (req, res) => {
     try {
         // authMiddleware provides the correct, valid user ID
         const userId = req.user.id; 

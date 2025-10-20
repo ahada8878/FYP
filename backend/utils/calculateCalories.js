@@ -1,7 +1,7 @@
 function parseHeightToCm(height) {
   if (!height) return 170;
   const lower = height.toString().toLowerCase().trim();
-
+ 
   if (lower.includes("cm")) {
     const cm = parseFloat(lower);
     return isNaN(cm) ? 170 : cm;
@@ -44,7 +44,8 @@ function calculateCalories(height, currentWeight, targetWeight, activityLevel) {
     const diff = cWeight - tWeight;
     if (diff > 0) maintenanceCalories -= 200;
     else if (diff < 0) maintenanceCalories += 200;
-
+    
+    console.log("ℹ️ Calculated calories:", maintenanceCalories);
     return Math.round(maintenanceCalories);
   } catch (err) {
     console.error("⚠️ Calorie calculation failed:", err.message);

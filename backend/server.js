@@ -19,6 +19,10 @@ require('dotenv').config();
 const User = require('./models/User'); 
 const UserDetails = require('./models/userDetails'); 
 const mealPlanRoutes = require("./routes/mealPlanRoutes.js");
+const calorieGoal = require('./models/userDetails');
+const progressRoutes = require('./routes/progressRoutes.js');
+
+const { protect } = require('./middleware/authMiddleware.js');
 
 
 const app = express();
@@ -56,47 +60,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Connect to Database
 connectDB();
 
-// --- 🔑 JWT Authentication Middleware (Custom Protect Function) ---
-const protect = (req, res, next) => {
-    let token;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        token = req.headers.authorization.split(' ')[1];
-    } 
-
-    if (!token) {
-        console.error('   ❌ Authentication: No token provided.');
-        if (req.file) {
-            fs.unlink(req.file.path, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
-        }
-        return res.status(401).json({ success: false, message: 'Not authorized, no token' });
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_default_jwt_secret');
-        
-        // Extracts user ID from the token payload and sets it on req.user for consistency with authMiddleware standard
-        req.user = { id: decoded.user.id }; 
-        req.userId = decoded.user.id; // Keep req.userId for existing code that uses it
-
-        if (!req.userId) {
-             throw new Error("User ID not found in token payload.");
-        }
-        
-        console.log(`   🔑 Authentication: User ID ${req.userId} authenticated.`);
-        next();
-    } catch (error) {
-        console.error('   ❌ JWT Verification Error:', error.message);
-        if (req.file) {
-            fs.unlink(req.file.path, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
-        }
-        return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
-    }
-};
 
 // --- Application Routes ---
 app.use('/api/auth', authRoutes);
@@ -106,35 +70,36 @@ app.use('/api/user-details', userDetailsRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use("/api/mealplan", mealPlanRoutes);
+app.use("/api/progress", progressRoutes);
 
 
 // --- ADDED: New route to get user's name and calorie goal ---
 app.get('/api/user/profile-summary', protect, async (req, res) => {
     const userId = req.userId;
     console.log(`➡️  Request Received: GET /api/user/profile-summary for User ID: ${userId}`);
-
+ 
     try {
-        // Fetch user's name from the User collection
-
-        const user = await UserDetails.findOne({ user: userId }).select('userName').lean();
+        // Fetch user's name and calorie goal from the UserDetails collection
+        const user = await UserDetails.findOne({ user: userId })
+            .select('userName caloriesGoal') // Fetch both fields
+            .lean();
         
-        // Fetch user's details to get the calorie goal
-        const userDetails = await UserDetails.findOne({ user: userId }).select('options').lean();
-
         if (!user) {
-            console.log(`   ❌ User not found for ID: ${userId}`);
-            return res.status(404).json({ success: false, message: 'User not found.' });
+            console.log(`   ❌ User details not found for ID: ${userId}`);
+            return res.status(404).json({ success: false, message: 'User profile not found.' });
         }
 
-        // Use the calorie goal from user details, or default to 2000 if not set
-        const caloriesGoal = userDetails?.options?.maxCalories || 2000; 
+        // The 'caloriesGoal' value is now on user.caloriesGoal
+        // We can use a default value just in case it's missing (e.g., for an old user)
+        const caloriesGoal = user.caloriesGoal || 2000; 
 
         console.log(`   ✅ Successfully fetched data: Name='${user.userName}', Calories=${caloriesGoal}`);
-        
+         
         res.status(200).json({
             success: true,
-            userName: user.name,
-            caloriesGoal: caloriesGoal
+            userName: user.userName,
+            // ✅ FIX: Change this from 'caloriesGoal' to 'user.caloriesGoal' or the variable above
+            caloriesGoal: caloriesGoal 
         });
 
     } catch (err) {

@@ -110,7 +110,7 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
         floatingLabelBehavior: FloatingLabelBehavior.never,
       );
     }
-
+ 
     return Padding(
       // Adjust padding to avoid the keyboard
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -226,18 +226,6 @@ class CameraScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(), body: const Center(child: Text("Camera Screen")));
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 // --- Data Models ---
@@ -1382,7 +1370,7 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
 
 class _CreativeTimelineHydrationItem extends StatefulWidget {
   final bool isLast;
-  const _CreativeTimelineHydrationItem({super.key, this.isLast = false});
+  const _CreativeTimelineHydrationItem({this.isLast = false});
   @override
   State<_CreativeTimelineHydrationItem> createState() =>
       _CreativeTimelineHydrationItemState();
@@ -1604,7 +1592,7 @@ class _TiltableCard extends StatelessWidget {
 class _PlanProgressIndicator extends StatelessWidget {
   final int plannedDays;
   final int totalDays;
-  const _PlanProgressIndicator({this.plannedDays = 3, this.totalDays = 7});
+  const _PlanProgressIndicator({this.totalDays = 7, required this.plannedDays});
   double get progress => plannedDays / totalDays;
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1662,7 +1650,7 @@ class _MealPlanCard extends StatelessWidget {
                                       color: Colors.white.withOpacity(0.5)),
                                   borderRadius: BorderRadius.circular(24.0)),
                               padding: const EdgeInsets.all(24.0),
-                              child: Column(
+                              child: const Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -1676,7 +1664,7 @@ class _MealPlanCard extends StatelessWidget {
                                           Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
-                                              children: const [
+                                              children: [
                                                 Text('Weekly Nutrition',
                                                     style: TextStyle(
                                                         color: Colors.white70,
@@ -1692,7 +1680,7 @@ class _MealPlanCard extends StatelessWidget {
                                                             FontWeight.w900,
                                                         letterSpacing: 0.5))
                                               ]),
-                                          const _PlanProgressIndicator()
+                                          _PlanProgressIndicator(plannedDays: 0)
                                         ]),
                                     _MealPlanCtaChip(accentColor: Colors.white)
                                   ]))))
