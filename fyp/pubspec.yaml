@@ -45,7 +45,9 @@ dependencies:
   lottie: ^3.0.0
   flutter_html: ^3.0.0-beta.2
   sensors_plus: ^5.0.1
-  flip_card: ^0.7.0 # Add this line
+  flip_card: ^0.7.0 
+  google_sign_in: ^6.2.1
+  # health: ^13.1.3
 
   
 

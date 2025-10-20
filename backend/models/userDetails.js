@@ -1,8 +1,8 @@
+// models/userDetails.js
+
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-
-// ✅ KEY FIX: `required: true` is only used for essential fields.
-// This prevents the save operation from failing if optional data isn't provided.
+const { calculateCalories } = require("../utils/calculateCalories.js");
 
 const userDetailsSchema = new Schema({
   user: {
@@ -26,6 +26,20 @@ const userDetailsSchema = new Schema({
     type: String,
     required: true,
   },
+  caloriesGoal: {
+    type: Number,
+  },
+  
+  // --- ✅ NEW FIELDS FOR PROGRESS SCREEN ---
+  startWeight: {
+    type: String, // Storing as String to match 'currentWeight'
+  },
+  stepGoal: {
+    type: Number,
+    default: 10000, // Set a default goal
+  },
+  // ----------------------------------------
+
   // --- Optional Fields ---
   authToken: { type: String, default: "" },
   selectedMonth: { type: String, default: "" },
@@ -43,9 +57,37 @@ const userDetailsSchema = new Schema({
   restrictions: { type: Map, of: Schema.Types.Mixed, default: {} },
   eatingStyles: { type: Map, of: Schema.Types.Mixed, default: {} },
   startTimes: { type: [{ type: Map, of: Schema.Types.Mixed }], default: [] },
-  endTimes: { type: [{ type: Map, of: Schema.Types.Mixed }], default: [] },
+  endTimes: { type: [{ type: Map, of:Schema.Types.Mixed }], default: [] },
 });
 
-module.exports = mongoose.models.UserDetails 
-  ? mongoose.model('UserDetails') 
-  : mongoose.model('UserDetails', userDetailsSchema);
+// This pre-save hook automatically runs on create AND update
+userDetailsSchema.pre("save", function (next) {
+
+  // ✅ --- ADDED LOGIC ---
+  // If 'startWeight' is not set and we are creating the user
+  // or updating 'currentWeight', set 'startWeight' to 'currentWeight'.
+  if (!this.startWeight || this.isModified("currentWeight") && !this.startWeight) {
+    this.startWeight = this.currentWeight;
+  }
+  // --------------------
+
+  if (
+    this.isModified("height") ||
+    this.isModified("currentWeight") ||
+    this.isModified("targetWeight") ||
+    this.isModified("activityLevels")
+  ) {
+    this.caloriesGoal = calculateCalories(
+      this.height,
+      this.currentWeight,
+      this.targetWeight,
+      this.activityLevels
+    );
+  }
+
+  next(); // Continue to the save operation
+});
+
+module.exports = mongoose.models.UserDetails
+  ? mongoose.model("UserDetails")
+  : mongoose.model("UserDetails", userDetailsSchema);

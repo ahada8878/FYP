@@ -1,0 +1,2 @@
+C:/Uni/FYP/Main/FYP/FYP/fyp/android/app/.cxx/Debug/nw216g4w/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Uni/FYP/Main/FYP/FYP/fyp/android/app/.cxx/Debug/nw216g4w/arm64-v8a/CMakeFiles/rebuild_cache.dir

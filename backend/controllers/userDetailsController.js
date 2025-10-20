@@ -6,7 +6,7 @@ const axios = require("axios");
 // Utility function imports
 const { getExcludedIngredientsFromHealthConcerns } = require("../utils/diseaseMapping.js");
 const { mapEatingStylesToDiet } = require("../utils/eatingStylesMapping.js");
-const { calculateCalories } = require("../utils/calculateCalories.js");
+// <-- REMOVED: calculateCalories is no longer needed in this file.
 const { extractRecipeDetails } = require("../utils/extractRecipeDetails.js");
 
 // ======================================================================
@@ -20,8 +20,8 @@ const generateWeeklyMealPlan = async (userDetails, user) => {
     }
     const { username, hash } = linkedUser.spoonacular;
 
-    const targetCalories = calculateCalories(userDetails.height, userDetails.currentWeight, userDetails.targetWeight, userDetails.activityLevels);
-    console.log(`📊 Target calories: ${targetCalories}`);
+    const targetCalories = userDetails.caloriesGoal;
+    
     const ingredientExclusions = getExcludedIngredientsFromHealthConcerns(userDetails.healthConcerns);
     if (ingredientExclusions) console.log(`🚫 Excluding: ${ingredientExclusions}`);
     const diet = mapEatingStylesToDiet(userDetails.eatingStyles);
@@ -154,22 +154,34 @@ const saveMyProfile = async (req, res) => {
             return res.status(401).json({ message: 'Authentication error: User ID not found.' });
         }
         
-        // 1. Create or update the user's details using findOneAndUpdate with upsert
-        const userDetails = await UserDetails.findOneAndUpdate(
-            { user: userId },
-            { ...req.body, user: userId },
-            { new: true, upsert: true, runValidators: true }
-        );
+        // <-- ✅ CHANGED: Replaced 'findOneAndUpdate' with 'findOne' + '.save()'
+        
+        // 1. Find the existing document
+        let userDetails = await UserDetails.findOne({ user: userId });
+
+        if (!userDetails) {
+            // 2a. If it doesn't exist, create a new one
+            userDetails = new UserDetails({ ...req.body, user: userId });
+        } else {
+            // 2b. If it exists, update it with new data from req.body
+            userDetails.set(req.body);
+        }
+
+        // 3. Save the document. This will trigger the 'pre-save' hook.
+        // The hook calculates 'caloriesGoal' before it hits the DB.
+        const savedUserDetails = await userDetails.save();
+        
         console.log(`✅ User details successfully saved for user: ${userId}`);
+        // 'savedUserDetails' now contains the calculated caloriesGoal
 
-        // 2. Generate a fresh weekly meal plan based on the new details
+        // 4. Generate a fresh weekly meal plan based on the new details
         console.log('⚙️ Generating new meal plan...');
-        const mealPlan = await generateWeeklyMealPlan(userDetails, req.user);
+        const mealPlan = await generateWeeklyMealPlan(savedUserDetails, req.user);
 
-        // 3. Respond with success
+        // 5. Respond with success
         res.status(201).json({
             message: "Profile saved and weekly meal plan generated successfully!",
-            details: userDetails,
+            details: savedUserDetails,
             mealPlan,
         });
 

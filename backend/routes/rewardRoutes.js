@@ -4,7 +4,7 @@ const {
   getRewards,
   checkAndUnlockRewards,
 } = require('../controllers/rewardController');
-const protect = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 
 router.route('/').get(protect, getRewards);
 router.route('/check').post(protect, checkAndUnlockRewards);

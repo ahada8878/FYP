@@ -1135,7 +1135,7 @@ class RestaurantProductCard extends StatelessWidget {
 
 // NEW: The animated background widget
 class _LivingAnimatedBackground extends StatefulWidget {
-  const _LivingAnimatedBackground({super.key});
+  const _LivingAnimatedBackground();
   @override
   State<_LivingAnimatedBackground> createState() =>
       _LivingAnimatedBackgroundState();

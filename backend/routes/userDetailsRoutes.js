@@ -14,20 +14,20 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 // GET /api/user-details/my-profile
 // Securely fetches the profile for the currently logged-in user.
-router.get("/my-profile", authMiddleware, getMyProfile);
+router.get("/my-profile", authMiddleware.protect, getMyProfile);
 
 // POST /api/user-details/my-profile
 // Securely CREATES or UPDATES the profile for the logged-in user.
-router.post("/my-profile", authMiddleware, saveMyProfile);
+router.post("/my-profile", authMiddleware.protect, saveMyProfile);
 
 
 // === OPTIONAL ADMIN ROUTES ===
 
 // GET /api/user-details/
-router.get("/", authMiddleware, getAllUserDetails);
+router.get("/", authMiddleware.protect, getAllUserDetails);
 
 // DELETE /api/user-details/:id
-router.delete("/:id", authMiddleware, deleteUserDetails);
+router.delete("/:id", authMiddleware.protect, deleteUserDetails);
 
 
 module.exports = router;

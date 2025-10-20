@@ -9,6 +9,8 @@ class UserDetailsService {
 
   // No changes needed for this function
   static Future<UserDetails?> fetchUserDetails(String id) async {
+    return null;
+  
     // ...
   }
 

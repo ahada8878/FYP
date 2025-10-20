@@ -10,7 +10,12 @@ import 'package:fyp/screens/Features/nutrition_tips_page.dart';
 import 'package:fyp/screens/Features/recipe_suggestions.dart';
 import 'package:fyp/screens/settings_screen.dart';
 import 'package:fyp/screens/userMealPlanScreen.dart';
+import 'package:fyp/screens/describe_meal_screen.dart';
+import 'package:fyp/screens/ai_scanner_result_page.dart';
+import 'package:fyp/screens/camera_screen.dart';
 import 'package:fyp/services/config_service.dart';
+import 'package:fyp/Widgets/log_water_overlay.dart';
+import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:intl/intl.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:confetti/confetti.dart';
@@ -18,6 +23,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'camera_overlay_controller.dart';
+import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 
 // --- Service to handle fetching the auth token ---
 class AuthService {
@@ -28,8 +36,6 @@ class AuthService {
     return prefs.getString(_tokenKey);
   }
 }
-
-
 
 // --- Screen for scanning a meal ---
 class ScanMealScreen extends StatelessWidget {
@@ -110,7 +116,7 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
         floatingLabelBehavior: FloatingLabelBehavior.never,
       );
     }
-
+ 
     return Padding(
       // Adjust padding to avoid the keyboard
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -219,26 +225,12 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   }
 }
 
-
-class CameraScreen extends StatelessWidget {
-  const CameraScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(), body: const Center(child: Text("Camera Screen")));
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
+// class CameraScreen extends StatelessWidget {
+//   const CameraScreen({super.key});
+//   @override
+//   Widget build(BuildContext context) => Scaffold(
+//       appBar: AppBar(), body: const Center(child: Text("Camera Screen")));
+// }
 
 // --- Data Models ---
 class DailySummary {
@@ -306,6 +298,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     with TickerProviderStateMixin {
   late Future<Map<String, dynamic>> _userDataFuture;
   late AnimationController _headerAnimController;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
   final ScrollController _scrollController = ScrollController();
   late final ScrollController _recipeScrollController;
   final AuthService _authService = AuthService();
@@ -315,6 +309,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   @override
   void initState() {
     super.initState();
+    _initAnimations();
     _userDataFuture = _fetchUserData();
 
     _meals = [
@@ -405,15 +400,54 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     });
   }
 
+  void _initAnimations() {
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+
+    _scaleAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+    Future<void> _openCameraScreen() async {
+    Provider.of<CameraOverlayController>(context, listen: false).hide();
+    final imagePath = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const CameraScreen()),
+    );
+    if (imagePath != null) {
+      final imageFile = File(imagePath);
+      _navigateToResultPage(imageFile, true);
+    }
+  }
+
+  void _navigateToResultPage(File imageFile, bool fromCamera) {
+    Provider.of<CameraOverlayController>(context, listen: false).hide();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AiScannerResultPage(
+          imageFile: imageFile,
+          fromCamera: fromCamera,
+        ),
+      ),
+    );
+  }
+
+
   @override
   void dispose() {
     _headerAnimController.dispose();
+    _animationController.dispose();
     _scrollController.dispose();
     _recipeScrollController.dispose();
     super.dispose();
   }
-
-
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -493,6 +527,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 
   @override
   Widget build(BuildContext context) {
+    final overlayController = Provider.of<CameraOverlayController>(context);
     return Scaffold(
       body: Stack(
         children: [
@@ -548,35 +583,39 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 
                 return RefreshIndicator(
                   onRefresh: _refreshData,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics()),
-                    slivers: [
-                      _buildHeader(context, summary, userName),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
-                        sliver: SliverList(
-                          delegate: SliverChildListDelegate([
-                            _buildSectionHeader(context, "Today's Timeline"),
-                            _buildMealTimeline(),
-                            const SizedBox(height: 24),
-                            _buildSectionHeader(context, 'For You'),
-                            _buildRecipeSection(
-                                scrollController: _recipeScrollController),
-                            const SizedBox(height: 24),
-                            const _DailyInsightCard(),
-                            const SizedBox(height: 24),
-                            _buildSectionHeader(context, 'Daily Breakdown'),
-                            _MacroBreakdownCard(summary: summary),
-                            const SizedBox(height: 24),
-                            _buildSectionHeader(context, 'See Your Meal Plan'),
-                            const _MealPlanCard(),
-                            const SizedBox(height: 24),
-                            _buildSectionHeader(context, 'Quick Actions'),
-                            _buildQuickActions(),
-                          ]),
-                        ),
+                  child: Stack(
+                    children: [
+                      CustomScrollView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics()),
+                        slivers: [
+                          _buildHeader(context, summary, userName),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
+                            sliver: SliverList(
+                              delegate: SliverChildListDelegate([
+                                _buildSectionHeader(context, "Today's Timeline"),
+                                _buildMealTimeline(),
+                                const SizedBox(height: 24),
+                                _buildSectionHeader(context, 'For You'),
+                                _buildRecipeSection(
+                                    scrollController: _recipeScrollController),
+                                const SizedBox(height: 24),
+                                const _DailyInsightCard(),
+                                const SizedBox(height: 24),
+                                _buildSectionHeader(context, 'Daily Breakdown'),
+                                _MacroBreakdownCard(summary: summary),
+                                const SizedBox(height: 24),
+                                _buildSectionHeader(context, 'See Your Meal Plan'),
+                                const _MealPlanCard(),
+                                const SizedBox(height: 24),
+                                _buildSectionHeader(context, 'Quick Actions'),
+                                _buildQuickActions(),
+                              ]),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -587,10 +626,209 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                   child: Text("No data found for your profile."));
             },
           ),
+          if (overlayController.showOverlay) _buildCameraPageOverlay(),
         ],
       ),
     );
   }
+
+  Widget _buildCameraPageOverlay() {
+    final overlayController = Provider.of<CameraOverlayController>(context);
+    // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('hehehaha')));
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      bottom: overlayController.showOverlay ? 0 : -MediaQuery.of(context).size.height * 0.7,
+      left: 0,
+      right: 0,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 30,
+              spreadRadius: 5,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'AI Scanner',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () {
+                      overlayController.hide();
+                      if (context.read<PersistentTabController>().index != 0) {
+                        context.read<PersistentTabController>().index = 0;
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: ScannerPulseAnimation(
+                child: Container(
+                  height: 120,
+                  width: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        colorScheme.primary.withOpacity(0.3),
+                        colorScheme.primary.withOpacity(0.1),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: colorScheme.primary.withOpacity(0.5),
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: AnimatedRotation(
+                      duration: const Duration(seconds: 8),
+                      turns: _animationController.value * 2,
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 40,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ListView(
+                  children: [
+                    AnimatedScannerButton(
+                      icon: Icons.chat_bubble_outline,
+                      text: 'Describe Meal to AI',
+                      subtitle: 'Get nutritional analysis by description',
+                      color: Colors.blue,
+                      delay: 100,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const DescribeMealScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    AnimatedScannerButton(
+                      icon: Icons.bookmark_border,
+                      text: 'Saved Meals',
+                      subtitle: 'Your frequently logged meals',
+                      color: Colors.green,
+                      delay: 200,
+                      onTap: () {},
+                    ),
+                    AnimatedScannerButton(
+                      icon: Icons.local_drink_outlined,
+                      text: 'Log Water',
+                      subtitle: 'Track your daily water intake',
+                      color: Colors.lightBlue,
+                      delay: 300,
+                      onTap: () {
+                        Provider.of<CameraOverlayController>(context, listen: false).hide();
+                        showLogWaterOverlay(context);
+                      },
+                    ),
+                    AnimatedScannerButton(
+                      icon: Icons.monitor_weight_outlined,
+                      text: 'Log Weight',
+                      subtitle: 'Update your current weight',
+                      color: Colors.orange,
+                      delay: 400,
+                      onTap: () {},
+                    ),
+                    AnimatedScannerButton(
+                      icon: Icons.directions_run,
+                      text: 'Log Activity',
+                      subtitle: 'Add exercise or physical activity',
+                      color: Colors.red,
+                      delay: 500,
+                      onTap: () {
+                        Provider.of<CameraOverlayController>(context, listen: false).hide();
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const ActivityLogSheet(),
+                        ).then((selectedActivity) {
+                          if (selectedActivity != null) {
+                            // ignore: avoid_print
+                            print('Logged activity: ${selectedActivity.name}');
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: ElevatedButton(
+                onPressed: _openCameraScreen,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  elevation: 5,
+                  shadowColor: colorScheme.primary.withOpacity(0.4),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.scanner, color: Colors.white),
+                    SizedBox(width: 10),
+                    Text(
+                      'SCAN NOW',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   SliverAppBar _buildHeader(
       BuildContext context, DailySummary summary, String userName) {
@@ -855,6 +1093,203 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 }
 
 // --- ALL HELPER WIDGETS ---
+
+class AnimatedScannerButton extends StatefulWidget {
+  final IconData icon;
+  final String text;
+  final String subtitle;
+  final Color color;
+  final int delay;
+  final VoidCallback onTap;
+
+  const AnimatedScannerButton({
+    super.key,
+    required this.icon,
+    required this.text,
+    required this.subtitle,
+    required this.color,
+    required this.delay,
+    required this.onTap,
+  });
+
+  @override
+  State<AnimatedScannerButton> createState() => _AnimatedScannerButtonState();
+}
+
+class _AnimatedScannerButtonState extends State<AnimatedScannerButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+  late Animation<double> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.5, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation = Tween<double>(begin: 50, end: 0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.3, 1, curve: Curves.easeOutBack),
+      ),
+    );
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacityAnimation.value,
+          child: Transform.translate(
+            offset: Offset(_slideAnimation.value, 0),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              widget.color.withOpacity(0.1),
+              Colors.transparent,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  widget.color.withOpacity(0.3),
+                  widget.color.withOpacity(0.1),
+                ],
+              ),
+            ),
+            child: Icon(widget.icon, color: widget.color),
+          ),
+          title: Text(
+            widget.text,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          subtitle: Text(
+            widget.subtitle,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: Colors.grey[400],
+          ),
+          onTap: widget.onTap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ScannerPulseAnimation extends StatefulWidget {
+  final Widget child;
+
+  const ScannerPulseAnimation({super.key, required this.child});
+
+  @override
+  State<ScannerPulseAnimation> createState() => _ScannerPulseAnimationState();
+}
+
+class _ScannerPulseAnimationState extends State<ScannerPulseAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.8, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Opacity(
+            opacity: _opacityAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
 
 class _LivingAnimatedBackground extends StatefulWidget {
   const _LivingAnimatedBackground();
@@ -1382,7 +1817,7 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
 
 class _CreativeTimelineHydrationItem extends StatefulWidget {
   final bool isLast;
-  const _CreativeTimelineHydrationItem({super.key, this.isLast = false});
+  const _CreativeTimelineHydrationItem({this.isLast = false});
   @override
   State<_CreativeTimelineHydrationItem> createState() =>
       _CreativeTimelineHydrationItemState();
@@ -1604,7 +2039,7 @@ class _TiltableCard extends StatelessWidget {
 class _PlanProgressIndicator extends StatelessWidget {
   final int plannedDays;
   final int totalDays;
-  const _PlanProgressIndicator({this.plannedDays = 3, this.totalDays = 7});
+  const _PlanProgressIndicator({this.totalDays = 7, required this.plannedDays});
   double get progress => plannedDays / totalDays;
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1662,7 +2097,7 @@ class _MealPlanCard extends StatelessWidget {
                                       color: Colors.white.withOpacity(0.5)),
                                   borderRadius: BorderRadius.circular(24.0)),
                               padding: const EdgeInsets.all(24.0),
-                              child: Column(
+                              child: const Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -1676,7 +2111,7 @@ class _MealPlanCard extends StatelessWidget {
                                           Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
-                                              children: const [
+                                              children: [
                                                 Text('Weekly Nutrition',
                                                     style: TextStyle(
                                                         color: Colors.white70,
@@ -1692,7 +2127,7 @@ class _MealPlanCard extends StatelessWidget {
                                                             FontWeight.w900,
                                                         letterSpacing: 0.5))
                                               ]),
-                                          const _PlanProgressIndicator()
+                                          _PlanProgressIndicator(plannedDays: 0)
                                         ]),
                                     _MealPlanCtaChip(accentColor: Colors.white)
                                   ]))))
@@ -2239,10 +2674,6 @@ class _CalorieRingPainter extends CustomPainter {
       progress != oldDelegate.progress ||
       isGoalComplete != oldDelegate.isGoalComplete;
 }
-
-
-
-
 
 class StaggeredAnimation extends StatefulWidget {
   final Widget child;
