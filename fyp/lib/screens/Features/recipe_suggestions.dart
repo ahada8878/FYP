@@ -13,7 +13,7 @@ import 'dart:ui'; // Already here, but needed for the background
 // NOTE: For a real app, use a proper environment variable solution
 const String _spoonacularApiKey = '3ae6af7175864f2b96f71cf261f1e16a'; // Replace with your actual key if needed
 // The base URL for the ingredient detection service remains local
-const String _serverIp = 'http://$apiIpAddress:5000'; // <-- IMPORTANT: Use your PC's IP address
+// const String baseURL = '$baseURL'; // <-- IMPORTANT: Use your PC's IP address
 
 // --- DATA MODELS ---
 class DetectedIngredient {
@@ -75,7 +75,7 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
   final _ingredientTextController = TextEditingController();
 
   // NOTE: Server IP moved to constant above for clarity
-  final String _detectionServerUrl = '$_serverIp/api/detect-ingredients';
+  final String _detectionServerUrl = '$baseURL/api/detect-ingredients';
 
 
   // --- API LOGIC ---

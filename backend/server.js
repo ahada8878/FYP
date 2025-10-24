@@ -172,6 +172,119 @@ app.post('/api/predict', upload.single('image'), async (req, res) => {
   }
 });
 
+
+
+// // --- NEW INGREDIENT DETECTION ENDPOINT (REMAINS AS THE ONLY RECIPE-RELATED BACKEND LOGIC) ---
+// app.post('/api/detect-ingredients', upload.single('image'), (req, res) => {
+//     if (!req.file) {
+//         return res.status(400).json({ success: false, message: 'No image uploaded.' });
+//     }
+    
+//     const imagePath = path.resolve(req.file.path);
+    
+//     // Validate that the file actually exists
+//     if (!fs.existsSync(imagePath)) {
+//         return res.status(400).json({ success: false, message: 'Uploaded file not found.' });
+//     }
+
+//     const pythonScriptPath = path.join(__dirname, 'recipe_gernate.py');
+    
+//     // Validate that the Python script exists
+//     if (!fs.existsSync(pythonScriptPath)) {
+//         // Clean up the uploaded file
+//         fs.unlinkSync(imagePath);
+//         return res.status(500).json({ 
+//             success: false, 
+//             message: 'Server configuration error: Processing script not found.' 
+//         });
+//     }
+
+//     // Set a timeout for the model execution
+//     exec(`python "${pythonScriptPath}" "${imagePath}"`, { timeout: 30000 },
+//         (error, stdout, stderr) => {
+//             // Note: Cleanup logic has been commented out in the original, keeping it that way,
+//             // but in a production environment, file cleanup is critical.
+            
+//             // Handle execution errors
+//             if (error) {
+//                 console.error('Python script execution failed:', error);
+                
+//                 if (error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM') {
+//                     return res.status(408).json({ 
+//                         success: false, 
+//                         message: 'Processing timeout. Please try again with a smaller image.' 
+//                     });
+//                 }
+                
+//                 // Try to check if Python script printed an error JSON before failing
+//                 try {
+//                   const errorOutput = JSON.parse(stdout);
+//                   if (errorOutput.error) {
+//                       return res.status(500).json({ success: false, message: `Ingredient detection error: ${errorOutput.error}` });
+//                   }
+//                 } catch (e) {
+//                   // Ignore parse error, use generic message below
+//                 }
+                
+//                 return res.status(500).json({ 
+//                     success: false, 
+//                     message: 'Failed to process image. Please try again.' 
+//                 });
+//             }
+
+//             // Log stderr for debugging (non-fatal)
+//             if (stderr) {
+//                 console.warn('Python script stderr:', stderr);
+//             }
+
+//             try {
+//                 // Check if stdout is empty
+//                 if (!stdout || stdout.trim() === '') {
+//                     throw new Error('No output received from processing script');
+//                 }
+
+//                 const detectionResult = JSON.parse(stdout);
+                
+//                 // Check for error reported via JSON in stdout (from recipe_gernate.py)
+//                 if (detectionResult.error) {
+//                     return res.status(500).json({ success: false, message: `Ingredient detection error: ${detectionResult.error}` });
+//                 }
+
+//                 // Validate the structure of the detection result
+//                 if (!detectionResult || typeof detectionResult !== 'object' || !detectionResult.detections) {
+//                     throw new Error('Invalid detection result format or missing detections field');
+//                 }
+
+//                 console.log('Successfully detected ingredients.');
+//                 // Directly send the JSON output from the Python script.
+//                 // Set the content type to ensure the client parses it as JSON.
+//                 res.status(200).header('Content-Type', 'application/json').send(stdout);
+                
+//             } catch (parseError) {
+//                 console.error('Failed to parse detection result:', parseError);
+//                 console.error('Raw stdout:', stdout);
+                
+//                 if (parseError instanceof SyntaxError) {
+//                     return res.status(500).json({ 
+//                         success: false, 
+//                         message: 'Invalid response from image processing service. Check Python script output.' 
+//                     });
+//                 }
+                
+//                 return res.status(500).json({ 
+//                     success: false, 
+//                     message: 'Failed to process detection results.' 
+//                 });
+//             }
+//         }
+//     );
+// });
+
+// ======================================================================
+// 🚫 DISABLED INGREDIENT DETECTION ENDPOINT - Returns Feature Disabled
+// ======================================================================  
+
+
 app.post('/api/detect-ingredients', upload.single('image'), (req, res) => {
     // Clean up the uploaded file immediately
     if (req.file) {

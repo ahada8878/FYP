@@ -10,7 +10,7 @@ import '../Widgets/reward_card.dart';       // Import the Reward model
 
 class RewardService {
   /// The base URL for the API, constructed from a configuration file.
-  final String baseUrl = 'http://$apiIpAddress:5000/api';
+  final String baseUrl = '$baseURL/api';
 
   /// Fetches all possible rewards and sets their 'achieved' status based on the user's progress.
   /// This function retrieves the list of rewards the user has unlocked from the backend.

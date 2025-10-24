@@ -10,7 +10,7 @@ import 'dart:ui'; // Added for color interpolation
 import '../../services/config_service.dart';
  
 // Configuration constant
-const String apiUrl = "http://$apiIpAddress:5000/upload";
+const String apiUrl = "$baseURL/upload";
 
 // Formal Color Palette (unchanged from original, aligned with RecipeSuggestion)
 const MaterialColor primaryAppColor = MaterialColor(0xFF37474F, <int, Color>{

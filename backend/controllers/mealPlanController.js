@@ -1,5 +1,5 @@
 // controllers/mealPlanController.js
-const MealPlan = require("../models/mealPlan.js");
+const MealPlan = require("../models/MealPlan.js");
 
 // ✅ Fetch meal plan for a specific user
 const getMealPlanByUserId = async (req, res) => {

@@ -1,6 +1,6 @@
 const UserDetails = require("../models/userDetails.js");
 const User = require("../models/User.js");
-const MealPlan = require("../models/mealPlan.js");
+const MealPlan = require("../models/MealPlan.js");
 const axios = require("axios");
 
 // Utility function imports

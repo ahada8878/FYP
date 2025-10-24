@@ -355,7 +355,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   }
 
   Future<Map<String, dynamic>> _fetchUserData() async {
-    const String apiUrl = 'http://$apiIpAddress:5000/api/user/profile-summary';
+
+    const String apiUrl = '$baseURL/api/user/profile-summary';
     final token = await _authService.getToken();
 
     if (token == null || token.isEmpty) {

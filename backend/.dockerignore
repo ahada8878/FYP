@@ -5,7 +5,6 @@ node_modules
 .npm
 
 # Ignore local models (we download them in the container)
-models/
 *.pt
 *.onnx
 *.dat

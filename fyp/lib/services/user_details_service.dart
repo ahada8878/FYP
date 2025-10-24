@@ -5,7 +5,7 @@ import 'config_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserDetailsService {
-  static const String baseUrl = 'http://$apiIpAddress:5000/api';
+  static const String baseUrl = '$baseURL/api';
 
   // No changes needed for this function
   static Future<UserDetails?> fetchUserDetails(String id) async {

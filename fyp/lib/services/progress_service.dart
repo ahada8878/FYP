@@ -25,7 +25,7 @@ class RealProgressService {
       final authToken = await LocalDB.getAuthToken();
       if (authToken == null) throw Exception('Auth token not found');
 
-      final url = Uri.parse('http://$apiIpAddress:5000/api/progress/my-hub');
+      final url = Uri.parse('$baseURL/api/progress/my-hub');
       final headers = {
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $authToken',
@@ -60,7 +60,7 @@ class RealProgressService {
       final authToken = await LocalDB.getAuthToken();
       if (authToken == null) throw Exception('Auth token not found');
 
-      final url = Uri.parse('http://$apiIpAddress:5000/api/progress/log-weight');
+      final url = Uri.parse('$baseURL/api/progress/log-weight');
       final headers = {
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $authToken',

@@ -4,7 +4,7 @@ import 'package:http_parser/http_parser.dart';
 import 'config_service.dart';
  
 class ApiService {
-  static const String _baseUrl = 'http://$apiIpAddress:5000/api/predict';
+  static const String _baseUrl = '$baseURL/api/predict';
 
   static Future<String> uploadImage(File image) async {
     var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/predict'));

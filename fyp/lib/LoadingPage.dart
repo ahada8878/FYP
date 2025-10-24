@@ -105,7 +105,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
     try {
       final authToken = await LocalDB.getAuthToken();
       if (authToken == null) return;
-      final url = Uri.parse('http://$apiIpAddress:5000/api/user-details/my-profile');
+      final url = Uri.parse('$baseURL/api/user-details/my-profile');
       final headers = {'Content-Type': 'application/json; charset=UTF-8', 'Authorization': 'Bearer $authToken'};
       final body = jsonEncode(profileToJson(profile));
       await http.post(url, headers: headers, body: body);

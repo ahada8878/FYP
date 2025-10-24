@@ -18,7 +18,8 @@ import pytesseract
 
 # --- Centralized Configuration ---
 CONFIG = {
-    "NODE_API_BASE_URL": "http://localhost:5000",
+    # "NODE_API_BASE_URL": "http://localhost:5000",  # Local testing URL
+    "NODE_API_BASE_URL": "https://nutriwisebckend-production.up.railway.app:8080",  # Deployment URL
     "OFF_API_BASE_URL": "https://world.openfoodfacts.org",
     "REQUEST_TIMEOUT": 90,  # Timeout in seconds for individual API calls
     "MAX_ALTERNATIVES": 15,

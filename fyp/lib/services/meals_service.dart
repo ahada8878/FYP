@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'config_service.dart';
 
 class MealsService {
-  final String baseUrl = 'http://$apiIpAddress:5000/api';
+  final String baseUrl = '$baseURL/api';
 
   MealsService();
 

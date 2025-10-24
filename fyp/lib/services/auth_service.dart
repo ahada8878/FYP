@@ -8,7 +8,7 @@ import 'config_service.dart';
 
 class AuthService {
   // The base URL for your authentication endpoints.
-  static const String baseUrl = 'http://$apiIpAddress:5000/api/auth';
+  static const String baseUrl = '$baseURL/api/auth';
 
   // Keys for storing user data securely on the device.
   static const String _tokenKey = 'auth_token';

@@ -136,7 +136,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   static const String _spoonacularApiKey = '3ae6af7175864f2b96f71cf261f1e16a';
   static const String _spoonacularBaseUrl = 'https://api.spoonacular.com';
-  static const String _serverBaseUrl = 'http://$apiIpAddress:5000';
+  static const String _serverBaseUrl = '$baseURL';
 
   ScreenState _currentState = ScreenState.initial;
   List<Product> _restaurantProducts = [];

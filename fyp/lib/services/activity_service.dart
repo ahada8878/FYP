@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config_service.dart';
 
 class ActivityService {
-  final String baseUrl = 'http://$apiIpAddress:5000/api';
+  final String baseUrl = '$baseURL/api';
 
   Future<void> logActivity({
     required String activityType,
