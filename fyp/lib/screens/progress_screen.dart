@@ -113,7 +113,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           }
 
           final data = snapshot.data!;
-          final double bmi = data.currentWeight / (data.userHeightInMeters * data.userHeightInMeters);
+          final double bmi = (data.currentWeight / (data.userHeightInMeters * data.userHeightInMeters))/1000;
 
           return Stack(
             alignment: Alignment.topCenter,

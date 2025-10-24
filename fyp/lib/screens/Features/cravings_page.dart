@@ -188,7 +188,7 @@ class _SearchScreenState extends State<SearchScreen> {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 100));
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
@@ -249,7 +249,7 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final searchUri = Uri.parse(
           '$_spoonacularBaseUrl/food/menuItems/search?query=$query&number=25&apiKey=$_spoonacularApiKey');
-      final searchResponse = await http.get(searchUri).timeout(const Duration(seconds: 15));
+      final searchResponse = await http.get(searchUri).timeout(const Duration(seconds: 100));
 
       if (searchResponse.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(searchResponse.body);
@@ -265,7 +265,7 @@ class _SearchScreenState extends State<SearchScreen> {
           final detailUri =
               Uri.parse('$_spoonacularBaseUrl/food/menuItems/${product.itemId}?apiKey=$_spoonacularApiKey');
           try {
-            final detailResponse = await http.get(detailUri).timeout(const Duration(seconds: 15));
+            final detailResponse = await http.get(detailUri).timeout(const Duration(seconds: 100));
             if (detailResponse.statusCode == 200) {
               final Map<String, dynamic> detailData = jsonDecode(detailResponse.body);
               return Product.fromSpoonacularDetailedJson(detailData, product);
@@ -327,7 +327,7 @@ class _SearchScreenState extends State<SearchScreen> {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({'productName': query}),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 100));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);

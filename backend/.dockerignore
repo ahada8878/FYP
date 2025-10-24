@@ -1,0 +1,23 @@
+# .dockerignore
+
+# Ignore build artifacts
+node_modules
+.npm
+
+# Ignore local models (we download them in the container)
+models/
+*.pt
+*.onnx
+*.dat
+
+# Ignore secrets and local config
+.env
+*.env
+
+# Ignore version control
+.git
+.gitignore
+
+# Ignore other OS/IDE files
+.DS_Store
+README.md

@@ -1,0 +1,7 @@
+# requirements.txt for main backend
+Pillow
+pyzbar
+pytesseract
+aiohttp
+requests
+numpy

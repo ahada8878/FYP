@@ -102,13 +102,20 @@ class _RecipeSuggestionState extends State<RecipeSuggestion> {
         final Map<String, dynamic> dims = result['image_dimensions']; // <-- Use Map<String, dynamic> for type safety
 
         setState(() {
-          _detectedIngredients = detections.map((d) => DetectedIngredient(
-            name: d['name'],
-            box: List<double>.from(d['box']),
-          )).toList();
-          _finalIngredients = _detectedIngredients.map((e) => e.name).toSet().toList(); // Unique names
+          _detectedIngredients = detections.map((d) {
+            // ✅ FIX: Manually map the list to ensure all values are doubles
+            final boxList = (d['box'] as List)
+                .map((coord) => (coord as num).toDouble())
+                .toList();
 
-          // CRITICAL FIX: Explicitly cast to num before calling toDouble()
+            return DetectedIngredient(
+              name: d['name'],
+              box: boxList, // Use the new, safe list
+            );
+          }).toList();
+
+          _finalIngredients = _detectedIngredients.map((e) => e.name).toSet().toList(); 
+
           _imageDimensions = ImageDimensions(
             width: (dims['width'] as num).toDouble(),
             height: (dims['height'] as num).toDouble()

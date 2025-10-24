@@ -8,7 +8,7 @@ import 'package:lottie/lottie.dart';
 import 'dart:convert';
 import 'dart:ui'; // Added for color interpolation
 import '../../services/config_service.dart';
-
+ 
 // Configuration constant
 const String apiUrl = "http://$apiIpAddress:5000/upload";
 

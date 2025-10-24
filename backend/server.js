@@ -13,6 +13,8 @@ const activityRoutes = require('./routes/activityRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios'); 
+const FormData = require('form-data'); 
 require('dotenv').config();
 
 // Mongoose Models
@@ -111,139 +113,78 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
     }
 });
 
-app.post('/api/predict', upload.single('image'), (req, res) => {
+// --- REPLACE your /api/predict route with this ---
+app.post('/api/predict', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No image uploaded' });
   }
 
   const imagePath = path.resolve(req.file.path);
+  const spoonacularUrl = 'https://api.spoonacular.com/food/images/classify';
   
-  // This part still calls your original 'predict.py' or can be modified as needed
-  exec(`python ${path.join(__dirname, 'predict.py')} ${imagePath}`, 
-    (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Prediction error: ${error.message}`);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Prediction failed',
-          error: error.message
-        });
+  const form = new FormData();
+  
+  // ✅ FIX: The API expects the field name to be 'file', not 'image'
+  form.append('file', fs.createReadStream(imagePath));
+
+  try {
+    const response = await axios.post(
+      spoonacularUrl,
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          'x-api-key': process.env.SPOONACULAR_API_KEY,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
+        },
+        decompress: true
       }
-      if (stderr) {
-        console.error(`Prediction stderr: ${stderr}`);
-      }
-      
-      res.send(stdout.trim().replace(/^"|"$/g, ''));
-      console.log(`Prediction result: ${stdout.trim()}`);
+    );
+
+    if (response.data && response.data.category) {
+      // Send back the category name, matching your old script's output
+      res.send(JSON.stringify(response.data.category));
+    } else {
+      res.send(JSON.stringify("Could not classify food."));
     }
-  );
+
+  } catch (error) {
+    // ✅ FIX: Improved error logging
+    if (error.response) {
+      console.error('Spoonacular Error Status:', error.response.status);
+      // This will now print the JSON object with the error message
+      console.error('Spoonacular Error Data:', error.response.data); 
+    } else {
+      console.error('Spoonacular Error Message:', error.message);
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Prediction failed',
+      // Send the specific Spoonacular error message to the app if available
+      error: error.response ? error.response.data.message : 'Server error'
+    });
+  } finally {
+    // Clean up the uploaded file
+    fs.unlink(imagePath, (err) => {
+      if (err) console.error('Error deleting temp image file:', err);
+    });
+  }
 });
 
-
-// --- NEW INGREDIENT DETECTION ENDPOINT (REMAINS AS THE ONLY RECIPE-RELATED BACKEND LOGIC) ---
 app.post('/api/detect-ingredients', upload.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No image uploaded.' });
-    }
-    
-    const imagePath = path.resolve(req.file.path);
-    
-    // Validate that the file actually exists
-    if (!fs.existsSync(imagePath)) {
-        return res.status(400).json({ success: false, message: 'Uploaded file not found.' });
-    }
-
-    const pythonScriptPath = path.join(__dirname, 'recipe_gernate.py');
-    
-    // Validate that the Python script exists
-    if (!fs.existsSync(pythonScriptPath)) {
-        // Clean up the uploaded file
-        fs.unlinkSync(imagePath);
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Server configuration error: Processing script not found.' 
+    // Clean up the uploaded file immediately
+    if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error("Error deleting temp file:", err);
         });
     }
 
-    // Set a timeout for the model execution
-    exec(`python "${pythonScriptPath}" "${imagePath}"`, { timeout: 30000 },
-        (error, stdout, stderr) => {
-            // Note: Cleanup logic has been commented out in the original, keeping it that way,
-            // but in a production environment, file cleanup is critical.
-            
-            // Handle execution errors
-            if (error) {
-                console.error('Python script execution failed:', error);
-                
-                if (error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM') {
-                    return res.status(408).json({ 
-                        success: false, 
-                        message: 'Processing timeout. Please try again with a smaller image.' 
-                    });
-                }
-                
-                // Try to check if Python script printed an error JSON before failing
-                try {
-                  const errorOutput = JSON.parse(stdout);
-                  if (errorOutput.error) {
-                      return res.status(500).json({ success: false, message: `Ingredient detection error: ${errorOutput.error}` });
-                  }
-                } catch (e) {
-                  // Ignore parse error, use generic message below
-                }
-                
-                return res.status(500).json({ 
-                    success: false, 
-                    message: 'Failed to process image. Please try again.' 
-                });
-            }
-
-            // Log stderr for debugging (non-fatal)
-            if (stderr) {
-                console.warn('Python script stderr:', stderr);
-            }
-
-            try {
-                // Check if stdout is empty
-                if (!stdout || stdout.trim() === '') {
-                    throw new Error('No output received from processing script');
-                }
-
-                const detectionResult = JSON.parse(stdout);
-                
-                // Check for error reported via JSON in stdout (from recipe_gernate.py)
-                if (detectionResult.error) {
-                    return res.status(500).json({ success: false, message: `Ingredient detection error: ${detectionResult.error}` });
-                }
-
-                // Validate the structure of the detection result
-                if (!detectionResult || typeof detectionResult !== 'object' || !detectionResult.detections) {
-                    throw new Error('Invalid detection result format or missing detections field');
-                }
-
-                console.log('Successfully detected ingredients.');
-                // Directly send the JSON output from the Python script.
-                // Set the content type to ensure the client parses it as JSON.
-                res.status(200).header('Content-Type', 'application/json').send(stdout);
-                
-            } catch (parseError) {
-                console.error('Failed to parse detection result:', parseError);
-                console.error('Raw stdout:', stdout);
-                
-                if (parseError instanceof SyntaxError) {
-                    return res.status(500).json({ 
-                        success: false, 
-                        message: 'Invalid response from image processing service. Check Python script output.' 
-                    });
-                }
-                
-                return res.status(500).json({ 
-                    success: false, 
-                    message: 'Failed to process detection results.' 
-                });
-            }
-        }
-    );
+    // Return a "feature disabled" error
+    res.status(503).json({ 
+        success: false, 
+        message: 'This feature is temporarily disabled.' 
+    });
 });
 
 
@@ -390,17 +331,19 @@ app.post('/upload', upload.single('image'), protect, (req, res) => {
 
     // Command structure ensures userId is passed to python script for internal lookup
     const command = `python "${pythonScriptPath}" "${imagePath}" "${userId}"`;
-
-    exec(command, { timeout: 30000 },
+    console.log(`   🐍 Executing Python script: ${command}`);
+ 
+    exec(command, { timeout: 90000 },
         (error, stdout, stderr) => {
             fs.unlink(imagePath, (err) => {
                 if (err) console.error('Error deleting file:', err);
             });
-
+ 
             if (error) {
                 if (error.code === 'ETIMEDOUT') {
                     return res.status(408).json({ success: false, message: 'Processing timeout. Please try again.' });
                 }
+                console.error('   ❌ /upload: Python script execution error:', error);
                 return res.status(500).json({ success: false, message: 'Failed to process image due to server error.' });
             }
 
@@ -524,7 +467,7 @@ app.get('/api/search_factory_products', async (req, res) => {
                 fields: 'product_name,brands,nutriments,image_url', page_size: 30,
             },
             headers: { 'User-Agent': 'CravingsSearchApp - NodeServer - v1.0' },
-            timeout: 30000
+            timeout: 100000
         });
 
         const factoryProducts = (response.data.products || [])
