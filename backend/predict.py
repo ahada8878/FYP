@@ -15,7 +15,7 @@ logging.getLogger('PIL').setLevel(logging.WARNING)
 
 # Load class labels (replace with your actual class labels)
 CLASS_LABELS = [
-    "Apple Pie", "Baby Back Ribs", "Baklava", "Beef Carpaccio", "Beef Tartare", "Beet Salad",
+    "Apple Pie: calories: 200, protiein: 400, fat: 40, carbohydrates: 15", "Baby Back Ribs", "Baklava", "Beef Carpaccio", "Beef Tartare", "Beet Salad",
     "Beignets", "Bibimbap", "Bread Pudding", "Breakfast Burrito", "Bruschetta", "Caesar Salad",
     "Cannoli", "Caprese Salad", "Carrot Cake", "Ceviche", "Cheese Plate", "Cheesecake",
     "Chicken Curry", "Chicken Quesadilla", "Chicken Wings", "Chocolate Cake", "Chocolate Mousse",

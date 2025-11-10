@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:lottie/lottie.dart';
 import '../services/config_service.dart';
 
 class AiScannerResultPage extends StatefulWidget {
@@ -19,23 +20,81 @@ class AiScannerResultPage extends StatefulWidget {
 }
 
 class _AiScannerResultPageState extends State<AiScannerResultPage> {
-  String _prediction = "Analyzing...";
+  String _message = "Analyzing...";
   bool _isProcessing = true;
   bool _hasError = false;
+
+  // Controllers for editable fields
+  late TextEditingController _foodNameController;
+  late TextEditingController _caloriesController;
+  late TextEditingController _proteinController;
+  late TextEditingController _fatController;
+  late TextEditingController _carbsController;
 
   @override
   void initState() {
     super.initState();
+    // Initialize controllers
+    _foodNameController = TextEditingController();
+    _caloriesController = TextEditingController();
+    _proteinController = TextEditingController();
+    _fatController = TextEditingController();
+    _carbsController = TextEditingController();
+
     _sendImageForPrediction(widget.imageFile);
   }
 
+  @override
+  void dispose() {
+    _foodNameController.dispose();
+    _caloriesController.dispose();
+    _proteinController.dispose();
+    _fatController.dispose();
+    _carbsController.dispose();
+    super.dispose();
+  }
+
+  void _parsePrediction(String prediction) {
+    // Regex to match: "Food Name: calories: 200, protiein: 400, fat: 40, carbohydrates: 15"
+    // Note: kept 'protiein' typo support just in case API still has it
+    final regExp = RegExp(
+      r"([^:]+):\s*calories:\s*([^,]+),\s*protiein:\s*([^,]+),\s*fat:\s*([^,]+),\s*carbohydrates:\s*(.+)",
+      caseSensitive: false,
+    );
+
+    final match = regExp.firstMatch(prediction.trim());
+
+    if (match != null && match.groupCount == 5) {
+      setState(() {
+        _foodNameController.text = match.group(1)!.trim();
+        _caloriesController.text = match.group(2)!.trim();
+        _proteinController.text = match.group(3)!.trim();
+        _fatController.text = match.group(4)!.trim();
+        _carbsController.text = match.group(5)!.trim();
+        _hasError = false;
+      });
+    } else {
+      print("Failed to parse prediction string: $prediction");
+      setState(() {
+        _hasError = true;
+        _message = "Couldn't Detect Food, Let's Scan again";
+      });
+    }
+  }
+
   Future<void> _sendImageForPrediction(File imageFile) async {
+    setState(() {
+      _isProcessing = true;
+      _hasError = false;
+      _message = "Analyzing your food...";
+    });
+
     try {
       var request = http.MultipartRequest(
-        'POST', 
-        Uri.parse('$baseURL/api/predict')
+        'POST',
+        Uri.parse('$baseURL/api/predict'),
       );
-      
+
       request.files.add(await http.MultipartFile.fromPath(
         'image',
         imageFile.path,
@@ -45,180 +104,149 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
       var response = await request.send();
 
       if (response.statusCode == 200) {
-        final prediction = await response.stream.bytesToString();
-        setState(() {
-          _prediction = prediction;
-          _isProcessing = false;
-        });
+        final predictionString = await response.stream.bytesToString();
+        _parsePrediction(predictionString);
       } else {
         throw Exception('Prediction failed with status ${response.statusCode}');
       }
     } catch (e) {
       print("Error during prediction: $e");
       setState(() {
-        _prediction = "Prediction failed. Please try again.";
-        _isProcessing = false;
+        _message = "Couldn't Detect Food, Let's Scan again";
         _hasError = true;
+      });
+    } finally {
+      setState(() {
+        _isProcessing = false;
       });
     }
   }
 
-  void _retakePicture() {
-    Navigator.pop(context);
-  }
-
   void _useThisImage() {
-    // TODO: Implement logic to use the analyzed image
-    // This could save the prediction, navigate to food logging, etc.
-    Navigator.pop(context);
+    // Retrieve editable values from controllers
+    final finalData = {
+      'name': _foodNameController.text,
+      'calories': _caloriesController.text,
+      'protein': _proteinController.text,
+      'fat': _fatController.text,
+      'carbs': _carbsController.text,
+      'portion': 1,
+    };
+
+    print("Final Data to use: $finalData");
+    // TODO: Pass this data back to previous screen or to a new logging screen
+    Navigator.pop(context, finalData);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(
-          'AI Analysis Result',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.2),
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-        child: Column(
-          children: [
-            // Analysis Status - Reduced spacing
-            _buildAnalysisStatus(),
-            const SizedBox(height: 20),
-
-            // Image Preview - Smaller size
-            _buildImagePreview(),
-            const SizedBox(height: 20),
-
-            // Prediction Result - Compact design
-            _buildPredictionResult(),
-            const SizedBox(height: 25),
-
-            // Action Buttons
-            _buildActionButtons(),
-            const SizedBox(height: 16),
-
-            // Additional Info
-            _buildAdditionalInfo(),
-            
-            // Extra space at bottom for better scrolling
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAnalysisStatus() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      child: _isProcessing
-          ? Column(
-              key: const ValueKey('processing'),
-              children: [
-                const ShimmeringIcon(
-                  icon: Icons.auto_awesome,
-                  size: 50, // Reduced from 60
-                  color: Colors.blueAccent,
-                ),
-                const SizedBox(height: 12), // Reduced from 16
-                const Text(
-                  "Analyzing Your Food...",
-                  style: TextStyle(
-                    fontSize: 20, // Reduced from 24
-                    fontWeight: FontWeight.w700,
-                    color: Colors.blueAccent,
-                    letterSpacing: 0.6, // Reduced from 0.8
-                  ),
-                ),
-                const SizedBox(height: 6), // Reduced from 8
-                Text(
-                  "Our AI is identifying nutritional content",
-                  style: TextStyle(
-                    fontSize: 13, // Reduced from 14
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              key: const ValueKey('result'),
-              children: [
-                Icon(
-                  _hasError ? Icons.error_outline : Icons.verified,
-                  size: 50, // Reduced from 60
-                  color: _hasError ? Colors.orange : Colors.greenAccent[400],
-                ),
-                const SizedBox(height: 12), // Reduced from 16
-                Text(
-                  _hasError ? "Analysis Failed" : "Analysis Complete!",
-                  style: TextStyle(
-                    fontSize: 20, // Reduced from 24
-                    fontWeight: FontWeight.w700,
-                    color: _hasError ? Colors.orange : Colors.greenAccent[400],
-                    letterSpacing: 0.6, // Reduced from 0.8
-                  ),
-                ),
-                const SizedBox(height: 4), // Reduced from 8
-              ],
-            ),
-    );
-  }
-
-  Widget _buildImagePreview() {
+    // Main background gradient
     return Container(
-      height: 220, // Reduced from 280
-      width: 220,  // Reduced from 280
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20), // Slightly smaller radius
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25), // Slightly lighter shadow
-            blurRadius: 15, // Reduced from 20
-            spreadRadius: 2, // Reduced from 3
-            offset: const Offset(0, 6), // Reduced from 8
+        image: DecorationImage(
+          image: FileImage(widget.imageFile),
+          fit: BoxFit.cover,
+          // NEW: Set a low opacity for the "very light" effect
+          opacity: 0.1, 
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Theme.of(context).primaryColor.withOpacity(0.05),
+            Colors.white,
+          ],
+          stops: const [0.0, 0.3],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent, // Use container gradient
+        appBar: AppBar(
+          title: const Text(
+            'Analysis Result',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              ),
           ),
-          BoxShadow(
-            color: Colors.white.withOpacity(0.2),
-            blurRadius: 4, // Reduced from 5
-            spreadRadius: 1,
-            offset: const Offset(0, -2),
+          centerTitle: true,
+          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.85),
+          elevation: 0,
+        ),
+        body: _isProcessing
+            ? _buildLoadingWidget()
+            : (_hasError ? _buildErrorWidget() : _buildSuccessWidget()),
+      ),
+    );
+  }
+
+  Widget _buildLoadingWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Lottie.asset(
+            'assets/animation/FoodLoading.json',
+            width: 250,
+            height: 250,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            _message,
+            style: TextStyle(
+              fontSize: 20,
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.5),
-          width: 2,
-        ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20), // Match container radius
-        child: Stack(
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.file(widget.imageFile, fit: BoxFit.cover),
             Container(
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.1),
-                  ],
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.sentiment_dissatisfied_rounded,
+                color: Colors.red[400],
+                size: 80,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                color: Colors.grey[800],
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: 200,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.refresh),
+                label: const Text("Try Again"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                 ),
               ),
             ),
@@ -228,53 +256,88 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
-  Widget _buildPredictionResult() {
+  Widget _buildSuccessWidget() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _buildHeaderCard(),
+          const SizedBox(height: 24),
+          _buildNutritionCard(),
+          const SizedBox(height: 24),
+          _buildPortionCard(),
+          const SizedBox(height: 40),
+          _buildActionButtons(),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), // Reduced padding
-      margin: const EdgeInsets.symmetric(horizontal: 10), // Reduced margin
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.deepPurple.withOpacity(0.08), // Lighter opacity
-            Colors.blueAccent.withOpacity(0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16), // Slightly smaller
-        border: Border.all(
-          color: Colors.deepPurple.withOpacity(0.2), // Lighter border
-          width: 1,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.deepPurple.withOpacity(0.08), // Lighter shadow
-            blurRadius: 12, // Reduced from 15
-            spreadRadius: 1, // Reduced from 2
-            offset: const Offset(0, 3), // Reduced from 4
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            "AI Analysis Result",
-            style: TextStyle(
-              fontSize: 16, // Reduced from 18
-              fontWeight: FontWeight.w600,
-              color: Colors.deepPurple[800],
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.file(widget.imageFile, fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(height: 8), // Reduced from 12
-          Text(
-            _prediction,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14, // Reduced from 16
-              fontWeight: FontWeight.w500,
-              color: Colors.deepPurple[800],
-              letterSpacing: 0.2, // Reduced from 0.3
-              height: 1.3, // Reduced from 1.4
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Detected Food",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: _foodNameController,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: "Enter food name",
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -282,189 +345,198 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildNutritionCard() {
+    return Column(
       children: [
-        AnimatedButton(
-          onPressed: _retakePicture,
-          label: 'Retake',
-          icon: Icons.camera_alt,
-          backgroundColor: Colors.grey[600]!,
-          iconColor: Colors.white,
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 12),
+          child: Row(
+            children: [
+              Icon(Icons.edit_note, color: Theme.of(context).primaryColor),
+              const SizedBox(width: 8),
+              const Text(
+                "Nutritional Details (Editable)",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 16), // Reduced from 20
-        AnimatedButton(
-          onPressed: _useThisImage,
-          label: 'Use This Image',
-          icon: Icons.check_circle,
-          backgroundColor: Theme.of(context).primaryColor,
-          iconColor: Colors.white,
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildEditableRow("Calories", _caloriesController, "kcal", Colors.orange),
+              _buildDivider(),
+              _buildEditableRow("Protein", _proteinController, "g", Colors.redAccent),
+              _buildDivider(),
+              _buildEditableRow("Fat", _fatController, "g", Colors.yellow[800]!),
+              _buildDivider(),
+              _buildEditableRow("Carbs", _carbsController, "g", Colors.blue),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildAdditionalInfo() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(
-        "You can always retake or choose another image",
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 11, // Reduced from 12
-          color: Colors.grey[500],
-          fontStyle: FontStyle.italic,
-        ),
+  Widget _buildPortionCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey[300]!),
       ),
-    );
-  }
-}
-
-// Updated Supporting Animation Widgets with smaller sizes
-class ShimmeringIcon extends StatefulWidget {
-  final IconData icon;
-  final double size;
-  final Color color;
-
-  const ShimmeringIcon({
-    super.key,
-    required this.icon,
-    required this.size,
-    required this.color,
-  });
-
-  @override
-  State<ShimmeringIcon> createState() => _ShimmeringIconState();
-}
-
-class _ShimmeringIconState extends State<ShimmeringIcon>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200), // Slightly faster
-    )..repeat(reverse: true);
-    
-    _opacityAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _opacityAnimation.value,
-          child: Icon(
-            widget.icon,
-            size: widget.size,
-            color: widget.color,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class AnimatedButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  final String label;
-  final IconData icon;
-  final Color backgroundColor;
-  final Color iconColor;
-
-  const AnimatedButton({
-    super.key,
-    required this.onPressed,
-    required this.label,
-    required this.icon,
-    required this.backgroundColor,
-    required this.iconColor,
-  });
-
-  @override
-  State<AnimatedButton> createState() => _AnimatedButtonState();
-}
-
-class _AnimatedButtonState extends State<AnimatedButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150), // Faster animation
-    );
-    
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onPressed();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Reduced padding
-          decoration: BoxDecoration(
-            color: widget.backgroundColor,
-            borderRadius: BorderRadius.circular(20), // Slightly smaller
-            boxShadow: [
-              BoxShadow(
-                color: widget.backgroundColor.withOpacity(0.3), // Lighter shadow
-                blurRadius: 8, // Reduced from 10
-                offset: const Offset(0, 3), // Reduced from 4
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
             children: [
-              Icon(widget.icon, color: widget.iconColor, size: 18), // Reduced from 20
-              const SizedBox(width: 6), // Reduced from 8
+              Icon(Icons.pie_chart_outline, color: Colors.grey[700]),
+              const SizedBox(width: 12),
               Text(
-                widget.label,
-                style: const TextStyle(
-                  color: Colors.white,
+                "Portion Size",
+                style: TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13, // Reduced from 14
+                  color: Colors.grey[800],
                 ),
               ),
             ],
           ),
-        ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: const Text(
+              "1 Serving",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildEditableRow(
+      String label, TextEditingController controller, String unit, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.circle, size: 12, color: color),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: 100,
+            child: TextFormField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: " $unit",
+                suffixStyle: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.grey[600],
+                ),
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Divider(height: 1, thickness: 1, color: Colors.grey[100]);
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text("Retake"),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              side: BorderSide(color: Colors.grey[400]!),
+              foregroundColor: Colors.grey[800],
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton.icon(
+            onPressed: _useThisImage,
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text("Use This Food"),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shadowColor: Theme.of(context).primaryColor.withOpacity(0.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
