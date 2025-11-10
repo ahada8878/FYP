@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config_service.dart';
+import 'package:fyp/Loginpage.dart'; // New
+import 'package:fyp/main.dart'; // New
 
 class AuthService {
   // The base URL for your authentication endpoints.
@@ -144,10 +146,20 @@ class AuthService {
     }
   }
 
-  /// Clears all stored user session data from the device.
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove('token');
+    await prefs.remove('userId');
+    print("🔒 Token cleared due to 401 error or logout.");
+
+    // Use the global navigator key to navigate to LoginPage
+    // and remove all other screens from the stack
+    if (navigatorKey.currentState != null) {
+      navigatorKey.currentState!.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const CreativeLoginPage()),
+        (Route<dynamic> route) => false, // Remove all previous routes
+      );
+    }
   }
 
   /// Saves user token, email, and ID to the device's local storage.

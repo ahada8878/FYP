@@ -21,12 +21,21 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
   int selectedKg = 58;
   int selectedG = 0;
   double currentWeight = 85.0; // Would come from previous screen
-  double targetPercentage = 3.0;
+  double targetPercentage = 3.0; // Used for the "Realistic Target" progress bar
   double get _targetWeight => selectedKg + (selectedG / 1000);
 
   @override
   void initState() {
     super.initState();
+    
+    // Set initial selected weight to current weight if not editing
+    if (!widget.isEditing) {
+      selectedKg = widget.currentWeight.floor();
+      selectedG = ((widget.currentWeight - selectedKg) * 1000).round();
+    }
+    // Note: If you have a way to fetch the *existing* goal weight when isEditing is true,
+    // you would set selectedKg and selectedG from that value here.
+    
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -65,6 +74,20 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final weightDifference = widget.currentWeight - _targetWeight;
+    
+    // --- FIX: Added logic for gain/loss and calculated percentage ---
+    final double weightChangeAmount = weightDifference.abs();
+    // Avoid division by zero if currentWeight is 0
+    final double calculatedPercentage = widget.currentWeight > 0
+        ? (weightChangeAmount / widget.currentWeight) * 100
+        : 0.0;
+    
+    final String changeVerb = weightDifference > 0 ? 'lose' : 'gain';
+    // Check if the change is negligible (e.g., less than 10 grams)
+    final bool noChange = weightChangeAmount < 0.01;
+    // --- END FIX ---
+
+    // This variable is for the "Realistic Target" progress bar, not the text
     final targetWeight = widget.currentWeight * (1 - targetPercentage / 100);
 
     return Scaffold(
@@ -206,10 +229,11 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                           itemExtent: 50,
                                           perspective: 0.01,
                                           diameterRatio: 1.5,
+                                          controller: FixedExtentScrollController(initialItem: selectedKg - 50),
                                           physics: const FixedExtentScrollPhysics(),
                                           onSelectedItemChanged: (index) => setState(() => selectedKg = 50 + index),
                                           childDelegate: ListWheelChildBuilderDelegate(
-                                            childCount: 30,
+                                            childCount: 30, // Assumes range 50-79, adjust if needed
                                             builder: (context, index) {
                                               int kg = 50 + index;
                                               return Center(
@@ -235,18 +259,19 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                           itemExtent: 50,
                                           perspective: 0.01,
                                           diameterRatio: 1.5,
+                                          controller: FixedExtentScrollController(initialItem: selectedG ~/ 100),
                                           physics: const FixedExtentScrollPhysics(),
                                           onSelectedItemChanged: (index) => setState(() => selectedG = index * 100),
                                           childDelegate: ListWheelChildBuilderDelegate(
                                             childCount: 10,
                                             builder: (context, index) {
-                                              String g = '${index * 100}';
+                                              int g = index * 100;
                                               return Center(
                                                 child: Text(
-                                                  g,
+                                                  '$g',
                                                   style: TextStyle(
                                                     fontSize: 28,
-                                                    color: g == '$selectedG'
+                                                    color: g == selectedG
                                                         ? colorScheme.primary
                                                         : colorScheme.onSurfaceVariant.withOpacity(0.3),
                                                     fontWeight: FontWeight.bold,
@@ -318,24 +343,32 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
                                   ],
                                 ),
                                 const SizedBox(height: 16),
+                                
+                                // --- FIX: Updated RichText to use new logic ---
                                 RichText(
                                   text: TextSpan(
                                     style: TextStyle(
                                       color: colorScheme.onSurfaceVariant.withOpacity(0.8),
                                       fontSize: 14,
                                     ),
-                                    children: [
-                                      const TextSpan(text: 'You will lose '),
-                                      TextSpan(
-                                        text: '${weightDifference.toStringAsFixed(1)} kg ',
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                      TextSpan(
-                                        text: '(${targetPercentage.toStringAsFixed(0)}% of your weight)',
-                                      ),
-                                    ],
+                                    children: noChange
+                                        ? [ // Case for no change
+                                            const TextSpan(text: 'This is your current weight. You will maintain it.')
+                                          ]
+                                        : [ // Case for loss or gain
+                                            TextSpan(text: 'You will $changeVerb '),
+                                            TextSpan(
+                                              text: '${weightChangeAmount.toStringAsFixed(1)} kg ',
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                            TextSpan(
+                                              text: '(${calculatedPercentage.toStringAsFixed(0)}% of your weight)',
+                                            ),
+                                          ],
                                   ),
                                 ),
+                                // --- END FIX ---
+                                
                                 const SizedBox(height: 8),
                                 Text(
                                   'There is scientific evidence that overweight people are more likely to have good metabolic health with some weight loss.',
@@ -413,3 +446,9 @@ class _CreativeGoalWeightPageState extends State<GoalWeightPage>
     );
   }
 }
+
+
+
+
+
+// ============================================================================
