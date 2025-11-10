@@ -113,63 +113,33 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
     }
 });
 
-// --- REPLACE your /api/predict route with this ---
-app.post('/api/predict', upload.single('image'), async (req, res) => {
+
+app.post('/api/predict', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No image uploaded' });
   }
 
   const imagePath = path.resolve(req.file.path);
-  const spoonacularUrl = 'https://api.spoonacular.com/food/images/classify';
   
-  const form = new FormData();
-  
-  // ✅ FIX: The API expects the field name to be 'file', not 'image'
-  form.append('file', fs.createReadStream(imagePath));
-
-  try {
-    const response = await axios.post(
-      spoonacularUrl,
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          'x-api-key': process.env.SPOONACULAR_API_KEY,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
-        },
-        decompress: true
+  // This part still calls your original 'predict.py' or can be modified as needed
+  exec(`python ${path.join(__dirname, 'predict.py')} ${imagePath}`, 
+    (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Prediction error: ${error.message}`);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Prediction failed',
+          error: error.message
+        });
       }
-    );
-
-    if (response.data && response.data.category) {
-      // Send back the category name, matching your old script's output
-      res.send(JSON.stringify(response.data.category));
-    } else {
-      res.send(JSON.stringify("Could not classify food."));
+      if (stderr) {
+        console.error(`Prediction stderr: ${stderr}`);
+      }
+      
+      res.send(stdout.trim().replace(/^"|"$/g, ''));
+      console.log(`Prediction result: ${stdout.trim()}`);
     }
-
-  } catch (error) {
-    // ✅ FIX: Improved error logging
-    if (error.response) {
-      console.error('Spoonacular Error Status:', error.response.status);
-      // This will now print the JSON object with the error message
-      console.error('Spoonacular Error Data:', error.response.data); 
-    } else {
-      console.error('Spoonacular Error Message:', error.message);
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Prediction failed',
-      // Send the specific Spoonacular error message to the app if available
-      error: error.response ? error.response.data.message : 'Server error'
-    });
-  } finally {
-    // Clean up the uploaded file
-    fs.unlink(imagePath, (err) => {
-      if (err) console.error('Error deleting temp image file:', err);
-    });
-  }
+  );
 });
 
 

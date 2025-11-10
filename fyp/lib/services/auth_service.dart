@@ -148,8 +148,9 @@ class AuthService {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('userId');
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+    await prefs.remove(_userEmailKey);
     print("🔒 Token cleared due to 401 error or logout.");
 
     // Use the global navigator key to navigate to LoginPage
