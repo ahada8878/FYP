@@ -198,7 +198,7 @@ class _AITrackerPageState extends State<AITrackerPage2>
                         height: 180,
                         decoration: BoxDecoration(
                           image: const DecorationImage(
-                            image: AssetImage('assets/ai_brain.png'),
+                            image: AssetImage('assets/images/ai_brain.png'),
                             fit: BoxFit.contain,
                           ),
                           borderRadius: BorderRadius.circular(20),

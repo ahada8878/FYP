@@ -8,6 +8,14 @@ class LocalDB {
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
   }
+
+  static Future<void> clear() async {
+    // Ensure _prefs is initialized before trying to use it.
+    if (_prefs == null) {
+      await init(); // Initialize if not already
+    }
+    await _prefs!.clear();
+  }
   
   /// -- Auth Token --
 static Future<void> setAuthToken(String token) async {

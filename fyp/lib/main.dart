@@ -1,6 +1,5 @@
 import 'dart:async'; // Required for the Timer
 import 'package:flutter/material.dart';
-// Assuming these imports are correctly defined in your project
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/MissingRouteDataForSignUp.dart';
 import 'package:fyp/calorie_tracker_controller.dart';
@@ -8,17 +7,16 @@ import 'package:fyp/camera_overlay_controller.dart';
 import 'package:fyp/water_tracker_controller.dart';
 import 'package:provider/provider.dart';
 
-// IMPORTANT: Ensure you have run the following command 
-// after setting up your icon in pubspec.yaml:
-// flutter pub run flutter_native_splash:create
+// ADD THIS IMPORT
+import 'package:fyp/Loginpage.dart';
+
+// ADD THIS GLOBAL KEY
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // Ensure that Flutter bindings are initialized before calling native code.
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize the local database before running the app.
   await LocalDB.init();
   runApp(
-    // Use MultiProvider to provide multiple controllers to the widget tree.
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CameraOverlayController()),
@@ -30,11 +28,9 @@ void main() async {
   );
 }
 
-/// The root widget of the application.
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  /// A static method to find the nearest `_MyAppState` and trigger a restart.
   static void restartApp(BuildContext context) {
     context.findAncestorStateOfType<_MyAppState>()?.restartApp();
   }
@@ -44,10 +40,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // A unique key that, when changed, forces the widget subtree to be rebuilt.
   Key _key = UniqueKey();
   
-  // State to track if the custom splash screen delay is over.
+  // NEW: State to track if the custom splash screen delay is over.
   bool _isSplashFinished = false;
 
   @override
@@ -64,12 +59,11 @@ class _MyAppState extends State<MyApp> {
   }
 
   /// Changes the key to trigger a rebuild of the widget tree.
-  // 🚀 FIXED: Removed the reset of _isSplashFinished.
   void restartApp() {
     setState(() {
       _key = UniqueKey();
-      // NOTE: _isSplashFinished remains true, forcing an immediate transition
-      // to getIncompleteStepView() to re-check the logged-in status.
+      // Reset splash state to false if you want the splash screen to show on restart
+      _isSplashFinished = false; 
     });
   }
 
@@ -78,6 +72,8 @@ class _MyAppState extends State<MyApp> {
     return KeyedSubtree(
       key: _key,
       child: MaterialApp(
+        // ADD THIS LINE TO ATTACH THE KEY
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'NutriWise',
         theme: ThemeData(
@@ -117,7 +113,7 @@ class _SplashScreenContent extends StatelessWidget {
           children: [
             // Example: Replace this with your actual app icon image widget
             Image.asset('assets/images/icon_splash.png', width: 100, height: 100),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             CircularProgressIndicator(color: Colors.deepPurple),
           ],
         ),
@@ -126,9 +122,13 @@ class _SplashScreenContent extends StatelessWidget {
   }
 }
 
+// NOTE: Ensure your global function getIncompleteStepView() is defined somewhere, 
+// and that LocalDB.init(), your controllers, and MissingRouteDataForSignUp are
+// correctly implemented in their respective files.
+
 // Mock implementation of the function used in your original code:
 // Widget getIncompleteStepView() {
-//   // In a real app, this function checks LocalDB and returns the 
-//   // appropriate widget (e.g., SignInScreen, ProfileSetupScreen, or Dashboard).
-//   return const Text("This is the Final Destination Screen."); 
+//   // In a real app, this function checks LocalDB and returns the 
+//   // appropriate widget (e.g., SignInScreen, ProfileSetupScreen, or Dashboard).
+//   return const Text("This is the Final Destination Screen."); 
 // }

@@ -3,3 +3,4 @@ uploads/
 .env
 *.onnx
 *.pt
+*.h5
