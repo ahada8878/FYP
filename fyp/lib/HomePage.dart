@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 import 'package:flutter/services.dart';
+import 'package:fyp/LocalDB.dart';
 import 'package:fyp/screens/Features/cravings_page.dart';
 import 'package:fyp/screens/Features/label_scanner_page.dart';
 import 'package:fyp/screens/Features/nutrition_tips_page.dart';
@@ -116,10 +117,11 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
         floatingLabelBehavior: FloatingLabelBehavior.never,
       );
     }
- 
+
     return Padding(
       // Adjust padding to avoid the keyboard
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       // Use SingleChildScrollView to prevent overflow when keyboard is visible
       child: SingleChildScrollView(
         child: Container(
@@ -158,7 +160,8 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
                   children: [
                     TextFormField(
                       controller: _nameController,
-                      decoration: inputDecoration('Food Name', Icons.restaurant_menu_rounded),
+                      decoration: inputDecoration(
+                          'Food Name', Icons.restaurant_menu_rounded),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Please enter a name';
@@ -169,10 +172,13 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _caloriesController,
-                      decoration: inputDecoration('Calories (kcal)', Icons.local_fire_department_rounded),
+                      decoration: inputDecoration('Calories (kcal)',
+                          Icons.local_fire_department_rounded),
                       keyboardType: TextInputType.number,
                       validator: (value) {
-                        if (value == null || int.tryParse(value) == null || int.parse(value) < 0) {
+                        if (value == null ||
+                            int.tryParse(value) == null ||
+                            int.parse(value) < 0) {
                           return 'Please enter a valid positive number';
                         }
                         return null;
@@ -181,19 +187,22 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _carbsController,
-                      decoration: inputDecoration('Carbs (g)', Icons.grain_rounded),
+                      decoration:
+                          inputDecoration('Carbs (g)', Icons.grain_rounded),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _proteinController,
-                      decoration: inputDecoration('Protein (g)', Icons.egg_alt_outlined),
+                      decoration: inputDecoration(
+                          'Protein (g)', Icons.egg_alt_outlined),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _fatController,
-                      decoration: inputDecoration('Fat (g)', Icons.opacity_rounded),
+                      decoration:
+                          inputDecoration('Fat (g)', Icons.opacity_rounded),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 32),
@@ -210,7 +219,8 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
                       ),
                       child: const Text(
                         'Log Meal',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -234,17 +244,20 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
 
 // --- Data Models ---
 class DailySummary {
-  final int caloriesGoal;
-  final int caloriesConsumed;
-  final double carbsGoal, carbsConsumed;
-  final double proteinGoal, proteinConsumed;
-  final double fatGoal, fatConsumed;
+  int caloriesGoal = 0;
+  int caloriesConsumed = 0;
+  double carbsGoal = 0, carbsConsumed = 0;
+  double proteinGoal = 0, proteinConsumed = 0;
+  double fatGoal = 0, fatConsumed = 0;
   int get caloriesRemaining => caloriesGoal - caloriesConsumed;
   double get calorieProgress =>
       caloriesGoal == 0 ? 0 : (caloriesConsumed / caloriesGoal).clamp(0.0, 1.0);
-  double get carbProgress => carbsGoal == 0 ? 0 : (carbsConsumed / carbsGoal).clamp(0.0, 1.0);
-  double get proteinProgress => proteinGoal == 0 ? 0 : (proteinConsumed / proteinGoal).clamp(0.0, 1.0);
-  double get fatProgress => fatGoal == 0 ? 0 : (fatConsumed / fatGoal).clamp(0.0, 1.0);
+  double get carbProgress =>
+      carbsGoal == 0 ? 0 : (carbsConsumed / carbsGoal).clamp(0.0, 1.0);
+  double get proteinProgress =>
+      proteinGoal == 0 ? 0 : (proteinConsumed / proteinGoal).clamp(0.0, 1.0);
+  double get fatProgress =>
+      fatGoal == 0 ? 0 : (fatConsumed / fatGoal).clamp(0.0, 1.0);
   double get totalMacrosConsumed =>
       carbsConsumed + proteinConsumed + fatConsumed;
   double get carbsPercent =>
@@ -256,13 +269,13 @@ class DailySummary {
 
   DailySummary({
     required this.caloriesGoal,
-    this.caloriesConsumed = 1255,
+    required this.caloriesConsumed,
     this.carbsGoal = 310,
-    this.carbsConsumed = 150.0,
+    required this.carbsConsumed,
     this.proteinGoal = 125,
-    this.proteinConsumed = 80.0,
-    this.fatGoal = 83,
-    this.fatConsumed = 45.0,
+    required this.proteinConsumed,
+    this.fatGoal = 71,
+    required this.fatConsumed,
   });
 }
 
@@ -355,12 +368,16 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   }
 
   Future<Map<String, dynamic>> _fetchUserData() async {
-
     const String apiUrl = '$baseURL/api/user/profile-summary';
     final token = await _authService.getToken();
+    debugPrint('Fetched token: $token');
+
+
 
     if (token == null || token.isEmpty) {
-      throw Exception('You are not logged in. Please log in to continue.');
+      debugPrint('No token found. Using local data.');
+
+      return _getLocalFallbackData();
     }
 
     try {
@@ -375,24 +392,58 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
+          // SUCCESS: Store to LocalDB and return fresh data
+          LocalDB.setCarbs(data['carbs']);
+          LocalDB.setProtein(data['protein']);
+          LocalDB.setFats(data['fat']);
+          LocalDB.setUserName(data['userName']);
+          LocalDB.setConsumedCalories(data['caloriesConsumed']);
+          LocalDB.setGoalCalories(data['caloriesGoal']);
+          LocalDB.setWaterGoal(data['waterGoal']);
+          LocalDB.setWaterConsumed(data['waterConsumed']);
+
           return {
             'userName': data['userName'] as String? ?? 'User',
             'caloriesGoal': data['caloriesGoal'] as int? ?? 2000,
+            'carbs': data['carbs'] as int? ?? 150,
+            'protein': data['protein'] as int? ?? 80,
+            'fat': data['fat'] as int? ?? 45,
+            'caloriesConsumed': data['caloriesConsumed'] as int? ?? 0,
+            'waterGoal': data['waterGoal'] as int? ?? 2000,
+             'waterConsumed': data['waterConsumed'] as int? ?? 0,
           };
         } else {
-          throw Exception('Failed to load user data: ${data['message']}');
+          // 2. Failure: API call status 200, but success=false (e.g., malformed data/user not found on server)
+          debugPrint(
+              'API reported failure (success: false). Using local data.');
+          return _getLocalFallbackData();
         }
       } else if (response.statusCode == 401) {
-        throw Exception('Your session has expired. Please log in again.');
+        // 3. Failure: Authentication expired/401 Unauthorized
+        debugPrint('API 401 error. Using local data.');
+        return _getLocalFallbackData();
       } else {
-        throw Exception(
-            'Server error. Please try again later. (Code: ${response.statusCode})');
+        // 4. Failure: Other server errors (500, 404, etc.)
+        debugPrint('Server error ${response.statusCode}. Using local data.');
+        return _getLocalFallbackData();
       }
     } catch (e) {
-      debugPrint("Error fetching user data: $e");
-      throw Exception(
-          'Could not connect to the server. Please check your network connection.');
+      // 5. Failure: Network/Connection error (SocketException, Timeout, etc.)
+      debugPrint("Network/Exception Error fetching user data: $e");
+      return _getLocalFallbackData(); // Return local data instead of letting the error propagate to FutureBuilder
     }
+  }
+
+  Map<String, dynamic> _getLocalFallbackData() {
+    // Assuming LocalDB.getCarbs(), etc., now return int
+    return {
+      'userName': LocalDB.getUserName() as String? ?? 'User',
+      'caloriesGoal': LocalDB.getGoalCalories(),
+      'carbs': LocalDB.getCarbs(),
+      'protein': LocalDB.getProtein(),
+      'fat': LocalDB.getFats(),
+      'caloriesConsumed': LocalDB.getConsumedCalories()
+    };
   }
 
   Future<void> _refreshData() async {
@@ -415,7 +466,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-    Future<void> _openCameraScreen() async {
+  Future<void> _openCameraScreen() async {
     Provider.of<CameraOverlayController>(context, listen: false).hide();
     final imagePath = await Navigator.push<String>(
       context,
@@ -439,7 +490,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       ),
     );
   }
-
 
   @override
   void dispose() {
@@ -580,7 +630,14 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 final fetchedData = snapshot.data!;
                 final String userName = fetchedData['userName']!;
                 final int caloriesGoal = fetchedData['caloriesGoal']!;
-                final summary = DailySummary(caloriesGoal: caloriesGoal);
+
+                final summary = DailySummary(
+                    caloriesGoal: caloriesGoal,
+                    caloriesConsumed:
+                        (fetchedData['caloriesConsumed'] as int? ?? 100),
+                    carbsConsumed: (fetchedData['carbs'] as int).toDouble(),
+                    proteinConsumed: (fetchedData['protein'] as int).toDouble(),
+                    fatConsumed: (fetchedData['fat'] as int).toDouble());
 
                 return RefreshIndicator(
                   onRefresh: _refreshData,
@@ -596,8 +653,16 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                             padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
                             sliver: SliverList(
                               delegate: SliverChildListDelegate([
-                                _buildSectionHeader(context, "Today's Timeline"),
-                                _buildMealTimeline(),
+                                _buildSectionHeader(
+                                    context, "Today's Timeline"),
+                                _buildMealTimeline(fetchedData),
+
+                                SizedBox(height: 30,),
+
+
+      DailyStepsChartCard(),
+
+
                                 const SizedBox(height: 24),
                                 _buildSectionHeader(context, 'For You'),
                                 _buildRecipeSection(
@@ -608,7 +673,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                                 _buildSectionHeader(context, 'Daily Breakdown'),
                                 _MacroBreakdownCard(summary: summary),
                                 const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'See Your Meal Plan'),
+                                _buildSectionHeader(
+                                    context, 'See Your Meal Plan'),
                                 const _MealPlanCard(),
                                 const SizedBox(height: 24),
                                 _buildSectionHeader(context, 'Quick Actions'),
@@ -641,7 +707,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
-      bottom: overlayController.showOverlay ? 0 : -MediaQuery.of(context).size.height * 0.7,
+      bottom: overlayController.showOverlay
+          ? 0
+          : -MediaQuery.of(context).size.height * 0.7,
       left: 0,
       right: 0,
       child: Container(
@@ -662,7 +730,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(30)),
                 gradient: LinearGradient(
                   colors: [
                     colorScheme.primary,
@@ -763,7 +832,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                       color: Colors.lightBlue,
                       delay: 300,
                       onTap: () {
-                        Provider.of<CameraOverlayController>(context, listen: false).hide();
+                        Provider.of<CameraOverlayController>(context,
+                                listen: false)
+                            .hide();
                         showLogWaterOverlay(context);
                       },
                     ),
@@ -782,7 +853,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                       color: Colors.red,
                       delay: 500,
                       onTap: () {
-                        Provider.of<CameraOverlayController>(context, listen: false).hide();
+                        Provider.of<CameraOverlayController>(context,
+                                listen: false)
+                            .hide();
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
@@ -806,8 +879,10 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 onPressed: _openCameraScreen,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
                   elevation: 5,
                   shadowColor: colorScheme.primary.withOpacity(0.4),
                 ),
@@ -818,7 +893,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                     SizedBox(width: 10),
                     Text(
                       'SCAN NOW',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -829,7 +905,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       ),
     );
   }
-
 
   SliverAppBar _buildHeader(
       BuildContext context, DailySummary summary, String userName) {
@@ -850,7 +925,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             children: [
               CachedNetworkImage(
                 imageUrl:
-                    'https://images.unsplash.com/photo-1498837167922-ddd27525d352?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80',
+                    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=687',
                 fit: BoxFit.cover,
                 placeholder: (context, url) =>
                     Container(color: Colors.grey[300]),
@@ -916,7 +991,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-  Widget _buildMealTimeline() {
+  Widget _buildMealTimeline(Map<String, dynamic> fetchedData) {
     bool nextMealFound = false;
     final timelineItems = <Widget>[];
 
@@ -949,7 +1024,12 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     timelineItems.add(
       StaggeredAnimation(
           index: waterIndex,
-          child: const _CreativeTimelineHydrationItem(isLast: true)),
+          child: _CreativeTimelineHydrationItem(
+          isLast: true,
+          // FIX: Safely retrieve water data using fetchedData parameter
+          initialWaterGoal: fetchedData['waterGoal'] as int? ?? LocalDB.getWaterGoal(),
+          initialWaterConsumed: fetchedData['waterConsumed'] as int? ?? LocalDB.getWaterConsumed(),
+      )),
     );
 
     return Column(children: timelineItems);
@@ -1818,7 +1898,16 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
 
 class _CreativeTimelineHydrationItem extends StatefulWidget {
   final bool isLast;
-  const _CreativeTimelineHydrationItem({this.isLast = false});
+  final int initialWaterGoal; 
+  final int initialWaterConsumed;
+  // NEW: Callback to signal parent page to refresh data
+
+  const _CreativeTimelineHydrationItem({
+    super.key, 
+    this.isLast = false,
+    required this.initialWaterGoal,
+    required this.initialWaterConsumed,
+  });
   @override
   State<_CreativeTimelineHydrationItem> createState() =>
       _CreativeTimelineHydrationItemState();
@@ -1828,15 +1917,31 @@ class _CreativeTimelineHydrationItemState
     extends State<_CreativeTimelineHydrationItem>
     with TickerProviderStateMixin {
   bool _isExpanded = false;
-  int _currentWaterMl = 1250;
-  final int _goalWaterMl = 2000;
-  final int _servingSizeMl = 250;
+  
+  // State variables for dynamic data
+  late int _currentWaterMl;
+  late int _goalWaterMl;
+  
+  // Dynamically calculated properties
+  late int _servingSizeMl; // Calculated as 1/8th of the goal
+  static const int _dropletCount = 8; // Constant number of visual icons
+
   late AnimationController _progressController;
   late ConfettiController _confettiController;
-  static const int _dropletCount = 8;
+  
   @override
   void initState() {
     super.initState();
+    
+    _goalWaterMl = widget.initialWaterGoal; 
+    LocalDB.setWaterGoal(_goalWaterMl);
+    _currentWaterMl = widget.initialWaterConsumed;
+    LocalDB.setWaterConsumed(_currentWaterMl);
+
+    
+    // FIX: Calculate serving size dynamically (1/8th of the goal)
+    _servingSizeMl = (_goalWaterMl / _dropletCount).round();
+    
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 1));
     _progressController = AnimationController(
@@ -1847,7 +1952,25 @@ class _CreativeTimelineHydrationItemState
   @override
   void didUpdateWidget(covariant _CreativeTimelineHydrationItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+    
+    // Update goal and consumed if the parent widget passes new values
+    if (widget.initialWaterGoal != oldWidget.initialWaterGoal ||
+        widget.initialWaterConsumed != oldWidget.initialWaterConsumed) {
+        
+        if (widget.initialWaterConsumed != _currentWaterMl || 
+            widget.initialWaterGoal != _goalWaterMl) {
+            
+            setState(() {
+                _goalWaterMl = widget.initialWaterGoal;
+                _currentWaterMl = widget.initialWaterConsumed;
+                _servingSizeMl = (_goalWaterMl / _dropletCount).round();
+                LocalDB.setWaterConsumed(_currentWaterMl);
+                LocalDB.setWaterGoal(_goalWaterMl);
+
+            });
+            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+        }
+    }
   }
 
   @override
@@ -1857,22 +1980,59 @@ class _CreativeTimelineHydrationItemState
     super.dispose();
   }
 
-  void _updateWater(int change) {
+  void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Remove
     HapticFeedback.lightImpact();
-    final newAmount = (_currentWaterMl + change).clamp(0, _goalWaterMl);
+    
+    // Determine the actual mL amount and action
+    final logAmount = changeType > 0 ? _servingSizeMl : -_servingSizeMl;
+    final newAmount = (_currentWaterMl + logAmount).clamp(0, _goalWaterMl);
+
     if (newAmount != _currentWaterMl) {
-      setState(() {
-        _currentWaterMl = newAmount;
-        if (_currentWaterMl == _goalWaterMl) {
-          _confettiController.play();
+        
+        // 1. OPTIMISTIC UI UPDATE
+        setState(() {
+            _currentWaterMl = newAmount;
+            LocalDB.setWaterConsumed(_currentWaterMl);
+
+            if (_currentWaterMl == _goalWaterMl) {
+                _confettiController.play();
+            }
+            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+        });
+        
+
+        
+        // 3. SEND API REQUEST
+        final token = await AuthService().getToken();
+        if (token != null) {
+            final body = json.encode({
+                'newAmount': LocalDB.getWaterConsumed(),
+            });
+            
+            try {
+                final response = await http.post(
+                    Uri.parse('$baseURL/api/user-details/my-profile/updateWaterConsumption'),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer $token',
+                    },
+                    body: body,
+                );
+
+                if (response.statusCode == 200) {
+                } else {
+                    debugPrint('Water update failed on server: ${response.statusCode}');
+                }
+            } catch (e) {
+                debugPrint('Network error during water update: $e');
+            }
         }
-        _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
-      });
     }
   }
 
   double get _progress => _currentWaterMl / _goalWaterMl;
   bool get _isComplete => _progress >= 1.0;
+  
   @override
   Widget build(BuildContext context) {
     final blueColor = Colors.lightBlue;
@@ -1980,7 +2140,7 @@ class _CreativeTimelineHydrationItemState
                         Center(
                             child: _LogActionButton(
                                 servingSize: _servingSizeMl,
-                                onTap: () => _updateWater(_servingSizeMl),
+                                onTap: () => _updateWater(1),
                                 color: blueColor,
                                 icon: Icons.add_circle_rounded,
                                 label: 'Log Water')),
@@ -1988,7 +2148,7 @@ class _CreativeTimelineHydrationItemState
                           Padding(
                             padding: const EdgeInsets.only(top: 16.0),
                             child: InkWell(
-                                onTap: () => _updateWater(-_servingSizeMl),
+                                onTap: () => _updateWater(-1),
                                 child: Text('Remove ${_servingSizeMl}ml',
                                     style: TextStyle(
                                         color: Colors.grey[600],
@@ -2037,11 +2197,16 @@ class _TiltableCard extends StatelessWidget {
       child: _InteractiveCard(onTap: onTap, child: child));
 }
 
+// ... (The rest of your code up to _PlanProgressIndicator remains the same)
+
 class _PlanProgressIndicator extends StatelessWidget {
   final int plannedDays;
   final int totalDays;
   const _PlanProgressIndicator({this.totalDays = 7, required this.plannedDays});
+
+  // FIX: Use the plannedDays for progress calculation
   double get progress => plannedDays / totalDays;
+
   @override
   Widget build(BuildContext context) => SizedBox(
       width: 50,
@@ -2051,10 +2216,12 @@ class _PlanProgressIndicator extends StatelessWidget {
             width: 50,
             height: 50,
             child: CircularProgressIndicator(
-                value: progress,
+                value: progress, // Uses the calculated progress
                 strokeWidth: 4,
                 backgroundColor: Colors.white.withOpacity(0.2),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.white))),
+
+        // FIX: Display plannedDays / totalDays (e.g., 2/7)
         Text('$plannedDays/$totalDays',
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))
@@ -2063,11 +2230,22 @@ class _PlanProgressIndicator extends StatelessWidget {
 
 class _MealPlanCard extends StatelessWidget {
   const _MealPlanCard();
+
+  // Helper to determine the current day number (1=Monday, 7=Sunday)
+  int _getCurrentDayOfWeek() {
+    // Dart's DateTime.weekday returns 1 for Monday through 7 for Sunday.
+    return DateTime.now().weekday;
+  }
+
   @override
   Widget build(BuildContext context) {
     const String imageUrl =
         'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1780&q=80';
     final cardColor = Colors.teal;
+
+    // Calculate the current day count to pass to the indicator
+    final currentDay = _getCurrentDayOfWeek();
+
     return SizedBox(
         height: 200,
         child: StaggeredAnimation(
@@ -2098,7 +2276,8 @@ class _MealPlanCard extends StatelessWidget {
                                       color: Colors.white.withOpacity(0.5)),
                                   borderRadius: BorderRadius.circular(24.0)),
                               padding: const EdgeInsets.all(24.0),
-                              child: const Column(
+                              child: Column(
+                                  // Removed const here to allow dynamic widget below
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -2109,7 +2288,8 @@ class _MealPlanCard extends StatelessWidget {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Column(
+                                          const Column(
+                                              // Added const back to static Column
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
@@ -2128,9 +2308,13 @@ class _MealPlanCard extends StatelessWidget {
                                                             FontWeight.w900,
                                                         letterSpacing: 0.5))
                                               ]),
-                                          _PlanProgressIndicator(plannedDays: 0)
+
+                                          // FIX: Pass the dynamically calculated currentDay
+                                          _PlanProgressIndicator(
+                                              plannedDays: currentDay)
                                         ]),
-                                    _MealPlanCtaChip(accentColor: Colors.white)
+                                    const _MealPlanCtaChip(
+                                        accentColor: Colors.white)
                                   ]))))
                 ]))));
   }
@@ -2166,12 +2350,15 @@ class _DropletProgressIndicator extends StatelessWidget {
   final int dropletCount;
   final AnimationController progressController;
   final Color color;
-  final int servingSizeMl;
+  final int servingSizeMl; // Now dynamic value
+
   const _DropletProgressIndicator(
-      {required this.dropletCount,
+      {super.key,
+      required this.dropletCount,
       required this.progressController,
       required this.color,
       required this.servingSizeMl});
+    
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
       animation: progressController,
@@ -2182,19 +2369,31 @@ class _DropletProgressIndicator extends StatelessWidget {
             children: List.generate(dropletCount, (index) {
               final fillOpacity =
                   (currentDropletsFilled - index).clamp(0.0, 1.0);
+              
+              // We want to show labels at the 4th (halfway) and 8th (full) segment marks
+              final bool isMidpoint = (index + 1) == dropletCount ~/ 2; 
+              final bool isFinalPoint = (index + 1) == dropletCount;
+              final bool showLabel = isMidpoint || isFinalPoint;
+              
+              // The cumulative volume achieved up to this segment's end.
+              final cumulativeVolume = (index + 1) * servingSizeMl;
+              
               return Column(children: [
                 Icon(Icons.water_drop_rounded,
                     color: color.withOpacity(0.2 + fillOpacity * 0.8),
                     size: 32),
-                if (index % 2 == 0)
-                  Text('${(index + 1) * servingSizeMl}ml',
+                
+                // FIX: Only show label for 4th and 8th segment (if 8 droplets)
+                if (showLabel)
+                  Text('${cumulativeVolume}ml', 
                       style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-                if (index % 2 != 0) const SizedBox(height: 14)
+                
+                // Keep space if no label is shown
+                if (!showLabel) const SizedBox(height: 14) 
               ]);
             }));
       });
 }
-
 class _LogActionButton extends StatelessWidget {
   final int servingSize;
   final VoidCallback onTap;
@@ -2458,19 +2657,22 @@ class _MacroBreakdownCardState extends State<_MacroBreakdownCard>
               color: Colors.orange,
               label: 'Carbs',
               grams: widget.summary.carbsConsumed,
-              percent: widget.summary.carbsPercent),
+              // Removed: percent: widget.summary.carbsPercent
+              ),
           const SizedBox(height: 12),
           _MacroLegend(
               color: Colors.lightBlue,
               label: 'Protein',
               grams: widget.summary.proteinConsumed,
-              percent: widget.summary.proteinPercent),
+              // Removed: percent: widget.summary.proteinPercent
+              ),
           const SizedBox(height: 12),
           _MacroLegend(
               color: Colors.purple,
               label: 'Fat',
               grams: widget.summary.fatConsumed,
-              percent: widget.summary.fatPercent)
+              // Removed: percent: widget.summary.fatPercent
+              )
         ]))
       ]));
 }
@@ -2521,12 +2723,15 @@ class _MacroLegend extends StatelessWidget {
   final Color color;
   final String label;
   final double grams;
-  final double percent;
+  // Removed: final double percent; // Removed the percentage field
+
   const _MacroLegend(
       {required this.color,
       required this.label,
       required this.grams,
-      required this.percent});
+      // Removed: required this.percent // Removed from constructor
+      });
+
   @override
   Widget build(BuildContext context) => Row(children: [
         Container(
@@ -2538,16 +2743,13 @@ class _MacroLegend extends StatelessWidget {
             style: const TextStyle(
                 fontWeight: FontWeight.bold, color: Color(0xFF333333))),
         const Spacer(),
+        
+        // Only display the grams value
         Text('${grams.toInt()}g', style: TextStyle(color: Colors.grey[800])),
-        const SizedBox(width: 8),
-        SizedBox(
-            width: 40,
-            child: Text('${(percent * 100).toInt()}%',
-                textAlign: TextAlign.right,
-                style: TextStyle(fontWeight: FontWeight.bold, color: color)))
+        
+        // Removed the percentage display SizedBox completely
       ]);
 }
-
 class _DailyInsightCard extends StatefulWidget {
   const _DailyInsightCard();
   @override
@@ -2748,4 +2950,445 @@ class _QuickActionButton extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.grey[800]))
           ]));
+}
+class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
+  late Future<StepAnalysis> _stepAnalysisFuture;
+  final AuthService _authService = AuthService();
+
+  // Color palette for the new dark card
+  final Color darkYellow =
+      const Color(0xFFFFA000); // Amber 700 (Used for achievement)
+  final Color cardBackgroundColor =
+      const Color(0xFF1A2E35); // Dark Teal/Blue
+  final Color cardBackgroundGradientEnd =
+      const Color(0xFF1A2E35); // Darker shade
+  final Color progressTrackColor = Colors.white.withOpacity(0.1);
+  final Color lightTextColor = Colors.white.withOpacity(0.8);
+  final Color veryLightTextColor = Colors.white.withOpacity(0.4);
+
+  final stepGoal = 10000.0; // The fixed goal
+
+  @override
+  void initState() {
+    super.initState();
+    _stepAnalysisFuture = _fetchStepAnalysis();
+  }
+
+  // UNCHANGED: Fetch logic for step data
+  Future<StepAnalysis> _fetchStepAnalysis() async {
+    final String apiUrl = '$baseURL/api/get_last_7days_steps';
+    final token = await _authService.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required for step data.');
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonBody = json.decode(response.body);
+        return StepAnalysis.fromJson(jsonBody);
+      } else {
+        // Fallback for failed API, keeping the existing structure
+        print(
+            'Step API failed with status ${response.statusCode}. Falling back to mock data.');
+        final mockData = {
+          'OkData': true,
+          'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
+        };
+        return StepAnalysis.fromJson(mockData);
+      }
+    } catch (e) {
+      // Fallback for network error
+      print(
+          'Network error for step data: ${e.toString()}. Falling back to mock data.');
+      final mockData = {
+        'OkData': true,
+        'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
+      };
+      return StepAnalysis.fromJson(mockData);
+    }
+  }
+
+  // --- NEW WIDGETS FOR CREATIVE UI ---
+
+  // 1. The main dark container for all states (loading, error, success)
+  Widget _buildDarkContainer({required Widget child}) {
+    return StaggeredAnimation(
+      index: 2, // Keeps its place in the page animation
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cardBackgroundColor, cardBackgroundGradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 15,
+              spreadRadius: -5,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  // 2. Custom Painter for the Radial "Speedometer"
+  /* (MOVED b-SIDE b) */
+
+  // 3. Vertical bar for the weekly chart
+  Widget _buildVerticalBar({
+    required String dayLabel,
+    required int steps,
+    required double goal,
+    required double maxSteps, // Max steps in the week for scaling
+    required Color color,
+  }) {
+    const double maxBarHeight = 80.0;
+    final bool achieved = steps >= goal;
+    final double barHeight = (steps / maxSteps) * maxBarHeight;
+    final barColor =
+        achieved ? color : Colors.white.withOpacity(0.6);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // The animated bar
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: barHeight),
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeOutCubic,
+          builder: (context, height, child) {
+            return Container(
+              width: 18,
+              height: height,
+              decoration: BoxDecoration(
+                color: barColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        // Day label
+        Text(
+          dayLabel,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: achieved ? Colors.white : veryLightTextColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 4. NEW: Dark-themed widget for when data is not available
+  Widget _buildDataNotAvailable(BuildContext context, StepAnalysis? analysis) {
+    final bool notEnoughData = analysis?.okData == false;
+    final String title;
+    final String message;
+    final IconData icon;
+
+    // Use light text colors for the dark card
+    final Color color = Colors.white.withOpacity(0.7);
+
+    if (notEnoughData) {
+      title = 'Insufficient Data';
+      message = 'Need 7 full days of step history to show your dashboard.';
+      icon = Icons.calendar_today_rounded;
+    } else {
+      title = 'Data Unavailable';
+      message =
+          'Feature isn\'t available, Server issue. Please try again later.';
+      icon = Icons.gpp_bad_rounded;
+    }
+
+    return Container(
+      height: 300, // Give it a fixed height
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 50, color: color.withOpacity(0.6)),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 5. NEW: Rebuilt Chart UI with "Speedometer" and Vertical Bars
+  Widget _buildChartUI(BuildContext context, List<int> dailySteps) {
+    // 1. Calculate Averages and Status
+    final int recentSteps = dailySteps.last; // Get the most recent day
+    final double progress = (recentSteps / stepGoal).clamp(0.0, 1.0);
+    // Find max steps for scaling the bar chart
+    final double maxWeeklySteps = (dailySteps.reduce(math.max) * 1.1);
+
+    // Logic for dynamic day labels (Mon, Tue, etc.)
+    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final todayIndex = (DateTime.now().weekday - 1) % 7;
+
+    List<String> chartDays = [];
+    for (int i = 0; i < dailySteps.length; i++) {
+      final dayOffset = (todayIndex - (dailySteps.length - 1) + i) % 7;
+      final chartDayIndex = (dayOffset < 0 ? dayOffset + 7 : dayOffset);
+      chartDays.add(days[chartDayIndex]);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // --- HEADER ---
+        Row(
+          children: [
+            Icon(Icons.directions_run_rounded, color: darkYellow, size: 28),
+            const SizedBox(width: 10),
+            Text(
+              'Step Dashboard',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 50),
+
+        // --- HERO SECTION: RADIAL "SPEEDOMETER" ---
+        SizedBox(
+          width: 200,
+          height: 200,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: progress),
+            duration: const Duration(milliseconds: 1200),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedProgress, child) {
+              return CustomPaint(
+                painter: _StepRadialPainter(
+                  progress: animatedProgress,
+                  color: darkYellow,
+                  trackColor: progressTrackColor,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 20), // Offset for dial
+                      Text(
+                        '${recentSteps.toInt()}',
+                        style: const TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        '/ ${stepGoal.toInt()} steps',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: lightTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: recentSteps >= stepGoal
+                              ? darkYellow.withOpacity(0.2)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: recentSteps >= stepGoal
+                                ? darkYellow
+                                : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Text(
+                          recentSteps >= stepGoal ? 'GOAL MET!' : 'Recent Day',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: recentSteps >= stepGoal
+                                ? darkYellow
+                                : lightTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        SizedBox(height: 30,),
+        const Divider(height: 40, color: Colors.white24, thickness: 1),
+
+        // --- VISUALIZATION: WEEKLY VERTICAL BARS ---
+        Text(
+          'Weekly Review',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: lightTextColor,
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 110, // Fixed height for bars + labels
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: dailySteps.asMap().entries.map((entry) {
+              final index = entry.key;
+              final steps = entry.value;
+
+              return _buildVerticalBar(
+                dayLabel: chartDays[index],
+                steps: steps,
+                goal: stepGoal,
+                maxSteps: maxWeeklySteps,
+                color: darkYellow,
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- Main Build Method (FutureBuilder) ---
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<StepAnalysis>(
+      future: _stepAnalysisFuture,
+      builder: (context, snapshot) {
+        // STATE 1: LOADING
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildDarkContainer(
+            child: const SizedBox(
+              height: 300, // Give it a fixed height
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFFFFA000), // Use darkYellow
+                  strokeWidth: 2.0,
+                ),
+              ),
+            ),
+          );
+        }
+
+        // STATE 2: ERROR or OK_DATA = FALSE
+        if (snapshot.hasError || (snapshot.hasData && !snapshot.data!.okData)) {
+          return _buildDarkContainer(
+            child: _buildDataNotAvailable(context, snapshot.data),
+          );
+        }
+
+        // STATE 3: SUCCESS
+        // (snapshot.hasData && snapshot.data!.okData)
+        final dailySteps = snapshot.data!.steps;
+        return _buildDarkContainer(
+          child: _buildChartUI(context, dailySteps),
+        );
+      },
+    );
+  }
+}
+
+
+class _StepRadialPainter extends CustomPainter {
+  final double progress; // 0.0 to 1.0
+  final Color color;
+  final Color trackColor;
+
+  _StepRadialPainter(
+      {required this.progress,
+      required this.color,
+      required this.trackColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double strokeWidth = 12.0;
+    final Offset center = size.center(Offset.zero);
+    final double radius = (size.width - strokeWidth) / 3;
+
+    // Define the "speedometer" arcs
+    const double startAngle = -math.pi * 0.85; // ~2 o'clock
+    const double totalAngle = math.pi * 1.7; // ~10 o'clock
+
+    // Paint for the background track
+    final Paint trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Paint for the progress arc
+    final Paint progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Draw the track
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      totalAngle,
+      false,
+      trackPaint,
+    );
+
+    // Draw the progress
+    final double progressAngle = progress * totalAngle;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      progressAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

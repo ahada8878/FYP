@@ -229,7 +229,7 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
 
   SliverAppBar _buildHeader(BuildContext context) {
     const String imageUrl =
-        'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=2070&q=80';
+        'https://images.unsplash.com/photo-1484723091739-30a097e8f929?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=749';
     return SliverAppBar(
       expandedHeight: 250,
       pinned: true,

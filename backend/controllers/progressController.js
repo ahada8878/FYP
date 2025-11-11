@@ -85,7 +85,7 @@ const logWeight = async (req, res) => {
     // 2. Also update the 'currentWeight' in the main UserDetails
     await UserDetails.updateOne(
       { user: userId },
-      { currentWeight: weight.toString() } // Update the main profile
+      { currentWeight: weight.toString()+" kg" } // Update the main profile
     );
 
     res.status(201).json({

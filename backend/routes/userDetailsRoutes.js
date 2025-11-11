@@ -6,6 +6,12 @@ const {
   saveMyProfile,
   getAllUserDetails,
   deleteUserDetails,
+  updateUserName,
+  updateHeight,
+  updateCurrentWeight,
+  updateGoalWeight,
+  updateWaterConsumption,
+  updateWaterGoal
 } = require("../controllers/userDetailsController.js");
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -16,9 +22,23 @@ const authMiddleware = require('../middleware/authMiddleware');
 // Securely fetches the profile for the currently logged-in user.
 router.get("/my-profile", authMiddleware.protect, getMyProfile);
 
+router.post("/my-profile/userName", authMiddleware.protect, updateUserName);
+router.post("/my-profile/height", authMiddleware.protect, updateHeight);
+router.post("/my-profile/currentWeight", authMiddleware.protect, updateCurrentWeight);
+router.post("/my-profile/targetWeight", authMiddleware.protect, updateGoalWeight);
+router.post("/my-profile/waterGoal", authMiddleware.protect, updateWaterGoal);
+router.post("/my-profile/updateWaterConsumption", authMiddleware.protect, updateWaterConsumption);
+
+
+
 // POST /api/user-details/my-profile
 // Securely CREATES or UPDATES the profile for the logged-in user.
 router.post("/my-profile", authMiddleware.protect, saveMyProfile);
+
+
+
+
+
 
 
 // === OPTIONAL ADMIN ROUTES ===

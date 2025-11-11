@@ -4,6 +4,9 @@ import 'package:fyp/Registration/NamePage.dart';
 import '../../services/auth_service.dart'; // Import your auth service
 import 'package:fyp/Loginpage.dart';
 
+// NOTE: The import for OtpVerificationPage.dart has been removed 
+// because its logic is now contained in this file.
+
 class CreativeSignupPage extends StatefulWidget {
   const CreativeSignupPage({super.key});
 
@@ -28,44 +31,69 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
   bool _isRobot = true;
   bool _isLoading = false; // Added loading state
 
+  // --------------------------------------------------------------------------
+  // 1. UPDATED SIGNUP LOGIC
+  // --------------------------------------------------------------------------
+
   Future<void> _signup() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isRobot) return;
 
-    setState(() => _isLoading = true);
+    // Reset loading state for the main button
+    setState(() => _isLoading = true); 
 
     try {
-     
-      final data = await _authService.register(
+      // 1. Call the new sendOtp method 
+      await _authService.sendOtp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
-        context
       );
       
-      if (data['token'] != null) {
-        // Navigate to NamePage after successful registration
+      // 2. On success, show the creative dialog (DO NOT NAVIGATE)
+      
 
-        //ontap
-        await LocalDB.setAuthToken(data['token']);
-        await LocalDB.setUser(data['userId'] as String);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const NamePage()),
-        );
-        
-        
-      }
+      // 🌟 CALL THE DIALOG HERE 🌟
+      _showOtpVerificationDialog(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: Colors.blueAccent,
         ),
       );
     } finally {
+      // Reset loading only if the dialog was not successfully shown,
+      // but since we show the dialog on success, we reset it here.
       setState(() => _isLoading = false);
     }
   }
+  
+  // --------------------------------------------------------------------------
+  // 2. DIALOG TRIGGER FUNCTION
+  // --------------------------------------------------------------------------
+
+  Future<void> _showOtpVerificationDialog(String email, String password) {
+    // We use showDialog to pop up a modal over the current screen
+    return showDialog(
+      context: context,
+      barrierDismissible: false, // Prevents closing by tapping outside
+      builder: (BuildContext context) {
+        return _OtpVerificationDialog(
+          email: email,
+          password: password,
+          authService: _authService,
+        );
+      },
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. ANIMATION AND LIFECYCLE METHODS (UNCHANGED)
+  // --------------------------------------------------------------------------
 
   @override
   void initState() {
@@ -105,6 +133,10 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
     _confirmPasswordController.dispose();
     super.dispose();
   }
+  
+  // --------------------------------------------------------------------------
+  // 4. BUILD METHOD (UNCHANGED)
+  // --------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +362,8 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
                         Center(
                           child: GestureDetector(
                             onTap: () {
-                              Navigator.push(
+                              // Assuming CreativeLoginPage exists
+                              Navigator.push( 
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const CreativeLoginPage(),
@@ -369,6 +402,10 @@ class _CreativeSignupPageState extends State<CreativeSignupPage>
     );
   }
 }
+
+// --------------------------------------------------------------------------
+// 5. REUSABLE WIDGETS (UNCHANGED)
+// --------------------------------------------------------------------------
 
 class _AnimatedInputField extends StatelessWidget {
   final TextEditingController controller;
@@ -424,6 +461,168 @@ class _AnimatedInputField extends StatelessWidget {
                   onPressed: onToggleVisibility,
                 )
               : null,
+        ),
+      ),
+    );
+  }
+}
+
+// --------------------------------------------------------------------------
+// 6. OTP VERIFICATION DIALOG WIDGET (NEW)
+// --------------------------------------------------------------------------
+
+class _OtpVerificationDialog extends StatefulWidget {
+  final String email;
+  final String password;
+  final AuthService authService;
+
+  const _OtpVerificationDialog({
+    required this.email,
+    required this.password,
+    required this.authService,
+  });
+
+  @override
+  State<_OtpVerificationDialog> createState() => _OtpVerificationDialogState();
+}
+
+class _OtpVerificationDialogState extends State<_OtpVerificationDialog> {
+  final _otpController = TextEditingController();
+  final _dialogFormKey = GlobalKey<FormState>();
+  bool _isVerifying = false;
+
+  @override
+  void dispose() {
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verifyOtp() async {
+    if (!_dialogFormKey.currentState!.validate()) return;
+
+    setState(() => _isVerifying = true);
+
+    try {
+      final data = await widget.authService.verifyOtp(
+        widget.email,
+        widget.password,
+        _otpController.text.trim(),
+      );
+
+      if (data['token'] != null) {
+        await LocalDB.setAuthToken(data['token']);
+        await LocalDB.setUser(data['userId'] as String);
+        
+        // Success! Close the dialog and navigate to the next page
+        Navigator.pop(context); // Close the dialog
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const NamePage()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isVerifying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Material(
+          borderRadius: BorderRadius.circular(20),
+          elevation: 10,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Form(
+              key: _dialogFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.lock_open,
+                    color: colorScheme.primary,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Verify Email',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter the 6-digit code sent to ${widget.email}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      hintText: '******',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      counterText: '', // Hide the maxLength counter
+                    ),
+                    validator: (value) {
+                      if (value == null || value.length != 6) {
+                        return 'Code must be 6 digits';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  _isVerifying
+                      ? const CircularProgressIndicator()
+                      : SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: _verifyOtp,
+                            child: const Text(
+                              'VERIFY',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context); // Dismiss the dialog
+                    },
+                    child: const Text('Cancel / Wrong Email?'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

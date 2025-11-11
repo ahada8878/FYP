@@ -1,4 +1,4 @@
-import 'dart:async'; // NEW: Required for the Timer
+import 'dart:async'; // Required for the Timer
 import 'package:flutter/material.dart';
 // Assuming these imports are correctly defined in your project
 import 'package:fyp/LocalDB.dart';
@@ -47,7 +47,7 @@ class _MyAppState extends State<MyApp> {
   // A unique key that, when changed, forces the widget subtree to be rebuilt.
   Key _key = UniqueKey();
   
-  // NEW: State to track if the custom splash screen delay is over.
+  // State to track if the custom splash screen delay is over.
   bool _isSplashFinished = false;
 
   @override
@@ -64,11 +64,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   /// Changes the key to trigger a rebuild of the widget tree.
+  // 🚀 FIXED: Removed the reset of _isSplashFinished.
   void restartApp() {
     setState(() {
       _key = UniqueKey();
-      // Reset splash state to false if you want the splash screen to show on restart
-      _isSplashFinished = false; 
+      // NOTE: _isSplashFinished remains true, forcing an immediate transition
+      // to getIncompleteStepView() to re-check the logged-in status.
     });
   }
 
@@ -116,7 +117,7 @@ class _SplashScreenContent extends StatelessWidget {
           children: [
             // Example: Replace this with your actual app icon image widget
             Image.asset('assets/images/icon_splash.png', width: 100, height: 100),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             CircularProgressIndicator(color: Colors.deepPurple),
           ],
         ),
@@ -125,13 +126,9 @@ class _SplashScreenContent extends StatelessWidget {
   }
 }
 
-// NOTE: Ensure your global function getIncompleteStepView() is defined somewhere, 
-// and that LocalDB.init(), your controllers, and MissingRouteDataForSignUp are
-// correctly implemented in their respective files.
-
 // Mock implementation of the function used in your original code:
 // Widget getIncompleteStepView() {
-//   // In a real app, this function checks LocalDB and returns the 
-//   // appropriate widget (e.g., SignInScreen, ProfileSetupScreen, or Dashboard).
-//   return const Text("This is the Final Destination Screen."); 
+//   // In a real app, this function checks LocalDB and returns the 
+//   // appropriate widget (e.g., SignInScreen, ProfileSetupScreen, or Dashboard).
+//   return const Text("This is the Final Destination Screen."); 
 // }

@@ -1,12 +1,12 @@
-// lib/models/progress_data.dart
-
-import 'package:flutter/material.dart'; // For IconData
+import 'package:flutter/material.dart';
+import 'package:fyp/LocalDB.dart'; 
 
 class Achievement {
   final IconData icon;
   final String title;
   final String description;
   final bool isAchieved;
+
   Achievement({
     required this.icon,
     required this.title,
@@ -14,12 +14,10 @@ class Achievement {
     this.isAchieved = false,
   });
 
-  // Factory constructor to parse from JSON (for achievements)
   factory Achievement.fromJson(Map<String, dynamic> json) {
-    // This is a placeholder. We will build this out when we
-    // implement the achievements logic on the backend.
+    // NOTE: IconData cannot be serialized, so we use a placeholder or conditional logic.
     return Achievement(
-      icon: Icons.workspace_premium, // Default icon
+      icon: Icons.workspace_premium, 
       title: json['title'] ?? 'Unlocked',
       description: json['description'] ?? 'You did it!',
       isAchieved: json['isAchieved'] ?? true,
@@ -33,8 +31,9 @@ class ProgressData {
   final double targetWeight;
   final int steps;
   final int stepGoal;
+  final double height; 
   final List<Achievement> achievements;
-  final double userHeightInMeters;
+  final double userHeightInMeters; 
   final List<double> weeklyWeightData;
   final List<int> weeklyStepsData;
 
@@ -48,29 +47,126 @@ class ProgressData {
     required this.userHeightInMeters,
     required this.weeklyWeightData,
     required this.weeklyStepsData,
+    required this.height,
   });
 
-  /// Factory constructor to parse the JSON from our /api/progress/my-hub endpoint
+  // 🌟 Helper function to parse strings/nums safely
+  static double _parseUnitString(dynamic value, double defaultValue) {
+    if (value == null) {
+      return defaultValue;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      final numberMatch = RegExp(r'(\d+(\.\d+)?)').firstMatch(value);
+      if (numberMatch != null) {
+        return double.tryParse(numberMatch.group(0)!) ?? defaultValue;
+      }
+    }
+    return defaultValue;
+  }
+
+  // =======================================================
+  // 1. FACTORY CONSTRUCTOR: Load from API/Server JSON
+  // =======================================================
   factory ProgressData.fromJson(Map<String, dynamic> json) {
+
+        print("yooooooooooooooooooooooooooooooooooooo");
+
+    final double rawCurrentWeight = _parseUnitString(json['currentWeight'], 0.0);
+    final double rawStartWeight = _parseUnitString(json['startWeight'], 0.0);
+    final double rawTargetWeight = _parseUnitString(json['targetWeight'], 0.0);
+    final double rawHeightFeet = _parseUnitString(json['height'], 0.0);
+
+    final int rawSteps = _parseUnitString(json['steps'], 0.0).toInt();
+    final int rawStepGoal = _parseUnitString(json['stepGoal'], 0.0).toInt();
+
+    final double calculatedHeightInMeters = rawHeightFeet * 0.3048;
+
+
     return ProgressData(
-      currentWeight: (json['currentWeight'] as num).toDouble(),
-      startWeight: (json['startWeight'] as num).toDouble(),
-      targetWeight: (json['targetWeight'] as num).toDouble(),
-      steps: (json['steps'] as num).toInt(),
-      stepGoal: (json['stepGoal'] as num).toInt(),
-      userHeightInMeters: (json['userHeightInMeters'] as num).toDouble(),
-      
+      currentWeight: rawCurrentWeight,
+      startWeight: rawStartWeight,
+      targetWeight: rawTargetWeight,
+      steps: rawSteps,
+      stepGoal: rawStepGoal,
+      height: rawHeightFeet,
+      userHeightInMeters: calculatedHeightInMeters,
+
       weeklyWeightData: List<double>.from(
-        json['weeklyWeightData'].map((x) => (x as num).toDouble())
-      ),
-      weeklyStepsData: List<int>.from(
-        json['weeklyStepsData'].map((x) => (x as num).toInt())
-      ),
-      
-      // Parse the achievements list
-      achievements: List<Achievement>.from(
-        json['achievements'].map((x) => Achievement.fromJson(x))
-      ),
+          (json['weeklyWeightData'] as List? ?? [])
+              .map((x) => _parseUnitString(x, 0.0))),
+
+      weeklyStepsData: List<int>.from((json['weeklyStepsData'] as List? ?? [])
+          .map((x) => _parseUnitString(x, 0.0).toInt())),
+
+      achievements: List<Achievement>.from((json['achievements'] as List? ?? [])
+          .map((x) => Achievement.fromJson(x as Map<String, dynamic>))),
     );
+  }
+
+  // =======================================================
+  // ✅ 2. FIX: STATIC ASYNC METHOD: Load from LocalDB Fallback
+  // =======================================================
+  /// Now an async method to correctly handle the LocalDB Future returns.
+  static Future<ProgressData> fromLocalDB() async { // 🎯 FIX 2: Added Future<ProgressData> return type and 'async'
+    // ⚡️ IMPORTANT: Must use 'await' since LocalDB getters are asynchronous
+    final double rawCurrentWeight =
+        _parseUnitString(await LocalDB.getCurrentWeight(), 0.0);
+    final double rawStartWeight = 
+        _parseUnitString(await LocalDB.getStartWeight(), 0.0);
+    final double rawTargetWeight =
+        _parseUnitString(await LocalDB.getTargetWeight(), 0.0);
+    final double rawHeightFeet = 
+        _parseUnitString(await LocalDB.getHeight(), 0.0);
+
+    final int rawSteps = _parseUnitString(await LocalDB.getSteps(), 0.0).toInt();
+    final int rawStepGoal = 
+        _parseUnitString(await LocalDB.getStepsGoal(), 0.0).toInt();
+
+    final double calculatedHeightInMeters = rawHeightFeet * 0.3048;
+
+    // Retrieving list data (must be awaited)
+    final List<Map<String, dynamic>> rawAchievements =
+        [];
+    final List<dynamic> rawWeeklyWeightData =
+        [];
+    final List<dynamic> rawWeeklyStepsData =
+        [];
+   
+    return ProgressData(
+      currentWeight: rawCurrentWeight,
+      startWeight: rawStartWeight,
+      targetWeight: rawTargetWeight,
+      steps: rawSteps,
+      stepGoal: rawStepGoal,
+      height: rawHeightFeet,
+      userHeightInMeters: calculatedHeightInMeters,
+      weeklyWeightData: List<double>.from(
+          rawWeeklyWeightData.map((x) => _parseUnitString(x, 0.0))),
+      weeklyStepsData: List<int>.from(
+          rawWeeklyStepsData.map((x) => _parseUnitString(x, 0.0).toInt())),
+      achievements: rawAchievements.map((x) => Achievement.fromJson(x)).toList(),
+    );
+  }
+
+
+  // =======================================================
+  // ✅ 3. FIX: STATIC ASYNC METHOD: Save to LocalDB
+  // =======================================================
+  /// Now an async method to correctly handle the LocalDB Future returns.
+  static Future<void> saveToLocalDB(Map<String, dynamic> json) async { // 🎯 FIX 1: Added Future<void> return type and 'async'
+    // ⚡️ IMPORTANT: Must use 'await' for all LocalDB setter calls
+
+    LocalDB.setCurrentWeight(json['currentWeight']);
+    print(json['startWeight']);
+    LocalDB.setTargetWeight(json['targetWeight']);
+  LocalDB.setStartWeight(json['startWeight']);
+    LocalDB.setHeight(json['height']);
+    LocalDB.setSteps(json['steps']);
+    LocalDB.setStepsGoal(json['stepGoal']); 
+    
+
   }
 }

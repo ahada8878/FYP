@@ -45,6 +45,7 @@ Widget getIncompleteStepView()  {
     eatingStyles: LocalDB.getEatingStyles(),
     startTimes: LocalDB.getStartTimes(),
     endTimes: LocalDB.getEndTimes(),
+    waterGoal: '2 L'
   );
 
   // Check each step in the order they should be filled

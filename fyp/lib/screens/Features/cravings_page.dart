@@ -427,9 +427,9 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             24.0,
+            0,
             24.0,
-            24.0,
-            24.0 + MediaQuery.of(context).viewInsets.bottom,
+            0 + MediaQuery.of(context).viewInsets.bottom,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
