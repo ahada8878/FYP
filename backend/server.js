@@ -14,8 +14,15 @@ const rewardRoutes = require('./routes/rewardRoutes');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const axios = require('axios'); 
+const PendingUser = require('./models/pendingUser.js'); // <--- ADD THIS LINE
 const FormData = require('form-data'); 
 require('dotenv').config();
+
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+
+
 
 // Mongoose Models
 const User = require('./models/User'); 
@@ -75,15 +82,134 @@ app.use("/api/mealplan", mealPlanRoutes);
 app.use("/api/progress", progressRoutes);
 
 
+
+
+
+
+app.post('/api/get_last_7days_steps', async (req, res) => {
+    // Mock data for demonstration
+    // If steps.length is 8, it should return the last 7 (3000 to 7000) and OkData: true.
+    const steps = [2000, 3000, 1000, 10000, 9000, 6000, 9000, 7000];
+
+    // Example if steps.length < 7:
+    // const steps = [4000, 5000, 6000]; 
+
+    const minLength = 7;
+    let responseSteps;
+    let okData;
+
+    if (steps.length >= minLength) {
+        // If 7 or more values exist, get only the last 7 days (values)
+        // steps.slice(-7) returns the last 7 elements of the array.
+        responseSteps = steps.slice(-minLength);
+        okData = true;
+    } else {
+        // If less than 7 values exist, return the entire array as is
+        responseSteps = steps;
+        okData = false;
+    }
+
+    // Send the structured JSON response
+    res.send({
+        "OkData": okData,
+        "steps": responseSteps
+    });
+});
+
+
+app.post('/api/generate-ai-content', async (req, res) => {
+//   const userId = req.body.userId;  
+
+  const userData = {
+    averageCalories : 100,
+    averageSugar: 12,           
+    averageFats: 3,             
+    averageCholesterol: 21,     
+    averageCarbs: 25,           
+    averageProtein: 5,          
+    averageCaloriesBurned: 50,  
+    currentHealthCondition: ["Hypertension","Sugar"] 
+  };
+
+  const userPrompt = `
+    Based on the following data, predict possible future health risks:
+    - Average Calories Intake: ${userData.averageCalories} kcal
+    - Average Blood Sugar: ${userData.averageSugar} mg/dL
+    - Average Cholesterol: ${userData.averageCholesterol} mg/dL
+    - Average Fats: ${userData.averageFats} g
+    - Average Carbs: ${userData.averageCarbs} g
+    - Average Protein: ${userData.averageProtein} g
+    - Average Calories Burned Per Day: ${userData.averageCaloriesBurned} kcal
+    - Current Health Condition: ${userData.currentHealthCondition}
+    
+    Only predict the following conditions: 
+    'Hypertension', 'High Cholesterol', 'Obesity', 'Diabetes', 'Heart Disease', 'Arthritis', 'Asthma'.
+    Please provide the likelihood of each condition and actionable recommendations for improving health.
+
+    Please return the following information as a JSON object only:
+    {
+    "profile": {
+        "Health Conditions": 
+        "Average Calories": 
+        "Average Blood Sugar":
+        "Average Cholesterol":
+        "Average Fats":
+        "Average Carbs":
+        "Average Protein":
+        "Average Calories Burned":
+    
+    }
+
+    "health_risks": {
+        "Hypertension": "(low,medium,high,very high)",
+        "Diabetes": "(low,medium,high,very high)",
+        "Obesity": "(low,medium,high,very high)",
+        ...
+        ...
+    },
+    "consumption":{
+        "sugar": (low,medium,high,very high),
+        "fat": (low,medium,high,very high),
+        ...
+        ...
+    
+    }
+    "recommendations": ["recommendation1(within 15 words)", "recommendation2(within 15 words)", "recommendation3(within 15 words); "recommendation4(within 15 words); "recommendation5(within 15 words)"]
+    }
+  `;
+
+  console.log("Prompt:", userPrompt); // Debugging to check the prompt
+
+  try {
+    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(userPrompt);
+
+    const responseText = result.response.text();
+    console.log("AI Response:", responseText);
+
+
+
+    res.json(responseText);
+
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send('AI request failed');
+  }
+});
+
+
+
 // --- ADDED: New route to get user's name and calorie goal ---
 app.get('/api/user/profile-summary', protect, async (req, res) => {
     const userId = req.userId;
     console.log(`➡️  Request Received: GET /api/user/profile-summary for User ID: ${userId}`);
  
     try {
+
+        const USER = await User.findOne({_id: userId}).select('email');
         // Fetch user's name and calorie goal from the UserDetails collection
         const user = await UserDetails.findOne({ user: userId })
-            .select('userName caloriesGoal') // Fetch both fields
+            .select('userName caloriesGoal currentWeight targetWeight height waterGoal') // Fetch both fields
             .lean();
         
         if (!user) {
@@ -91,17 +217,28 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
             return res.status(404).json({ success: false, message: 'User profile not found.' });
         }
 
-        // The 'caloriesGoal' value is now on user.caloriesGoal
-        // We can use a default value just in case it's missing (e.g., for an old user)
+
         const caloriesGoal = user.caloriesGoal || 2000; 
 
-        console.log(`   ✅ Successfully fetched data: Name='${user.userName}', Calories=${caloriesGoal}`);
+        console.log(`   ✅ Successfully fetched data: Name='${user.userName}', Calories=${caloriesGoal},   ${user.waterGoal}`);
          
         res.status(200).json({
+            email: USER.email,
             success: true,
             userName: user.userName,
-            // ✅ FIX: Change this from 'caloriesGoal' to 'user.caloriesGoal' or the variable above
-            caloriesGoal: caloriesGoal 
+            caloriesConsumed: 2000,
+            caloriesGoal: caloriesGoal,
+            currentWeight: user.currentWeight,
+            targetWeight: user.targetWeight,
+            startWeight: user.startWeight|| "160 kg",
+            height: user.height,
+            carbs: 9,
+            protein: 9,
+            fat: 9,
+            steps:3000,
+            waterGoal: user.waterGoal ?? 1500,
+            waterConsumed: 250,
+            stepGoal: 10000
         });
 
     } catch (err) {

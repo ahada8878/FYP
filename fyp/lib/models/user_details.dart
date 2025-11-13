@@ -2,6 +2,7 @@ class UserDetails {
   String user;
   String authToken;
   String userName;
+  String waterGoal;
   String selectedMonth;
   String selectedDay;
   String selectedYear;
@@ -38,6 +39,8 @@ class UserDetails {
     required this.scheduleIcons,
     required this.healthConcerns,
     required this.levels,
+    required this.waterGoal,
+
     required this.options,
     required this.mealOptions,
     required this.waterOptions,
@@ -65,6 +68,7 @@ class UserDetails {
       healthConcerns: Map<String, bool>.from(json['healthConcerns'] ?? {}),
       levels: json['levels'] ?? '{}',
       options: json['options'] ?? '{}',
+      waterGoal: json['waterGoal'] ?? '',
       mealOptions: json['mealOptions'] ?? '{}',
       waterOptions: json['waterOptions'] ?? '{}',
       restrictions: Map<String, dynamic>.from(json['restrictions'] ?? {}),
@@ -102,6 +106,7 @@ class UserDetails {
       'eatingStyles': eatingStyles,
       'startTimes': startTimes,
       'endTimes': endTimes,
+      'waterGoal': waterGoal
     };
   }
 }

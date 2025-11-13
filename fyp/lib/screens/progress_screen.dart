@@ -12,12 +12,6 @@ import 'package:fyp/models/progress_data.dart';
 import 'package:fyp/services/progress_service.dart';
 // ---------------------
 
-// --- 1. DATA MODELS ---
-// (Removed - Now in lib/models/progress_data.dart)
-
-// --- 2. MOCK SERVICE ---
-// (Removed - Now replaced by lib/services/progress_service.dart)
-
 // --- 3. MAIN SCREEN WIDGET ---
 
 class MyProgressScreen extends StatefulWidget {
@@ -113,7 +107,12 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           }
 
           final data = snapshot.data!;
-          final double bmi = (data.currentWeight / (data.userHeightInMeters * data.userHeightInMeters))/1000;
+          
+          // 🚀 FIX: Convert height from feet (data.height is 5.10) to meter
+          final double userHeightInMeters = data.height * 0.3048; // 1 foot = 0.3048 meters
+
+          // 🚀 FIX: Correct BMI formula (Weight in kg / Height in m^2). Removed incorrect /1000 division.
+          final double bmi = data.currentWeight / (userHeightInMeters * userHeightInMeters);
 
           return Stack(
             alignment: Alignment.topCenter,
@@ -140,14 +139,16 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                           _buildSectionHeader(context, "Your Story So Far"),
                           _buildTimelineSection(data),
                           const SizedBox(height: 24),
-                          _HallOfFameSection(achievements: data.achievements),
+                          //_HallOfFameSection(achievements: data.achievements),
                           const SizedBox(height: 24),
                           _buildSectionHeader(context, "Health Overview"),
                           _HealthSnapshotSection(
                             bmi: bmi,
-                            heightInMeters: data.userHeightInMeters,
+                            // 🚀 Pass the corrected height in meters
+                            heightInMeters: userHeightInMeters,
                             currentWeight: data.currentWeight,
                             targetWeight: data.targetWeight,
+                            startWeight: data.startWeight,
                             animation: _headerAnimController,
                           ),
                           const SizedBox(height: 12),
@@ -237,29 +238,50 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
     ));
   }
 
+  // ⭐️ --- MODIFIED WIDGET --- ⭐️
   Widget _buildTimelineSection(ProgressData data) {
-    // ... (This widget is unchanged)
-    final double weightLost = data.startWeight - data.currentWeight;
-    return Column(
-      children: [
-        StaggeredAnimation(index: 1, child: _TimelineEventCard(
-          icon: Icons.scale, color: Theme.of(context).colorScheme.primary, title: "Today's Weight",
-          subtitle: "You're doing great!", value: "${data.currentWeight.toStringAsFixed(1)} kg", isFirst: true)),
-        if (data.steps > 0)
-          StaggeredAnimation(index: 2, child: _TimelineEventCard(
-            icon: Icons.directions_walk, color: Colors.purple, title: "Today's Steps",
-            subtitle: "${(data.steps / data.stepGoal * 100).toStringAsFixed(0)}% of your goal", value: "${data.steps}")),
-        if (weightLost > 0)
-          StaggeredAnimation(index: 3, child: _TimelineEventCard(
-            icon: Icons.trending_down, color: Colors.orange, title: "Total Weight Lost",
-            subtitle: "An amazing accomplishment!", value: "${weightLost.toStringAsFixed(1)} kg")),
-        StaggeredAnimation(index: 4, child: _TimelineEventCard(
-          icon: Icons.rocket_launch, color: Colors.grey.shade600, title: "Journey Started",
-          subtitle: "The first step is always the hardest.", value: "${data.startWeight.toStringAsFixed(1)} kg", isLast: true)),
-      ],
-    );
+    // This widget is now aware of the user's goal (gain or loss)
+    
+    // 1. Determine the goal
+    final bool isWeightGainGoal = data.targetWeight > data.startWeight;
+    
+    // 2. Calculate the change so far (positive for gain, negative for loss)
+    final double weightChange = data.currentWeight - data.startWeight;
+
+    // 3. Build the list of widgets
+    List<Widget> children = [
+      StaggeredAnimation(index: 1, child: _TimelineEventCard(
+        icon: Icons.scale, color: Theme.of(context).colorScheme.primary, title: "Today's Weight",
+        subtitle: "You're doing great!", value: "${data.currentWeight.toStringAsFixed(1)} kg", isFirst: true)),
+      
+      if (data.steps > 0)
+        StaggeredAnimation(index: 2, child: _TimelineEventCard(
+          icon: Icons.directions_walk, color: Colors.purple, title: "Today's Steps",
+          subtitle: "${(data.steps / data.stepGoal * 100).toStringAsFixed(0)}% of your goal", value: "${data.steps}")),
+    ];
+
+    // 4. Conditionally add the correct "change" card
+    if (isWeightGainGoal && weightChange > 0) {
+      // User has a GAIN goal and has GAINED weight
+      children.add(StaggeredAnimation(index: 3, child: _TimelineEventCard(
+        icon: Icons.trending_up, color: Colors.green, title: "Total Weight Gained",
+        subtitle: "An amazing accomplishment!", value: "${weightChange.abs().toStringAsFixed(1)} kg")));
+    } else if (!isWeightGainGoal && weightChange < 0) {
+      // User has a LOSS goal and has LOST weight
+      children.add(StaggeredAnimation(index: 3, child: _TimelineEventCard(
+        icon: Icons.trending_down, color: Colors.orange, title: "Total Weight Lost",
+        subtitle: "An amazing accomplishment!", value: "${weightChange.abs().toStringAsFixed(1)} kg")));
+    }
+
+    // 5. Add the final "Journey Started" card
+    children.add(StaggeredAnimation(index: 4, child: _TimelineEventCard(
+      icon: Icons.rocket_launch, color: Colors.grey.shade600, title: "Journey Started",
+      subtitle: "The first step is always the hardest.", value: "${data.startWeight.toStringAsFixed(1)} kg", isLast: true)));
+
+    return Column(children: children);
   }
 }
+// ⭐️ --- END OF MODIFICATION --- ⭐️
 
 // --- 4. NEW & REDESIGNED WIDGETS ---
 // ... (All widgets from _CombinedTrendCard down to _ProgressRingPainter)
@@ -334,6 +356,7 @@ class _WeightTrendVisualization extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
+                // This logic is already universal (gain/loss)
                 color: isLoss ? Colors.green.shade50 : Colors.red.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -974,13 +997,13 @@ class _TimelinePainter extends CustomPainter {
   bool shouldRepaint(covariant _TimelinePainter oldDelegate) => oldDelegate.isFirst != isFirst || oldDelegate.isLast != isLast;
 }
 class _HealthSnapshotSection extends StatelessWidget {
-  final double bmi; final double heightInMeters; final double currentWeight; final double targetWeight; final Animation<double> animation;
-  const _HealthSnapshotSection({ required this.bmi, required this.heightInMeters, required this.currentWeight, required this.targetWeight, required this.animation });
+  final double bmi; final double heightInMeters; final double currentWeight;  final double startWeight; final double targetWeight; final Animation<double> animation;
+  const _HealthSnapshotSection({ required this.bmi, required this.heightInMeters, required this.currentWeight, required this.targetWeight,required this.startWeight, required this.animation });
   @override
   Widget build(BuildContext context) {
     return StaggeredAnimation(index: 5, child: Column(
       children: [
-        _WeightToGoCard(currentWeight: currentWeight, targetWeight: targetWeight, animation: animation),
+        _WeightToGoCard(currentWeight: currentWeight, targetWeight: targetWeight, animation: animation, startWeight: startWeight,),
         const SizedBox(height: 1),
         Row(children: [
           Expanded(child: _BmiStatusCard(bmi: bmi)),
@@ -991,26 +1014,37 @@ class _HealthSnapshotSection extends StatelessWidget {
     ));
   }
 }
+
+// ⭐️ --- MODIFIED WIDGET --- ⭐️
 class _WeightToGoCard extends StatelessWidget {
-  final double currentWeight; final double targetWeight; final Animation<double> animation;
-  const _WeightToGoCard({ required this.currentWeight, required this.targetWeight, required this.animation });
+  final double currentWeight; final double startWeight; final double targetWeight; final Animation<double> animation;
+  const _WeightToGoCard({ required this.currentWeight, required this.targetWeight, required this.animation,required this.startWeight });
+  
   @override
   Widget build(BuildContext context) {
-    final double weightToGo = (currentWeight - targetWeight).clamp(0, double.infinity);
-    const double startWeight = 90.0;
+    // 1. Determine the goal
+    final bool isWeightGainGoal = targetWeight > startWeight;
+    
+    // 2. Calculate remaining weight (always positive)
+    final double weightRemaining = (targetWeight - currentWeight).abs();
+    
+    // 3. Calculate progress (this logic is universal for gain/loss)
     final double startDifference = startWeight - targetWeight;
     final double currentDifference = currentWeight - targetWeight;
-    final double progress = (startDifference <= 0 || startDifference.isNaN) ? 1.0 : (1 - currentDifference / startDifference).clamp(0.0, 1.0);
+    final double progress = (startDifference == 0 || startDifference.isNaN) ? 1.0 : (1 - currentDifference / startDifference).clamp(0.0, 1.0);
+    
     return _InteractiveCard(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24), child: Row(
       children: [
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("WEIGHT TO GO", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
+            // 4. Show "WEIGHT TO GAIN" or "WEIGHT TO GO"
+            Text(isWeightGainGoal ? "WEIGHT TO GAIN" : "WEIGHT TO GO", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
             const SizedBox(height: 1),
             Text.rich(TextSpan(
-              text: weightToGo.toStringAsFixed(1),
-              style: TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: Colors.black),
+              // 5. Show the universal remaining weight
+              text: weightRemaining.toStringAsFixed(1),
+              style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: Colors.black),
               children: const <TextSpan>[TextSpan(text: ' kg', style: TextStyle(fontSize: 20, fontWeight: FontWeight.normal, color: Colors.black))],
             )),
             const SizedBox(height: 4),
@@ -1023,6 +1057,7 @@ class _WeightToGoCard extends StatelessWidget {
             final animValue = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic).value;
             return CustomPaint(
               painter: _ProgressRingPainter(
+                // 6. Universal progress logic
                 progress: progress * animValue,
                 // UPDATED: Progress ring color to primary
                 progressColor: Colors.orange, 
@@ -1036,6 +1071,9 @@ class _WeightToGoCard extends StatelessWidget {
     ));
   }
 }
+// ⭐️ --- END OF MODIFICATION --- ⭐️
+
+
 class _BmiStatusCard extends StatelessWidget {
   final double bmi;
   const _BmiStatusCard({required this.bmi});
@@ -1082,21 +1120,31 @@ class _HealthyRangeCard extends StatelessWidget {
     ));
   }
 }
+
+// ⭐️ --- MODIFIED WIDGET --- ⭐️
 class _PremiumProgressHeader extends StatelessWidget {
   final double startWeight; final double currentWeight; final double targetWeight; final Animation<double> animation;
   const _PremiumProgressHeader({ required this.startWeight, required this.currentWeight, required this.targetWeight, required this.animation });
   @override
   Widget build(BuildContext context) {
-    final double totalLossGoal = (startWeight - targetWeight);
-    final double lossSoFar = (startWeight - currentWeight);
-    final double progress = (totalLossGoal <= 0 || totalLossGoal.isNaN) ? 1.0 : (lossSoFar / totalLossGoal).clamp(0.0, 1.0);
-    final double remainingWeight = (currentWeight - targetWeight).clamp(0.0, double.infinity);
+    // 1. Determine the goal
+    final bool isWeightGainGoal = targetWeight > startWeight;
+    
+    // 2. Universal progress logic (this is correct for both gain/loss)
+    final double totalLossGoal = (startWeight - targetWeight); // Will be negative for gain
+    final double lossSoFar = (startWeight - currentWeight); // Will be negative for gain
+    final double progress = (totalLossGoal == 0 || totalLossGoal.isNaN) ? 1.0 : (lossSoFar / totalLossGoal).clamp(0.0, 1.0);
+    
+    // 3. Universal "remaining" and "changed" logic
+    final double weightRemaining = (targetWeight - currentWeight).abs();
+    final double changeSoFar = (currentWeight - startWeight); // Positive for gain, negative for loss
+    
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const _BlurredImageBackground(imageUrl: 'https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=2940&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+          const _BlurredImageBackground(imageUrl: 'https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
           BackdropFilter(filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0), child: Container(color: Colors.black.withOpacity(0.2))),
           SafeArea(child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -1115,14 +1163,23 @@ class _PremiumProgressHeader extends StatelessWidget {
                 AnimatedBuilder(animation: animation, builder: (context, child) {
                   final animValue = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic).value;
                   return _SleekProgressBar(
+                    // 4. Pass universal progress (it works for both goals)
                     progress: progress * animValue, startValue: startWeight, currentValue: currentWeight, targetValue: targetWeight);
                 }),
                 const SizedBox(height: 24),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   _buildStatColumn("Start", "${startWeight.toStringAsFixed(1)} kg"),
                   _buildStatColumn("Current", "${currentWeight.toStringAsFixed(1)} kg"),
-                  _buildStatColumn("Lost", "${lossSoFar.toStringAsFixed(1)} kg"),
-                  _buildStatColumn("To Go", "${remainingWeight.toStringAsFixed(1)} kg"),
+                  // 5. Show "Gained" or "Lost"
+                  _buildStatColumn(
+                    isWeightGainGoal ? "Gained" : "Lost", 
+                    "${changeSoFar.abs().toStringAsFixed(1)} kg"
+                  ),
+                  // 6. Show universal "To Go"
+                  _buildStatColumn(
+                    "To Go", 
+                    "${weightRemaining.toStringAsFixed(1)} kg"
+                  ),
                 ]),
               ],
             ),
@@ -1131,6 +1188,8 @@ class _PremiumProgressHeader extends StatelessWidget {
       ),
     );
   }
+  // ⭐️ --- END OF MODIFICATION --- ⭐️
+  
   Widget _buildStatColumn(String label, String value) {
     return Expanded(child: Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1160,6 +1219,7 @@ class _SleekProgressBar extends StatelessWidget {
     return LayoutBuilder(builder: (context, constraints) {
       final double width = constraints.maxWidth;
       final double currentMarkerLeft = (width * progress).clamp(0.0, width);
+      // This widget is already universal, as the 'progress' var is universal
       return Column(children: [
         Stack(clipBehavior: Clip.none, children: [
           Container(height: 8, decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(10))),

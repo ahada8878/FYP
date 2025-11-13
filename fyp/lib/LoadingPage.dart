@@ -56,6 +56,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
     eatingStyles: LocalDB.getEatingStyles(),
     startTimes: LocalDB.getStartTimes(),
     endTimes: LocalDB.getEndTimes(),
+    waterGoal: '5 L'
   );
 
   @override
@@ -98,6 +99,7 @@ class _FoodieAnalysisPageState extends State<FoodieAnalysisPage>
       'eatingStyles': profile.eatingStyles ?? {},
       'selectedSubGoals': profile.selectedSubGoals?.toList() ?? [],
       'selectedHabits': profile.selectedHabits?.toList() ?? [],
+      'waterGoal' : '5 L'
     };
   }
 
