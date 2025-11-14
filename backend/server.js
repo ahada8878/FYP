@@ -11,25 +11,20 @@ const mealRoutes = require('./routes/mealRoutes');
 const userDetailsRoutes = require('./routes/userDetailsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
+const foodLogRoutes = require('./routes/foodLogRoutes');
+const progressRoutes = require('./routes/progressRoutes.js');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const axios = require('axios'); 
-const PendingUser = require('./models/pendingUser.js'); // <--- ADD THIS LINE
+const PendingUser = require('./models/pendingUser.js');
 const FormData = require('form-data'); 
 require('dotenv').config();
-
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-
-
-
-// Mongoose Models
 const User = require('./models/User'); 
 const UserDetails = require('./models/userDetails'); 
 const mealPlanRoutes = require("./routes/mealPlanRoutes.js");
 const calorieGoal = require('./models/userDetails');
-const progressRoutes = require('./routes/progressRoutes.js');
 
 const { protect } = require('./middleware/authMiddleware.js');
 
@@ -80,8 +75,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use("/api/mealplan", mealPlanRoutes);
 app.use("/api/progress", progressRoutes);
-
-
+app.use('/api/foodlog', foodLogRoutes); 
 
 
 
