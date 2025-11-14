@@ -84,6 +84,23 @@ app.use("/api/progress", progressRoutes);
 
 
 
+const nutritionSchema = {
+  type: "object",
+  properties: {
+    food_name: { type: "string" },
+    category: { type: "string" },
+    calories: { type: "string" },
+    protein: { type: "string" },
+    carbs: { type: "string" },
+    fat: { type: "string" },
+    fiber: { type: "string" },
+    sugar: { type: "string" },
+    sodium: { type: "string" },
+    cholesterol: { type: "string" },
+    enoughData: { type: "boolean" } // <-- New field
+  },
+  required: ["food_name", "calories", "protein", "carbs", "fat", "enoughData"]
+};
 
 
 app.post('/api/get_last_7days_steps', async (req, res) => {
@@ -199,6 +216,71 @@ app.post('/api/generate-ai-content', async (req, res) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+app.post("/api/get-nutrition-data", async (req, res) => {
+  const { name, description } = req.body;
+
+  if (!name || !description) {
+    return res.status(400).json({ error: "Missing 'name' or 'description' in request body." });
+  }
+
+  const systemInstruction = `
+You are an expert Nutritional Analyst AI.
+Analyze the provided meal's name and description and generate a structured JSON object.
+Include all nutrients with correct units (e.g., "15 grams", "250 kcal").
+Be sure to include calories.
+Also include a boolean field "enoughData": true if the provided data is sufficient to predict the nutrition accurately, otherwise false.
+`;
+
+  const nutritionQuery = `Food Name: ${name}\nDescription: ${description}`;
+  console.log("Analyzing Food:", name);
+
+  try {
+    const model = ai.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction,
+    });
+
+    const generationConfig = {
+      responseMimeType: "application/json",
+      responseSchema: nutritionSchema,
+    };
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: nutritionQuery }] }],
+      generationConfig,
+    });
+
+    const responseText = result.response?.text();
+    if (!responseText) throw new Error("Empty AI response");
+
+    const nutritionData = JSON.parse(responseText);
+
+    console.log("AI Response (Parsed):", nutritionData);
+    res.json(nutritionData);
+  } catch (error) {
+    console.error("Error analyzing meal with AI:", error);
+    res.status(500).json({
+      error: "AI request failed to generate structured nutrition data.",
+      details: error.message || "Unknown API error",
+    });
+  }
+});
+
+
+
 // --- ADDED: New route to get user's name and calorie goal ---
 app.get('/api/user/profile-summary', protect, async (req, res) => {
     const userId = req.userId;
@@ -230,7 +312,7 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
             caloriesGoal: caloriesGoal,
             currentWeight: user.currentWeight,
             targetWeight: user.targetWeight,
-            startWeight: user.startWeight|| "160 kg",
+            startWeight: user.startWeight|| "45 kg",
             height: user.height,
             carbs: 9,
             protein: 9,
