@@ -46,6 +46,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
 
   @override
   void dispose() {
+    // Dispose controllers
     _foodNameController.dispose();
     _caloriesController.dispose();
     _proteinController.dispose();
@@ -54,17 +55,19 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     super.dispose();
   }
 
+  /// Parses the prediction string from the API
   void _parsePrediction(String prediction) {
     // Regex to match: "Food Name: calories: 200, protiein: 400, fat: 40, carbohydrates: 15"
-    // Note: kept 'protiein' typo support just in case API still has it
+    // Note: kept 'protiein' typo support
     final regExp = RegExp(
-      r"([^:]+):\s*calories:\s*([^,]+),\s*protiein:\s*([^,]+),\s*fat:\s*([^,]+),\s*carbohydrates:\s*(.+)",
+      r"([^:]+):\s*calories:\s*([^,]+),\s*protein:\s*([^,]+),\s*fat:\s*([^,]+),\s*carbohydrates:\s*(.+)",
       caseSensitive: false,
     );
 
     final match = regExp.firstMatch(prediction.trim());
 
     if (match != null && match.groupCount == 5) {
+      // If parsing is successful, update text controllers
       setState(() {
         _foodNameController.text = match.group(1)!.trim();
         _caloriesController.text = match.group(2)!.trim();
@@ -74,6 +77,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
         _hasError = false;
       });
     } else {
+      // If parsing fails, show an error
       print("Failed to parse prediction string: $prediction");
       setState(() {
         _hasError = true;
@@ -82,6 +86,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     }
   }
 
+  /// Sends the image to the API for prediction
   Future<void> _sendImageForPrediction(File imageFile) async {
     setState(() {
       _isProcessing = true;
@@ -122,7 +127,8 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     }
   }
 
-  void _useThisImage() {
+  /// Gathers data and shows the meal type dialog
+  void _onUseImagePressed() {
     // Retrieve editable values from controllers
     final finalData = {
       'name': _foodNameController.text,
@@ -130,25 +136,125 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
       'protein': _proteinController.text,
       'fat': _fatController.text,
       'carbs': _carbsController.text,
-      'portion': 1,
+      'portion': 1, // This is still hardcoded, as per original spec
     };
 
-    print("Final Data to use: $finalData");
-    // TODO: Pass this data back to previous screen or to a new logging screen
-    Navigator.pop(context, finalData);
+    // Show the meal type selection dialog, passing the data
+    _showMealTypeDialog(finalData);
   }
 
+  /// Displays the meal type selection dialog
+  Future<void> _showMealTypeDialog(Map<String, dynamic> foodData) async {
+    String? selectedMeal; // Variable to hold the selected meal
+
+    // Use showDialog which returns a value when popped
+    final bool? shouldLog = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        // Use StatefulBuilder to manage the state *within* the dialog
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final List<String> mealTypes = [
+              "Breakfast",
+              "Lunch",
+              "Dinner",
+              "Snack"
+            ];
+
+            return AlertDialog(
+              title: const Text("Log as..."),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Are you having this for:"),
+                  const SizedBox(height: 16),
+                  // Use Wrap for the buttons so they flow on small screens
+                  Wrap(
+                    spacing: 8.0, // Horizontal space
+                    runSpacing: 8.0, // Vertical space
+                    children: mealTypes.map((meal) {
+                      final bool isSelected = selectedMeal == meal;
+                      return ElevatedButton(
+                        onPressed: () {
+                          // Update the dialog's state
+                          setDialogState(() {
+                            selectedMeal = meal;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isSelected
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey[200],
+                          foregroundColor:
+                              isSelected ? Colors.white : Colors.black87,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: isSelected ? 4 : 0,
+                        ),
+                        child: Text(meal),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    // Pop with 'false' indicating do not log
+                    Navigator.pop(dialogContext, false);
+                  },
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: selectedMeal == null
+                      ? null // Disable button if no meal is selected
+                      : () {
+                          // Pop with 'true' indicating log
+                          Navigator.pop(dialogContext, true);
+                        },
+                  child: const Text("Log"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // This code runs *after* the dialog is closed
+    if (shouldLog == true && selectedMeal != null) {
+      // Add the selected meal to the data
+      foodData['mealType'] = selectedMeal;
+
+      print("Final Data to Log: $foodData");
+
+      // TODO: Implement your future logging logic here
+      // e.g., await logFoodToDatabase(foodData);
+
+      // After logging, pop the scanner page and pass data back
+      if (mounted) {
+        Navigator.pop(context, foodData);
+      }
+    }
+  }
+
+  /// Main build method
   @override
   Widget build(BuildContext context) {
-    // Main background gradient
+    // Main background with image and gradient
     return Container(
       decoration: BoxDecoration(
+        // Faded background image
         image: DecorationImage(
           image: FileImage(widget.imageFile),
           fit: BoxFit.cover,
-          // NEW: Set a low opacity for the "very light" effect
-          opacity: 0.1, 
+          opacity: 0.1, // "very light" effect
         ),
+        // Gradient on top
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -160,19 +266,21 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
         ),
       ),
       child: Scaffold(
-        backgroundColor: Colors.transparent, // Use container gradient
+        backgroundColor: Colors.transparent, // Let container's decoration show
         appBar: AppBar(
           title: const Text(
             'Analysis Result',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              ),
+            ),
           ),
           centerTitle: true,
+          // Semi-transparent app bar
           backgroundColor: Theme.of(context).primaryColor.withOpacity(0.85),
           elevation: 0,
         ),
+        // Body conditionally shows loading, error, or success
         body: _isProcessing
             ? _buildLoadingWidget()
             : (_hasError ? _buildErrorWidget() : _buildSuccessWidget()),
@@ -180,6 +288,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  /// 1. LOADING WIDGET
   Widget _buildLoadingWidget() {
     return Center(
       child: Column(
@@ -205,6 +314,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  /// 2. ERROR WIDGET
   Widget _buildErrorWidget() {
     return Center(
       child: Padding(
@@ -239,7 +349,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             SizedBox(
               width: 200,
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context), // "Try Again"
                 icon: const Icon(Icons.refresh),
                 label: const Text("Try Again"),
                 style: ElevatedButton.styleFrom(
@@ -256,6 +366,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  /// 3. SUCCESS WIDGET (Main UI)
   Widget _buildSuccessWidget() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -275,6 +386,8 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  // --- SUCCESS WIDGET HELPERS ---
+
   Widget _buildHeaderCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -291,6 +404,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
       ),
       child: Row(
         children: [
+          // Image Preview
           Container(
             width: 100,
             height: 100,
@@ -310,6 +424,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             ),
           ),
           const SizedBox(width: 20),
+          // Food Name (Editable)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,6 +463,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   Widget _buildNutritionCard() {
     return Column(
       children: [
+        // Title: "Nutritional Details (Editable)"
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 12),
           child: Row(
@@ -364,6 +480,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             ],
           ),
         ),
+        // Card with editable rows
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -378,11 +495,14 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           ),
           child: Column(
             children: [
-              _buildEditableRow("Calories", _caloriesController, "kcal", Colors.orange),
+              _buildEditableRow(
+                  "Calories", _caloriesController, "kcal", Colors.orange),
               _buildDivider(),
-              _buildEditableRow("Protein", _proteinController, "g", Colors.redAccent),
+              _buildEditableRow(
+                  "Protein", _proteinController, "g", Colors.redAccent),
               _buildDivider(),
-              _buildEditableRow("Fat", _fatController, "g", Colors.yellow[800]!),
+              _buildEditableRow(
+                  "Fat", _fatController, "g", Colors.yellow[800]!),
               _buildDivider(),
               _buildEditableRow("Carbs", _carbsController, "g", Colors.blue),
             ],
@@ -425,7 +545,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
               border: Border.all(color: Colors.grey[300]!),
             ),
             child: const Text(
-              "1 Serving",
+              "1 Serving", // Hardcoded as requested
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -434,12 +554,14 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  /// A single editable row for the nutrition card
   Widget _buildEditableRow(
       String label, TextEditingController controller, String unit, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
+          // Colored icon
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -449,6 +571,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             child: Icon(Icons.circle, size: 12, color: color),
           ),
           const SizedBox(width: 16),
+          // Label
           Text(
             label,
             style: const TextStyle(
@@ -458,6 +581,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             ),
           ),
           const Spacer(),
+          // Editable Text Form Field
           SizedBox(
             width: 100,
             child: TextFormField(
@@ -477,10 +601,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
                   fontWeight: FontWeight.normal,
                   color: Colors.grey[600],
                 ),
-                border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: UnderlineInputBorder(
+                enabledBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.transparent),
                 ),
                 focusedBorder: UnderlineInputBorder(
@@ -495,16 +616,19 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  /// A simple visual divider
   Widget _buildDivider() {
     return Divider(height: 1, thickness: 1, color: Colors.grey[100]);
   }
 
+  /// "Retake" and "Use This Food" buttons
   Widget _buildActionButtons() {
     return Row(
       children: [
+        // "Retake" Button
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context), // Go back
             icon: const Icon(Icons.refresh_rounded),
             label: const Text("Retake"),
             style: OutlinedButton.styleFrom(
@@ -518,10 +642,11 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           ),
         ),
         const SizedBox(width: 16),
+        // "Use This Food" Button
         Expanded(
           flex: 2,
           child: ElevatedButton.icon(
-            onPressed: _useThisImage,
+            onPressed: _onUseImagePressed, // Triggers the dialog
             icon: const Icon(Icons.check_circle_outline),
             label: const Text("Use This Food"),
             style: ElevatedButton.styleFrom(
