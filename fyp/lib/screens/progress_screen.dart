@@ -1015,7 +1015,7 @@ class _HealthSnapshotSection extends StatelessWidget {
   }
 }
 
-// ⭐️ --- MODIFIED WIDGET --- ⭐️
+// ⭐️ --- MODIFIED WIDGET: _WeightToGoCard (Corrected goal surpassed logic) --- ⭐️
 class _WeightToGoCard extends StatelessWidget {
   final double currentWeight; final double startWeight; final double targetWeight; final Animation<double> animation;
   const _WeightToGoCard({ required this.currentWeight, required this.targetWeight, required this.animation,required this.startWeight });
@@ -1025,30 +1025,39 @@ class _WeightToGoCard extends StatelessWidget {
     // 1. Determine the goal
     final bool isWeightGainGoal = targetWeight > startWeight;
     
-    // 2. Calculate remaining weight (always positive)
-    final double weightRemaining = (targetWeight - currentWeight).abs();
+    // 2. Calculate the total weight change required (always positive)
+    final double totalGoalChange = (targetWeight - startWeight).abs();
     
-    // 3. Calculate progress (this logic is universal for gain/loss)
-    final double startDifference = startWeight - targetWeight;
-    final double currentDifference = currentWeight - targetWeight;
-    final double progress = (startDifference == 0 || startDifference.isNaN) ? 1.0 : (1 - currentDifference / startDifference).clamp(0.0, 1.0);
+    // 3. Calculate the weight difference from the current weight to the target. 
+    // This value will be negative if the goal is surpassed.
+    // We adjust the sign based on the goal type so 'differenceToGoal' is the absolute difference remaining.
+    final double differenceToGoal = isWeightGainGoal 
+      ? targetWeight - currentWeight // Positive when gaining, negative when over-gained
+      : currentWeight - targetWeight; // Positive when losing, negative when over-lost
+
+    // 4. Calculate remaining weight (If goal is surpassed, remaining is 0.0)
+    final double weightRemaining = math.max(0.0, differenceToGoal);
+    
+    // 5. Calculate progress (If goal is surpassed, progress is 1.0)
+    final double achievedChange = totalGoalChange - weightRemaining;
+    final double progress = (totalGoalChange == 0 || totalGoalChange.isNaN) ? 1.0 : (achievedChange / totalGoalChange).clamp(0.0, 1.0);
     
     return _InteractiveCard(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24), child: Row(
       children: [
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 4. Show "WEIGHT TO GAIN" or "WEIGHT TO GO"
+            // 6. Show "WEIGHT TO GAIN" or "WEIGHT TO GO"
             Text(isWeightGainGoal ? "WEIGHT TO GAIN" : "WEIGHT TO GO", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
             const SizedBox(height: 1),
             Text.rich(TextSpan(
-              // 5. Show the universal remaining weight
+              // 7. Show the corrected remaining weight (will be 0.0 if surpassed)
               text: weightRemaining.toStringAsFixed(1),
               style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: Colors.black),
               children: const <TextSpan>[TextSpan(text: ' kg', style: TextStyle(fontSize: 20, fontWeight: FontWeight.normal, color: Colors.black))],
             )),
             const SizedBox(height: 4),
-            const Text("You're so close, keep going!"),
+            Text(progress >= 1.0 ? "Goal achieved! Keep up the great work!" : "You're so close, keep going!"),
           ],
         )),
         SizedBox(width: 80, height: 80, child: AnimatedBuilder(
@@ -1057,7 +1066,7 @@ class _WeightToGoCard extends StatelessWidget {
             final animValue = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic).value;
             return CustomPaint(
               painter: _ProgressRingPainter(
-                // 6. Universal progress logic
+                // 8. Use the corrected progress logic
                 progress: progress * animValue,
                 // UPDATED: Progress ring color to primary
                 progressColor: Colors.orange, 
@@ -1121,7 +1130,7 @@ class _HealthyRangeCard extends StatelessWidget {
   }
 }
 
-// ⭐️ --- MODIFIED WIDGET --- ⭐️
+// ⭐️ --- MODIFIED WIDGET: _PremiumProgressHeader (Corrected 'To Go' stat when goal surpassed) --- ⭐️
 class _PremiumProgressHeader extends StatelessWidget {
   final double startWeight; final double currentWeight; final double targetWeight; final Animation<double> animation;
   const _PremiumProgressHeader({ required this.startWeight, required this.currentWeight, required this.targetWeight, required this.animation });
@@ -1130,14 +1139,18 @@ class _PremiumProgressHeader extends StatelessWidget {
     // 1. Determine the goal
     final bool isWeightGainGoal = targetWeight > startWeight;
     
-    // 2. Universal progress logic (this is correct for both gain/loss)
+    // 2. Universal progress logic (this is correct for both gain/loss and clamping to 1.0)
     final double totalLossGoal = (startWeight - targetWeight); // Will be negative for gain
     final double lossSoFar = (startWeight - currentWeight); // Will be negative for gain
     final double progress = (totalLossGoal == 0 || totalLossGoal.isNaN) ? 1.0 : (lossSoFar / totalLossGoal).clamp(0.0, 1.0);
     
     // 3. Universal "remaining" and "changed" logic
-    final double weightRemaining = (targetWeight - currentWeight).abs();
     final double changeSoFar = (currentWeight - startWeight); // Positive for gain, negative for loss
+    
+    // 🚀 NEW: Corrected weight remaining to be 0.0 if goal is surpassed
+    final double weightRemainingToGoal = isWeightGainGoal 
+      ? math.max(0.0, targetWeight - currentWeight)
+      : math.max(0.0, currentWeight - targetWeight);
     
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
@@ -1175,10 +1188,10 @@ class _PremiumProgressHeader extends StatelessWidget {
                     isWeightGainGoal ? "Gained" : "Lost", 
                     "${changeSoFar.abs().toStringAsFixed(1)} kg"
                   ),
-                  // 6. Show universal "To Go"
+                  // 6. Show universal "To Go" (Corrected)
                   _buildStatColumn(
                     "To Go", 
-                    "${weightRemaining.toStringAsFixed(1)} kg"
+                    "${weightRemainingToGoal.toStringAsFixed(1)} kg"
                   ),
                 ]),
               ],
@@ -1218,7 +1231,8 @@ class _SleekProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final double width = constraints.maxWidth;
-      final double currentMarkerLeft = (width * progress).clamp(0.0, width);
+      // The current marker position logic is fine, as 'progress' is clamped to 1.0.
+      final double currentMarkerLeft = (width * progress).clamp(0.0, width); 
       // This widget is already universal, as the 'progress' var is universal
       return Column(children: [
         Stack(clipBehavior: Clip.none, children: [
