@@ -402,6 +402,72 @@ const updateCurrentWeight = async (req, res) => {
 };
 
 
+
+const updateHealthConditions = async (req, res) => {
+    try {
+        let userDetails = await UserDetails.findOne({ user: req.user.id });
+
+        if (!userDetails) {
+            return res.status(404).json({ message: "Cannot find user details." });
+        }
+
+        console.log(req.body.healthConcerns);
+
+        // 2. Update the healthConcerns field with the new object from request body
+        // Assuming req.body.healthConcerns is an object like { diabetes: true, allergies: ['peanut'] }
+        if (req.body.healthConcerns) {
+            userDetails.healthConcerns = req.body.healthConcerns;
+        }
+
+        // 3. Save the updated document
+        await userDetails.save();
+
+        console.log('⚙️ Health conditions updated. Re-generating meal plan...');
+
+
+
+        // 5. Respond with success
+        res.json({
+            message: "Health conditions updated and new meal plan generated successfully.",
+        });
+    } catch (error) {
+        console.error("❌ Critical error in updateHealthConditions:", error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation failed.', errors: error.message });
+        }
+        res.status(500).json({ message: error.message || "An internal server error occurred." });
+    }
+};
+
+
+
+
+const updateStartWeight = async (req, res) => {
+  try {
+    // Find the user by ID
+    const userDetails = await UserDetails.findOne({ user: req.user.id });
+    if (!userDetails) {
+      return res.status(404).json({ message: "Cannot find user details." });
+    }
+
+    // Update the username from request body
+    if (req.body.startWeight) {
+      userDetails.startWeight = req.body.startWeight;
+    }
+
+    // Save the updated user
+    await userDetails.save();
+
+    console.log('🚀 CWeigt updated successfully.');
+
+
+    res.json({ message: "Username updated successfully.", user: userDetails });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 const updateGoalWeight = async (req, res) => {
   try {
     // Find the user by ID
@@ -435,5 +501,7 @@ module.exports = {
     updateHeight,
     updateUserName,
     updateWaterGoal,
-    updateWaterConsumption
+    updateWaterConsumption,
+    updateHealthConditions,
+    updateStartWeight,
 };

@@ -11,7 +11,9 @@ const {
   updateCurrentWeight,
   updateGoalWeight,
   updateWaterConsumption,
-  updateWaterGoal
+  updateWaterGoal,
+  updateStartWeight,
+  updateHealthConditions
 } = require("../controllers/userDetailsController.js");
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -26,8 +28,10 @@ router.post("/my-profile/userName", authMiddleware.protect, updateUserName);
 router.post("/my-profile/height", authMiddleware.protect, updateHeight);
 router.post("/my-profile/currentWeight", authMiddleware.protect, updateCurrentWeight);
 router.post("/my-profile/targetWeight", authMiddleware.protect, updateGoalWeight);
+router.post("/my-profile/startWeight", authMiddleware.protect, updateStartWeight);
 router.post("/my-profile/waterGoal", authMiddleware.protect, updateWaterGoal);
 router.post("/my-profile/updateWaterConsumption", authMiddleware.protect, updateWaterConsumption);
+router.post("/my-profile/healthConcerns", authMiddleware.protect, updateHealthConditions);
 
 
 

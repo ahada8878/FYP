@@ -291,7 +291,7 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
         const USER = await User.findOne({_id: userId}).select('email');
         // Fetch user's name and calorie goal from the UserDetails collection
         const user = await UserDetails.findOne({ user: userId })
-            .select('userName caloriesGoal currentWeight targetWeight height waterGoal') // Fetch both fields
+            .select('userName caloriesGoal currentWeight targetWeight height waterGoal healthConcerns startWeight') // Fetch both fields
             .lean();
         
         if (!user) {
@@ -302,10 +302,12 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
 
         const caloriesGoal = user.caloriesGoal || 2000; 
 
-        console.log(`   ✅ Successfully fetched data: Name='${user.userName}', Calories=${caloriesGoal},   ${user.waterGoal}`);
+        console.log(`   ✅ Successfully fetched data: Name='${user.userName}', Calories=${caloriesGoal},   ${user.healthConcerns}`);
          
         res.status(200).json({
+            notification : true,
             email: USER.email,
+            healthConditions : user.healthConcerns,
             success: true,
             userName: user.userName,
             caloriesConsumed: 2000,

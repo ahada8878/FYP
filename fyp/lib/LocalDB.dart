@@ -91,6 +91,10 @@ static int getStepsGoal() {
 
 
 
+
+
+
+
 static int getWaterGoal() {
   // Use getInt() for retrieving integers.
   return _prefs?.getInt('waterGoal') ?? 0; // Keeping your original 45 default for fat
@@ -221,6 +225,11 @@ static Future<void> setFats(int name) async {
     return string;
   }
 
+
+
+
+  
+
   static Future<void> setHealthConcerns(Map<String, bool> map) async =>
       await _prefs?.setString('healthConcerns', jsonEncode(map));
   static Map<String, bool> getHealthConcerns() {
@@ -229,6 +238,20 @@ static Future<void> setFats(int name) async {
     final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
     return decoded.map((k, v) => MapEntry(k, v as bool));
   }
+
+
+
+  static Future<void> setHealthConcerns2(Map<String, dynamic> map) async {
+  await _prefs?.setString('healthConcerns2', jsonEncode(map));
+}
+
+static Map<String, dynamic> getHealthConcerns2() {
+  final jsonString = _prefs?.getString('healthConcerns2');
+  if (jsonString == null) return {};
+
+  // Decode and ensure the result is a Map<String, dynamic>
+  return Map<String, dynamic>.from(jsonDecode(jsonString));
+}
 
   static Future<void> setLevels(String map) async =>
       await _prefs?.setString('levels', map);
