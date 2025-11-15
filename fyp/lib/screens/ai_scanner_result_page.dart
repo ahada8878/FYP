@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:lottie/lottie.dart';
 import '../services/config_service.dart';
+// NEW: Import the services needed for logging
+import 'package:fyp/services/food_log_service.dart';
 
 class AiScannerResultPage extends StatefulWidget {
   final File imageFile;
@@ -22,7 +24,14 @@ class AiScannerResultPage extends StatefulWidget {
 class _AiScannerResultPageState extends State<AiScannerResultPage> {
   String _message = "Analyzing...";
   bool _isProcessing = true;
+  bool _isLoading = false; // NEW: For the final logging step
   bool _hasError = false;
+
+  // NEW: Base values (per 500g) from API
+  double _baseCalories = 0.0;
+  double _baseProtein = 0.0;
+  double _baseFat = 0.0;
+  double _baseCarbs = 0.0;
 
   // Controllers for editable fields
   late TextEditingController _foodNameController;
@@ -30,6 +39,14 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   late TextEditingController _proteinController;
   late TextEditingController _fatController;
   late TextEditingController _carbsController;
+  late TextEditingController _portionController; // NEW
+
+  // NEW: For portion editing
+  final FocusNode _portionFocusNode = FocusNode();
+  String _previousPortionValue = "500"; // Default portion
+
+  // NEW: Initialize the service
+  final FoodLogService _foodLogService = FoodLogService();
 
   @override
   void initState() {
@@ -40,6 +57,11 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     _proteinController = TextEditingController();
     _fatController = TextEditingController();
     _carbsController = TextEditingController();
+    _portionController =
+        TextEditingController(text: _previousPortionValue); // NEW
+
+    // NEW: Add listener for portion editing
+    _portionFocusNode.addListener(_onPortionFocusChange);
 
     _sendImageForPrediction(widget.imageFile);
   }
@@ -51,29 +73,43 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     _caloriesController.dispose();
     _proteinController.dispose();
     _fatController.dispose();
-    _carbsController.dispose();
+    _carbsController.dispose(); // NEW
+    _portionController.dispose(); // NEW
+    _portionFocusNode.removeListener(_onPortionFocusChange); // NEW
+    _portionFocusNode.dispose(); // NEW
     super.dispose();
   }
 
   /// Parses the prediction string from the API
   void _parsePrediction(String prediction) {
-    // Regex to match: "Food Name: calories: 200, protiein: 400, fat: 40, carbohydrates: 15"
-    // Note: kept 'protiein' typo support
+    // MODIFIED: More robust Regex to capture *only* numbers and handle both
+    // 'protein' and 'protiein' spellings, ignoring units like 'g' or 'kcal'.
     final regExp = RegExp(
-      r"([^:]+):\s*calories:\s*([^,]+),\s*protein:\s*([^,]+),\s*fat:\s*([^,]+),\s*carbohydrates:\s*(.+)",
+      r"([^:]+):\s*calories:\s*([\d.]+)[^,]*,\s*(?:protein|protiein):\s*([\d.]+)[^,]*,\s*fat:\s*([\d.]+)[^,]*,\s*carbohydrates:\s*([\d.]+)",
       caseSensitive: false,
     );
 
     final match = regExp.firstMatch(prediction.trim());
 
     if (match != null && match.groupCount == 5) {
-      // If parsing is successful, update text controllers
       setState(() {
         _foodNameController.text = match.group(1)!.trim();
-        _caloriesController.text = match.group(2)!.trim();
-        _proteinController.text = match.group(3)!.trim();
-        _fatController.text = match.group(4)!.trim();
-        _carbsController.text = match.group(5)!.trim();
+
+        // MODIFIED: Store base values
+        _baseCalories = double.tryParse(match.group(2)!) ?? 0.0;
+        _baseProtein = double.tryParse(match.group(3)!) ?? 0.0;
+        _baseFat = double.tryParse(match.group(4)!) ?? 0.0;
+        _baseCarbs = double.tryParse(match.group(5)!) ?? 0.0;
+
+        // MODIFIED: Set initial portion size (default is 500)
+        // In the future, this value will come from the prediction model
+        final initialPortion =
+            double.tryParse(_portionController.text) ?? 500.0;
+        _previousPortionValue = _portionController.text;
+
+        // MODIFIED: Calculate and set displayed values based on portion
+        _updateDisplayedValues(initialPortion);
+
         _hasError = false;
       });
     } else {
@@ -129,14 +165,15 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
 
   /// Gathers data and shows the meal type dialog
   void _onUseImagePressed() {
-    // Retrieve editable values from controllers
+    // MODIFIED: Retrieve editable values from controllers
     final finalData = {
       'name': _foodNameController.text,
       'calories': _caloriesController.text,
       'protein': _proteinController.text,
       'fat': _fatController.text,
       'carbs': _carbsController.text,
-      'portion': 1, // This is still hardcoded, as per original spec
+      'portion':
+          double.tryParse(_portionController.text) ?? 500.0, // MODIFIED
     };
 
     // Show the meal type selection dialog, passing the data
@@ -232,15 +269,133 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
 
       print("Final Data to Log: $foodData");
 
-      // TODO: Implement your future logging logic here
-      // e.g., await logFoodToDatabase(foodData);
+      // MODIFIED: Call the new log function
+      await _logFood(foodData);
 
-      // After logging, pop the scanner page and pass data back
-      if (mounted) {
-        Navigator.pop(context, foodData);
+      // The _logFood function now handles navigation, so the old
+      // Navigator.pop(context, foodData) is no longer needed.
+    }
+  }
+
+  // --- NEW METHODS FOR PORTION CALCULATION ---
+
+  /// NEW: Recalculates and updates the nutrition controllers
+  void _updateDisplayedValues(double portionSize) {
+    // The base values are for 500g
+    final double ratio = portionSize / 500.0;
+
+    setState(() {
+      // Set text with fixed precision
+      _caloriesController.text = (_baseCalories * ratio).toStringAsFixed(0);
+      _proteinController.text = (_baseProtein * ratio).toStringAsFixed(1);
+      _fatController.text = (_baseFat * ratio).toStringAsFixed(1);
+      _carbsController.text = (_baseCarbs * ratio).toStringAsFixed(1);
+    });
+  }
+
+  /// NEW: Handles focus change on the portion text field
+  void _onPortionFocusChange() async {
+    if (!_portionFocusNode.hasFocus) {
+      // Just lost focus
+      final String newValue = _portionController.text;
+      if (newValue != _previousPortionValue) {
+        // Value changed, show dialog
+        final bool? didConfirm = await _showPortionUpdateDialog();
+
+        if (didConfirm == true) {
+          // Yes, update
+          final double newPortion = double.tryParse(newValue) ?? 500.0;
+          _updateDisplayedValues(newPortion);
+          _previousPortionValue = newValue; // Lock in the new value
+        } else {
+          // No, revert
+          setState(() {
+            _portionController.text = _previousPortionValue;
+          });
+        }
+      }
+    } else {
+      // Just gained focus
+      _previousPortionValue = _portionController.text;
+    }
+  }
+
+  /// NEW: Shows the warning dialog before updating portion
+  Future<bool?> _showPortionUpdateDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Update Portion Size?"),
+        content: const Text(
+            "This will recalculate all nutritional details based on the new portion size. Do you want to continue?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false), // Cancel/No
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true), // Yes
+            child: const Text("Yes, Update"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: The final step: log the food to the backend
+  Future<void> _logFood(Map<String, dynamic> foodData) async {
+    setState(() {
+      _isLoading = true; // Show loading indicator
+    });
+
+    // Extract and parse data from the map
+    final String mealType = foodData['mealType'];
+    final String productName = foodData['name'];
+
+    // The controllers store values as strings, parse them to double.
+    final Map<String, dynamic> nutrients = {
+      'calories': double.tryParse(foodData['calories']) ?? 0.0,
+      'protein': double.tryParse(foodData['protein']) ?? 0.0,
+      'fat': double.tryParse(foodData['fat']) ?? 0.0,
+      'carbohydrates': double.tryParse(foodData['carbs']) ?? 0.0,
+    };
+
+    // Use the service to log the food
+    final bool success = await _foodLogService.logFood(
+      mealType: mealType,
+      productName: productName,
+      nutrients: nutrients,
+      date: DateTime.now(), // Use the current date and time
+      imageUrl: null, // Optional: You can add image uploading logic here
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (mounted) {
+      // Check if the widget is still in the tree
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$productName logged as $mealType!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigate back to the main screen (pop all the way)
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to log food. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
+
+  // --- END NEW METHODS ---
 
   /// Main build method
   @override
@@ -280,10 +435,34 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           backgroundColor: Theme.of(context).primaryColor.withOpacity(0.85),
           elevation: 0,
         ),
-        // Body conditionally shows loading, error, or success
-        body: _isProcessing
-            ? _buildLoadingWidget()
-            : (_hasError ? _buildErrorWidget() : _buildSuccessWidget()),
+        // MODIFIED: Wrap body in a Stack to show loading overlay
+        body: Stack(
+          children: [
+            // Original body content
+            _isProcessing
+                ? _buildLoadingWidget()
+                : (_hasError ? _buildErrorWidget() : _buildSuccessWidget()),
+
+            // NEW: Loading overlay for the final logging step
+            if (_isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 20),
+                      Text(
+                        'Logging your meal...',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -377,7 +556,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           const SizedBox(height: 24),
           _buildNutritionCard(),
           const SizedBox(height: 24),
-          _buildPortionCard(),
+          _buildPortionCard(), // MODIFIED
           const SizedBox(height: 40),
           _buildActionButtons(),
           const SizedBox(height: 30),
@@ -512,41 +691,101 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     );
   }
 
+  /// MODIFIED: This card is now editable
   Widget _buildPortionCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 12),
+          child: Row(
             children: [
-              Icon(Icons.pie_chart_outline, color: Colors.grey[700]),
-              const SizedBox(width: 12),
-              Text(
-                "Portion Size",
+              Icon(Icons.pie_chart, color: Theme.of(context).primaryColor),
+              const SizedBox(width: 8),
+              const Text(
+                "Portion Size (Editable)",
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: _buildPortionRow(
+              "Portion", _portionController, "g", Colors.grey[700]!),
+        ),
+      ],
+    );
+  }
+
+  /// NEW: A dedicated row for the portion text field
+  Widget _buildPortionRow(
+      String label, TextEditingController controller, String unit, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          // Colored icon
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.grey[300]!),
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text(
-              "1 Serving", // Hardcoded as requested
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Icon(Icons.circle, size: 12, color: color),
+          ),
+          const SizedBox(width: 16),
+          // Label
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          // Editable Text Form Field
+          SizedBox(
+            width: 100,
+            child: TextFormField(
+              controller: controller,
+              focusNode: _portionFocusNode, // Assign the focus node
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: " $unit",
+                suffixStyle: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.grey[600],
+                ),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
             ),
           ),
         ],
