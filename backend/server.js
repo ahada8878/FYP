@@ -308,7 +308,7 @@ app.get('/api/user/profile-summary', protect, async (req, res) => {
             caloriesGoal: caloriesGoal,
             currentWeight: user.currentWeight,
             targetWeight: user.targetWeight,
-            startWeight: user.startWeight|| "45 kg",
+            startWeight: user.startWeight,
             height: user.height,
             carbs: 9,
             protein: 9,

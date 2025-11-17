@@ -4,7 +4,7 @@ import sys
 import json
 import asyncio
 import aiohttp
-import os # Added for file path checks
+import os
 from typing import Dict, List, Any, Optional
 
 from PIL import Image
@@ -101,8 +101,6 @@ class AsyncOpenFoodFactsClient:
 # SYNCHRONOUS HELPER FUNCTIONS (No I/O)
 # ----------------------------------------------------------------------
 
-# ❗ DELETED: fetch_patient_data_from_db is removed as data is now passed via JSON file.
-
 def decode_barcode(image_path: str) -> Optional[str]:
     try:
         if not os.path.exists(image_path):
@@ -145,17 +143,13 @@ def extract_main_nutrients(nutriments: Dict) -> Dict:
         "salt_100g": nutriments.get("salt_100g"),
     }
 
+# --- MODIFIED FUNCTION ---
 def get_product_safety_statuses(product: Dict, conditions: Dict, preferences: Dict) -> tuple[List[Dict], int]:
     """
     Checks product against user's health conditions and dietary preferences.
     
-    Args:
-        product: The product dictionary from OpenFoodFacts.
-        conditions: A dictionary of active health conditions (e.g., {"Hypertension": True, "Diabetes": True}).
-        preferences: A dictionary of active dietary preferences (e.g., {"Lactose Free": True}).
-        
     Returns:
-        A tuple: (list of detailed status objects, total count of failed checks)
+        A tuple: (list of detailed status objects including 'is_safe', total count of failed checks)
     """
     
     def n(key: str) -> Optional[float]:
@@ -168,55 +162,86 @@ def get_product_safety_statuses(product: Dict, conditions: Dict, preferences: Di
     ingredients = product.get("ingredients_text", "").lower()
     
     # --- Health Condition Checks (Thresholds per 100g) ---
-    # Simplified thresholds for demonstration
     
     # Check 1: Hypertension (High Salt)
     if conditions.get("Hypertension"):
         salt = n("salt_100g")
-        if salt is not None and salt > 1.5: 
-            failed_count += 1
-            statuses.append({"condition": "Hypertension", "status": "FAIL (High Salt)", "value": f"{salt}g"})
+        is_safe = salt is None or salt <= 1.5
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Hypertension (Salt)", 
+            "is_safe": is_safe,
+            "status_detail": "High Salt" if not is_safe else "OK",
+            "value": f"{salt}g" if salt is not None else "N/A"
+        })
     
     # Check 2: Diabetes (High Sugar)
     if conditions.get("Diabetes"):
         sugar = n("sugars_100g")
-        if sugar is not None and sugar > 22.5: 
-            failed_count += 1
-            statuses.append({"condition": "Diabetes", "status": "FAIL (High Sugar)", "value": f"{sugar}g"})
-            
+        is_safe = sugar is None or sugar <= 22.5
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Diabetes (Sugar)",
+            "is_safe": is_safe,
+            "status_detail": "High Sugar" if not is_safe else "OK",
+            "value": f"{sugar}g" if sugar is not None else "N/A"
+        })
+        
     # Check 3: High Cholesterol/Heart Disease (Saturated Fat)
     if conditions.get("High Cholesterol") or conditions.get("Heart Disease"):
         sat_fat = n("saturated_fat_100g")
-        if sat_fat is not None and sat_fat > 5:
-            failed_count += 1
-            statuses.append({"condition": "Heart Risk", "status": "FAIL (High Saturated Fat)", "value": f"{sat_fat}g"})
-            
+        is_safe = sat_fat is None or sat_fat <= 5
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Heart Risk (Sat. Fat)",
+            "is_safe": is_safe,
+            "status_detail": "High Saturated Fat" if not is_safe else "OK",
+            "value": f"{sat_fat}g" if sat_fat is not None else "N/A"
+        })
+        
     # Check 4: Obesity/Weight Management (High Calories)
-    # Using a high generic limit as a filter example
     if conditions.get("Obesity"):
         calories = n("calories_kcal_100g")
-        if calories is not None and calories > 500:
-            failed_count += 1
-            statuses.append({"condition": "Obesity", "status": "FAIL (High Calories)", "value": f"{calories}kcal"})
+        is_safe = calories is None or calories <= 500
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Obesity (Calories)",
+            "is_safe": is_safe,
+            "status_detail": "High Calories" if not is_safe else "OK",
+            "value": f"{calories}kcal" if calories is not None else "N/A"
+        })
 
     # --- Dietary Preference Checks ---
     
     # Check A: Lactose Free
-    if preferences.get("Lactose Free") and any(term in ingredients for term in ["lactose", "milk", "whey", "casein"]):
-        failed_count += 1
-        statuses.append({"preference": "Lactose Free", "status": "FAIL (Contains Milk/Lactose)", "value": "N/A"})
+    if preferences.get("Lactose Free"):
+        is_safe = not any(term in ingredients for term in ["lactose", "milk", "whey", "casein"])
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Lactose Free", 
+            "is_safe": is_safe, 
+            "status_detail": "Contains Milk/Lactose" if not is_safe else "OK",
+            "value": "N/A"
+        })
         
     # Check B: Vegan/Vegetarian (Simplified)
-    if preferences.get("Vegan") and any(term in ingredients for term in ["meat", "chicken", "beef", "pork", "fish", "gelatin"]):
-        failed_count += 1
-        statuses.append({"preference": "Vegan", "status": "FAIL (Contains Animal Products)", "value": "N/A"})
+    if preferences.get("Vegan"):
+        is_safe = not any(term in ingredients for term in ["meat", "chicken", "beef", "pork", "fish", "gelatin"])
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Vegan", 
+            "is_safe": is_safe, 
+            "status_detail": "Contains Animal Products" if not is_safe else "OK",
+            "value": "N/A"
+        })
         
     
-    # If no specific failures, mark as OK
+    # If no active checks were performed (no conditions/preferences active)
     if not statuses:
-        statuses.append({"status": "PASS", "message": "Product appears compatible with profile."})
+        statuses.append({"name": "No Active Checks", "is_safe": True, "status_detail": "No profile restrictions found."})
 
     return statuses, failed_count
+# --- END MODIFIED FUNCTION ---
 
 
 # ----------------------------------------------------------------------
@@ -274,7 +299,7 @@ async def main():
                 method = "ocr"
         
         if not product:
-            print(json.dumps({"success": False, "error": "Product not found on OpenFoodFacts.", "extracted_text": text or "N/A"}))
+            print(json.dumps({"success": False, "error": "Product not found.", "extracted_text": text or "N/A"}))
             return
 
         # 3. Process Scanned Product
