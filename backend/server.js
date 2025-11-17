@@ -615,9 +615,9 @@ app.post('/api/food/products', protect, async (req, res) => {
 });
 
 
-// 🚀 MAIN SCANNER ENDPOINT (Protected)
-app.post('/upload', upload.single('image'), protect, (req, res) => {
-    console.log(`   ⚙️  Processing: /upload (Scanner) started for User ${req.userId}.`);
+app.post('/upload', upload.single('image'), protect, async (req, res) => {
+    console.log(`   ⚙️  Processing: /upload (Scanner) started for User ${req.userId}.`);
+
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'No image uploaded.' });
     }
@@ -625,52 +625,98 @@ app.post('/upload', upload.single('image'), protect, (req, res) => {
     const imagePath = path.resolve(req.file.path);
     const pythonScriptPath = path.join(__dirname, 'extract_product.py');
     const userId = req.userId;
+    let tempInputPath;
 
-    console.log(`   📂 File saved temporarily: ${imagePath}`);
+    try {
+        // 1. Fetch User's Health Profile
+        console.log(`   🔍 Fetching user details (health concerns) from database...`);
+        // We fetch healthConcerns and restrictions as these are relevant for safety checks
+        const userDetails = await UserDetails.findOne({ user: userId })
+            .select('healthConcerns restrictions')
+            .lean();
 
-    // Command structure ensures userId is passed to python script for internal lookup
-    const command = `python "${pythonScriptPath}" "${imagePath}" "${userId}"`;
-    console.log(`   🐍 Executing Python script: ${command}`);
- 
-    exec(command, { timeout: 90000 },
-        (error, stdout, stderr) => {
-            fs.unlink(imagePath, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
- 
-            if (error) {
-                if (error.code === 'ETIMEDOUT') {
-                    return res.status(408).json({ success: false, message: 'Processing timeout. Please try again.' });
-                }
-                console.error('   ❌ /upload: Python script execution error:', error);
-                return res.status(500).json({ success: false, message: 'Failed to process image due to server error.' });
-            }
+        const userProfileData = {
+            image_path: imagePath,
+            user_id: userId,
+            conditions: userDetails?.healthConcerns || {},
+            restrictions: userDetails?.restrictions || {},
+        };
 
-            if (stderr) {
-                console.warn('   ⚠️ /upload: Python script stderr output:', stderr.substring(0, 100) + '...');
-            }
+        // 2. Write input to temporary file
+        tempInputPath = path.join(__dirname, `temp_scan_input_${Date.now()}.json`);
+        fs.writeFileSync(tempInputPath, JSON.stringify(userProfileData));
+        console.log(`   ✅ Temp profile file created: ${tempInputPath}`);
 
-            try {
-                if (!stdout || stdout.trim() === '') {
-                    throw new Error('No output received from processing script');
-                }
+        // 3. Command now passes only the temp JSON file path
+        const command = `python "${pythonScriptPath}" "${tempInputPath}"`;
+        console.log(`   🐍 Executing Python script: ${command}`);
 
-                const detectionResult = JSON.parse(stdout);
-
-                if (detectionResult.error) {
-                    return res.status(500).json({ success: false, message: `Scanner error: ${detectionResult.error}` });
-                }
-
-                res.status(200).json(detectionResult);
-
-            } catch (parseError) {
-                return res.status(500).json({
-                    success: false,
-                    message: 'Invalid response from image processing service.'
+        // 4. Execute Python Script
+        exec(command, { timeout: 90000 },
+            (error, stdout, stderr) => {
+                // Cleanup: Delete the image file
+                fs.unlink(imagePath, (err) => {
+                    if (err) console.error('Error deleting uploaded image:', err);
                 });
+
+                // Cleanup: Delete the temp JSON file
+                if (tempInputPath && fs.existsSync(tempInputPath)) {
+                    fs.unlink(tempInputPath, (unlinkErr) => {
+                        if (unlinkErr) console.error('Error deleting temp JSON file:', unlinkErr);
+                        else console.log('   🗑️  Cleanup complete.');
+                    });
+                }
+                
+                // Error Handling (Execution)
+                if (error) {
+                    if (error.code === 'ETIMEDOUT') {
+                        return res.status(408).json({ success: false, message: 'Processing timeout. Please try again.' });
+                    }
+                    console.error('   ❌ /upload: Python script execution error:', error);
+                    return res.status(500).json({ success: false, message: 'Failed to process image due to server error.' });
+                }
+
+                if (stderr) {
+                    console.warn('   ⚠️ /upload: Python script stderr output:', stderr.substring(0, 100) + '...');
+                }
+
+                // Error Handling (Output Parsing)
+                try {
+                    if (!stdout || stdout.trim() === '') {
+                        throw new Error('No output received from processing script');
+                    }
+    
+                    const detectionResult = JSON.parse(stdout);
+    
+                    if (detectionResult.error) {
+                        return res.status(500).json({ success: false, message: `Scanner error: ${detectionResult.error}` });
+                    }
+    
+                    console.log('   🎉 Scan successful. Sending results.');
+                    res.status(200).json(detectionResult);
+    
+                } catch (parseError) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Invalid response from image processing service.'
+                    });
+                }
             }
+        );
+
+    } catch (dbError) {
+        // Handle DB lookup error or initial file write failure
+        console.error('   ❌ /upload: Initial setup or DB error:', dbError);
+
+        // Ensure uploaded file is deleted even on DB error
+        if (req.file && fs.existsSync(imagePath)) {
+            fs.unlink(imagePath, (err) => {
+                if (err) console.error('Error deleting uploaded image after DB fail:', err);
+            });
         }
-    );
+        
+        res.status(500).json({ success: false, message: 'Internal server error during user data retrieval.' });
+    }
 });
 
 
