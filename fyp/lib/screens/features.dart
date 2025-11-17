@@ -156,7 +156,7 @@ class _FeaturesPageState extends State<Features> {
       {'title': 'Label Scanner', 'icon': Icons.qr_code_scanner_rounded, 'color': Colors.green, 'subtitle': 'Analyze your groceries', 'page': const LabelScannerPage()},
       {'title': 'Craving Hunt', 'icon': Icons.food_bank_outlined, 'color': Colors.orange, 'subtitle': 'Find healthy alternatives', 'page': const CravingsPage()},
       {'title': 'Nutrition Tips', 'icon': Icons.lightbulb_outline_rounded, 'color': Colors.purple, 'subtitle': 'Get expert advice daily', 'page': const NutritionTipsPage()},
-      {'title': 'Community', 'icon': Icons.people_alt_outlined, 'color': Colors.red, 'subtitle': 'Connect and share your journey', 'page': const MealPlannerPage()},
+      {'title': 'Community', 'icon': Icons.people_alt_outlined, 'color': const Color.fromRGBO(244, 67, 54, 1), 'subtitle': 'Connect and share your journey', 'page': const MealPlannerPage()},
     ];
 
     return SliverList(

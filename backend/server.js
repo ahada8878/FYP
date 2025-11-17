@@ -335,6 +335,7 @@ app.post('/api/predict', upload.single('image'), (req, res) => {
   const imagePath = path.resolve(req.file.path);
   
   // This part still calls your original 'predict.py' or can be modified as needed
+  console.log(`python ${path.join(__dirname, 'predict.py')} ${imagePath}`);
   exec(`python ${path.join(__dirname, 'predict.py')} ${imagePath}`, 
     (error, stdout, stderr) => {
       if (error) {
