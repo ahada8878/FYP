@@ -1,21 +1,22 @@
+// Import necessary Dart and Flutter packages
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Needed for input formatters
-import 'package:flutter_html/flutter_html.dart';
-import 'package:fyp/LocalDB.dart';
-import 'package:fyp/Loginpage.dart'; // Import for CreativeLoginPage
-import 'package:fyp/main.dart';
-import 'package:fyp/screens/privacy_policy_screen.dart';
-import 'package:fyp/screens/rate_us_screen.dart';
-import 'package:fyp/screens/email_support_screen.dart';
-import 'package:fyp/services/auth_service.dart';
-import 'dart:ui';
-import 'package:fyp/services/config_service.dart';
-import 'package:http/http.dart' as http; // Needed for BackdropFilter
+import 'package:fyp/LocalDB.dart'; // Local database utility
+import 'package:fyp/Loginpage.dart'; // Login screen for navigation after logout
+import 'package:fyp/main.dart'; // Main application entry point for restart logic
+import 'package:fyp/screens/privacy_policy_screen.dart'; // Navigation target screen
+import 'package:fyp/screens/rate_us_screen.dart'; // Navigation target screen
+import 'package:fyp/screens/email_support_screen.dart'; // Navigation target screen
+import 'package:fyp/services/auth_service.dart'; // Service for authentication logic
+import 'dart:ui'; // Used for blurring effects
+import 'package:fyp/services/config_service.dart'; // Configuration service (e.g., baseURL)
+import 'package:http/http.dart' as http; // HTTP client for API communication
 
 // --- Main Settings Screen Widget ---
 
+// Define the main StatefulWidget for the Settings Screen
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -23,33 +24,58 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+// A static list of all possible health concerns for display and API mapping
+const List<String> _kAvailableHealthConcerns = [
+  "I don't have any", // Special case to handle 'none'
+  'Hypertension',
+  'High Cholesterol',
+  'Obesity',
+  'Diabetes',
+  'Heart Disease',
+  'Arthritis',
+  'Asthma', 
+];
+
+
+// Define the State for the Settings Screen
 class _SettingsScreenState extends State<SettingsScreen> {
+  // Instance of the authentication service
   final AuthService _authService = AuthService();
+  // State variable for notification preference
   bool _notificationsEnabled = true;
 
-  // Provide default initial values to avoid LateInitializationError
+  // --- Profile State Variables with default initialization ---
   String _userName = '';
-  String _userEmail = ''; // ⭐️ NEW: Email state variable
+  String _userEmail = ''; 
   String _currentWeight = '0 kg';
   String _targetWeight = '0 kg';
+  String _startWeight = '0 kg'; // 👈 ADDED: State for Start Weight
   String _height = '0 ft';
-  String _waterGoal = '2000 mL'; // Changed to 'mL' for consistency
+  String _waterGoal = '2000 mL'; 
+  // Map to store the boolean state of all health concerns
+  Map<String, bool> _healthConcerns = { "I don't have any": true }; 
 
+  // Initialize state: Load profile data on startup
   @override
   void initState() {
     super.initState();
     _getValues(); // Load profile data asynchronously
   }
 
+  // ----------------------------------------------------------------------
+  // 💾 DATA LOADING/SAVING FUNCTIONS
+  // ----------------------------------------------------------------------
+
+  // Fetches user profile data from the backend API
   Future<void> _getValues() async {
     final token = await _authService.getToken();
-    final localEmail = await LocalDB.getUserEmail(); // Retrieve email from LocalDB
+    final localEmail = await LocalDB.getUserEmail(); 
 
     if (token == null || token.isEmpty) {
-      throw Exception('You are not logged in. Please log in to continue.');
+      await _loadLocalDBValues(); // Fallback to local data if no token
+      return; 
     }
     
-    // Set email from LocalDB initially to ensure it's displayed quickly
     if (localEmail != null) {
       setState(() {
         _userEmail = localEmail;
@@ -70,14 +96,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           setState(() {
+            // Update all profile fields from API response
             _userName = data['userName'] ?? '';
             LocalDB.setUserName(_userName);
 
-            _userEmail = data['email'] ?? localEmail ?? ''; // ⭐️ Fetch email from API
-            LocalDB.setUserEmail(_userEmail); // ⭐️ Save email to LocalDB
+            _userEmail = data['email'] ?? localEmail ?? '';
+            LocalDB.setUserEmail(_userEmail); 
 
             _currentWeight = data['currentWeight'] ?? '0 kg';
             LocalDB.setCurrentWeight(_currentWeight);
+
+            _startWeight = data['startWeight'] ?? '0 kg'; // 👈 FETCH Start Weight
+            LocalDB.setStartWeight(_startWeight); // 👈 SAVE Start Weight Locally
 
             _targetWeight = data['targetWeight'] ?? '0 kg';
             LocalDB.setTargetWeight(_targetWeight);
@@ -85,31 +115,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _height = data['height'] ?? '0 ft';
             LocalDB.setHeight(_height);
 
-            // Ensure water goal is formatted correctly with unit
             final apiWaterGoal = data['waterGoal']?.toString() ?? '2000';
             _waterGoal = '${apiWaterGoal} mL';
             LocalDB.setWaterGoal(int.tryParse(apiWaterGoal) ?? 2000);
+            
+            // --- Health Concerns Logic ---
+            Map<String, dynamic> apiHealthConcerns = data['healthConditions'] ?? {};
+            
+            // Prepare a map to hold the final state
+            Map<String, bool> finalConcerns = {};
+            for (var condition in _kAvailableHealthConcerns) {
+                // Populate map, defaulting to false
+                finalConcerns[condition] = (apiHealthConcerns[condition] is bool)
+                    ? apiHealthConcerns[condition] as bool
+                    : false; 
+            }
+            
+            // Ensure state consistency: If no specific concerns are TRUE, set "I don't have any" to TRUE.
+            final bool hasAnySpecificConcerns = finalConcerns.entries
+                .where((e) => e.key != "I don't have any")
+                .any((e) => e.value == true);
+            
+            if (!hasAnySpecificConcerns) {
+                finalConcerns["I don't have any"] = true;
+            } else {
+                finalConcerns["I don't have any"] = false;
+            }
+
+            _healthConcerns = finalConcerns; 
           });
         } else {
           debugPrint("⚠️ API returned success=false: ${data['message']}");
-          await _loadLocalDBValues();
+          await _loadLocalDBValues(); // Fallback
         }
       } else {
         debugPrint(
             "⚠️ Failed to fetch profile summary. Status code: ${response.statusCode}");
-        await _loadLocalDBValues();
+        await _loadLocalDBValues(); // Fallback
       }
     } catch (e) {
       debugPrint("❌ Error in _getValues(): $e");
-      await _loadLocalDBValues();
+      await _loadLocalDBValues(); // Fallback
     }
   }
 
-  // Corrected local DB loader
+  // Loads profile data from local storage as a fallback
   Future<void> _loadLocalDBValues() async {
     final userName = await LocalDB.getUserName() ?? '';
     final userEmail = await LocalDB.getUserEmail() ?? ''; 
     final currentWeight = await LocalDB.getCurrentWeight() ?? '0 kg';
+    final startWeight = await LocalDB.getStartWeight() ?? '0 kg'; // 👈 LOAD Start Weight Locally
     final targetWeight = await LocalDB.getTargetWeight() ?? '0 kg';
     final height = await LocalDB.getHeight() ?? '0 ft';
     final waterGoal = await LocalDB.getWaterGoal() ?? 2000;
@@ -119,15 +174,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _userName = userName;
         _userEmail = userEmail; 
         _currentWeight = currentWeight;
+        _startWeight = startWeight; // 👈 SET Start Weight State
         _targetWeight = targetWeight;
         _height = height;
         _waterGoal = '$waterGoal mL';
       });
     }
-    debugPrint("⚡ Loaded profile from LocalDB.");
+    debugPrint("⚡ Loaded basic profile from LocalDB.");
   }
 
-  /// Helper to robustly strip units from a string for editing.
+  /// Helper to remove units (like 'kg', 'ft', 'mL') from a string for editing.
   String _stripUnit(String value, String unit) {
     final trimmedUnit = unit.trim(); 
     final spacedUnit = ' $trimmedUnit'; 
@@ -143,27 +199,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return numericValue.trim();
   }
 
+  // General API function to update simple profile fields (name, weight, height, goal)
   Future<void> _callAPIs(String requestType, String value) async {
     try {
       final authToken = await AuthService().getToken();
-      if (authToken == null) return;
-      final url =
-          Uri.parse('$baseURL/api/user-details/my-profile/$requestType');
+      if (authToken == null) throw Exception('No authentication token found.');
+
+      final url = Uri.parse('$baseURL/api/user-details/my-profile/$requestType');
       final headers = {
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $authToken'
       };
-      // For profile updates, the value is sent as a string (e.g., "56 kg", "6 ft")
-      final body = jsonEncode({'$requestType': value});
-      await http.post(url, headers: headers, body: body);
+      
+      // Request body contains the field name and its new value
+      final body = jsonEncode({requestType: value}); 
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to update. Status code: ${response.statusCode}');
+      }
     } catch (e) {
-      debugPrint("Error in _callAPIs(): $e");
+      debugPrint("Error in _callAPIs($requestType): $e");
+      throw Exception('API call failed: $e');
     }
   }
 
+  // Specialized API call for Health Concerns (sends the full Map<String, bool>)
+  Future<void> _callHealthConcernsAPI(Map<String, bool> concerns) async {
+    try {
+      final authToken = await AuthService().getToken();
+      if (authToken == null) throw Exception('No authentication token found.');
+
+      // Send the full map for a complete overwrite in the backend
+      final Map<String, bool> concernsToSend = Map<String, bool>.from(concerns);
+
+      final url = Uri.parse('$baseURL/api/user-details/my-profile/healthConcerns');
+      final headers = {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $authToken'
+      };
+      
+      // The API expects the map under the key 'healthConcerns'
+      final body = jsonEncode({'healthConcerns': concernsToSend});
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to update. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint("Error in _callHealthConcernsAPI(): $e");
+      throw Exception("Failed to save health concerns.");
+    }
+  }
+  
+  // ----------------------------------------------------------------------
+  // 🖼️ UI BUILDER
+  // ----------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    // Define text styles for consistency
+    // Define reusable text styles
     final titleStyle = TextStyle(
       color: Colors.grey[800],
       fontWeight: FontWeight.w600,
@@ -174,15 +272,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       fontSize: 15,
     );
 
+    // Format selected health concerns for display in the list tile
+    final selectedConcernsList = _healthConcerns.entries
+        .where((e) => e.value == true && e.key != "I don't have any")
+        .map((e) => e.key)
+        .toList();
+    
+    final selectedConcernsText = selectedConcernsList.isEmpty 
+        ? 'None' 
+        : selectedConcernsList.take(1).join(', ') + 
+          (selectedConcernsList.length > 1 
+            ? ' +${selectedConcernsList.length - 1}' 
+            : '');
+
+
     return Scaffold(
       body: Stack(
         children: [
-          // The same animated background from the homepage for a consistent theme
-          const _LivingAnimatedBackground(),
-
-          // Use a CustomScrollView for better control over scrolling elements
+          const _LivingAnimatedBackground(), // Animated background layer
           CustomScrollView(
             slivers: [
+              // Custom app bar with transparency
               SliverAppBar(
                 title: const Text('Settings'),
                 titleTextStyle: const TextStyle(
@@ -194,13 +304,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: const Icon(Icons.arrow_back, color: Colors.black),
                   onPressed: () => Navigator.pop(context),
                 ),
-                backgroundColor: Colors.transparent, // Make app bar see-through
+                backgroundColor: Colors.transparent, 
                 elevation: 0,
                 pinned: true,
                 centerTitle: true,
               ),
-
-              // Add padding to the main content list
+              // Main content area
               SliverPadding(
                 padding: const EdgeInsets.all(16.0),
                 sliver: SliverList(
@@ -211,9 +320,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         contentPadding: const EdgeInsets.symmetric(
                             vertical: 8, horizontal: 16),
                         leading:  CircleAvatar(
-                          radius: 28, // Made avatar larger
+                          radius: 28, 
                           backgroundColor: Theme.of(context).colorScheme.primary,
-                          child: Icon(Icons.person,
+                          child: const Icon(Icons.person,
                               size: 30, color: Colors.white70),
                         ),
                         title: Text(
@@ -223,30 +332,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         trailing:
                             Icon(Icons.chevron_right, color: Colors.grey[400]),
-                        onTap: _editProfileName,
+                        onTap: _editProfileName, // Handler for name change
                       ),
                     ),
 
-                    // --- System Section (Editable) ---
+                    // --- System Section (Editable fields) ---
                     _buildSectionHeader('System'),
                     _SettingsCard(
                       child: Column(
                         children: [
-                          // ⭐️ NEW: Email Field
+                          // Email
                           ListTile(
                             title: Text('Email', style: titleStyle),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(_userEmail, style: valueStyle.copyWith(fontSize: 13)), // Display email
+                                Text(_userEmail, style: valueStyle.copyWith(fontSize: 13)), 
                                 const SizedBox(width: 8),
                                 Icon(Icons.chevron_right, color: Colors.grey[400]),
                               ],
                             ),
-                            onTap: _editEmail, // ⭐️ NEW: Edit Email Handler
+                            onTap: _editEmail, // Handler for email change
                           ),
                           const _StyledDivider(),
                           
+                          // Current Weight
                           ListTile(
                             title: Text('Current Weight', style: titleStyle),
                             trailing: Row(
@@ -258,9 +368,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: Colors.grey[400]),
                               ],
                             ),
-                            onTap: _editCurrentWeight,
+                            onTap: _editCurrentWeight, // Handler for current weight
                           ),
                           const _StyledDivider(),
+                          
+                          // ⭐️ Start Weight
+                          ListTile(
+                            title: Text('Start Weight', style: titleStyle),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(_startWeight, style: valueStyle),
+                                const SizedBox(width: 8),
+                                Icon(Icons.chevron_right,
+                                    color: Colors.grey[400]),
+                              ],
+                            ),
+                            onTap: _editStartWeight, // 👈 Handler for start weight
+                          ),
+                          const _StyledDivider(),
+                          
+                          // Target Weight
                           ListTile(
                             title: Text('Target Weight', style: titleStyle),
                             trailing: Row(
@@ -272,9 +400,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: Colors.grey[400]),
                               ],
                             ),
-                            onTap: _editTargetWeight,
+                            onTap: _editTargetWeight, // Handler for target weight
                           ),
                           const _StyledDivider(),
+                          
+                          // Height
                           ListTile(
                             title: Text('Height', style: titleStyle),
                             trailing: Row(
@@ -286,9 +416,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: Colors.grey[400]),
                               ],
                             ),
-                            onTap: _editHeight,
+                            onTap: _editHeight, // Handler for height
                           ),
                           const _StyledDivider(),
+                          
+                          // Water Goal
                           ListTile(
                             title: Text('Water Goal', style: titleStyle),
                             trailing: Row(
@@ -300,7 +432,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: Colors.grey[400]),
                               ],
                             ),
-                            onTap: _editWaterGoal,
+                            onTap: _editWaterGoal, // Handler for water goal
+                          ),
+                          
+                          // Health Concerns Field
+                          const _StyledDivider(),
+                          ListTile(
+                            title: Text('Health Concerns', style: titleStyle),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Display comma-separated list of selected concerns
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.35),
+                                  child: Text(
+                                    selectedConcernsText,
+                                    style: valueStyle.copyWith(fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(Icons.chevron_right, color: Colors.grey[400]),
+                              ],
+                            ),
+                            onTap: _editHealthConditions, // Handler for health concerns
                           ),
                         ],
                       ),
@@ -406,9 +563,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // --- UI BUILDER WIDGETS ---
-
-  /// Builds the header for each section, matching the homepage style.
+  // ----------------------------------------------------------------------
+  // 🔨 HELPER & DIALOG FUNCTIONS
+  // ----------------------------------------------------------------------
+  
+  /// Builds the header for each settings section.
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 24, bottom: 12),
@@ -425,11 +584,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 🚀 NEW: General Styled Edit Dialog using Modal Sheet (replaces _showEditDialog)
+  // General Modal Bottom Sheet for editing a single profile field
   Future<void> _showStyledEditDialog({
     required String title,
     required String initialValue,
-    required Function(String) onSave,
+    required Future<void> Function(String) onSave, 
     String? unitSuffix,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
@@ -462,6 +621,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Dialog Header
                       Text(
                         title,
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -478,7 +638,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // --- Status Messages ---
+                      // Status Messages
                       if (errorMessage != null)
                         _StatusMessage(
                           message: errorMessage!,
@@ -501,22 +661,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             borderRadius: BorderRadius.all(Radius.circular(12))
                           ),
                         ),
+                        // Basic validator
                         validator: validator ?? (value) {
                           if (value == null || value.isEmpty) {
                             return 'Value cannot be empty.';
-                          }
-                          // Additional check for numeric types
-                          if (keyboardType == TextInputType.number || keyboardType == const TextInputType.numberWithOptions(decimal: true)) {
-                            if (double.tryParse(value) == null) {
-                              return 'Enter a valid number.';
-                            }
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 24),
                       
-                      // --- Action Buttons ---
+                      // Action Buttons
                       Row(
                         children: [
                           Expanded(
@@ -541,15 +696,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 });
 
                                 try {
-                                  // Perform the save action
-                                  onSave(controller.text.trim());
+                                  await onSave(controller.text.trim());
                                   
-                                  // Success, close the sheet
+                                  // Success
                                   setInnerState(() => isLoading = false);
                                   if(mounted) Navigator.of(innerDialogContext).pop();
                                   
                                 } catch (e) {
-                                  // Error is unlikely here but kept for consistency
                                   final errorMsg = e.toString().replaceFirst("Exception: ", "");
                                   setInnerState(() {
                                     errorMessage = errorMsg;
@@ -589,15 +742,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
 
-  // --- Functions that use the new dialogs ---
+  // --- Individual Edit Handlers ---
 
   void _editProfileName() {
     _showStyledEditDialog(
       title: 'Name',
       initialValue: _userName,
-      onSave: (newValue) {
-        setState(() => _userName = newValue);
-        _callAPIs("userName", '$newValue');
+      onSave: (newValue) async { 
+        await _callAPIs("userName", newValue); 
+        LocalDB.setUserName(newValue); 
+        if (mounted) {
+          setState(() => _userName = newValue);
+        }
       },
     );
   }
@@ -615,10 +771,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
-      onSave: (newValue) {
-        setState(() => _currentWeight = '${newValue.trim()} kg');
-        _callAPIs("currentWeight", '${newValue.trim()} kg');
-        LocalDB.setCurrentWeight('${newValue.trim()} kg');
+      onSave: (newValue) async { 
+        final finalValue = '${newValue.trim()} kg';
+        await _callAPIs("currentWeight", finalValue); 
+        LocalDB.setCurrentWeight(finalValue);
+        if (mounted) {
+          setState(() => _currentWeight = finalValue);
+        }
+      },
+    );
+  }
+
+  void _editStartWeight() {
+    _showStyledEditDialog(
+      title: 'Start Weight',
+      initialValue: _stripUnit(_startWeight, 'kg'), 
+      unitSuffix: ' kg', 
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      onSave: (newValue) async { 
+        final finalValue = '${newValue.trim()} kg';
+        await _callAPIs("startWeight", finalValue); // 👈 API call for Start Weight
+        LocalDB.setStartWeight(finalValue); // 👈 LocalDB update for Start Weight
+        if (mounted) {
+          setState(() => _startWeight = finalValue);
+        }
       },
     );
   }
@@ -632,10 +811,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
-      onSave: (newValue) {
-        setState(() => _targetWeight = '${newValue.trim()} kg');
-        _callAPIs("targetWeight", '${newValue.trim()} kg');
-        LocalDB.setTargetWeight('${newValue.trim()} kg');
+      onSave: (newValue) async { 
+        final finalValue = '${newValue.trim()} kg';
+        await _callAPIs("targetWeight", finalValue); 
+        LocalDB.setTargetWeight(finalValue);
+        if (mounted) {
+          setState(() => _targetWeight = finalValue);
+        }
       },
     );
   }
@@ -646,10 +828,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       initialValue: _stripUnit(_height, 'ft'), 
       unitSuffix: ' ft', 
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      onSave: (newValue) {
-        setState(() => _height = '${newValue.trim()} ft');
-        _callAPIs("height", '${newValue.trim()} ft');
-        LocalDB.setHeight('${newValue.trim()} ft');
+      onSave: (newValue) async { 
+        final finalValue = '${newValue.trim()} ft';
+        await _callAPIs("height", finalValue); 
+        LocalDB.setHeight(finalValue);
+        if (mounted) {
+          setState(() => _height = finalValue);
+        }
       },
     );
   }
@@ -663,15 +848,218 @@ class _SettingsScreenState extends State<SettingsScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
-      onSave: (newValue) {
-        setState(() => _waterGoal = '${newValue.trim()} mL');
-        _callAPIs("waterGoal", '${newValue.trim()} mL');
-        LocalDB.setWaterGoal(int.tryParse(newValue.trim()) ?? 0);
+      onSave: (newValue) async { 
+        final finalValue = '${newValue.trim()} mL';
+        final apiValue = newValue.trim(); // Send only the number to the API
+        
+        await _callAPIs("waterGoal", apiValue); 
+        LocalDB.setWaterGoal(int.tryParse(apiValue) ?? 0);
+        if (mounted) {
+          setState(() => _waterGoal = finalValue);
+        }
       },
     );
   }
 
-  // 🚀 REFACTORED: Email Update Dialog Logic using showModalBottomSheet
+  // Health Conditions handler, calls the specialized dialog
+  void _editHealthConditions() async {
+    final updatedConcerns = await _showHealthConditionsDialog(context, _healthConcerns);
+
+    if (updatedConcerns != null && mounted) {
+      // API call is handled inside the dialog. Update local state on success.
+      setState(() {
+        _healthConcerns = updatedConcerns;
+      });
+    }
+  }
+
+
+  // Modal Bottom Sheet Dialog for selecting Health Conditions
+  Future<Map<String, bool>?> _showHealthConditionsDialog(
+      BuildContext context, Map<String, bool> initialConcerns) async {
+    
+    // Create a mutable copy of the concerns map for the dialog state
+    Map<String, bool> tempConcerns = {};
+    for (var condition in _kAvailableHealthConcerns) {
+      tempConcerns[condition] = initialConcerns[condition] ?? false;
+    }
+
+    final _formKey = GlobalKey<FormState>();
+
+    // Returns the updated map on save, or null on cancel
+    return await showModalBottomSheet<Map<String, bool>?>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      builder: (BuildContext innerDialogContext) {
+        bool isLoading = false;
+        String? errorMessage;
+        
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setInnerState) {
+            final keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
+            
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + keyboardPadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Text(
+                    'Health Concerns',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select all conditions that apply to you.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Status Messages
+                  if (errorMessage != null)
+                    _StatusMessage(
+                      message: errorMessage!,
+                      icon: Icons.error_outline,
+                      color: Colors.red.shade100,
+                      textColor: Colors.red.shade700,
+                    ),
+                  if (errorMessage != null) const SizedBox(height: 16),
+                  
+                  // Checkbox List (Scrollable)
+                  SizedBox(
+                    height: math.min(300, MediaQuery.of(context).size.height * 0.4), 
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: _kAvailableHealthConcerns.map((condition) {
+                            final isExclusive = condition == "I don't have any";
+                            
+                            return CheckboxListTile(
+                              title: Text(condition, style: const TextStyle(fontSize: 15)),
+                              value: tempConcerns[condition] ?? false,
+                              onChanged: isLoading ? null : (bool? newValue) {
+                                setInnerState(() {
+                                  final isSelected = newValue ?? false;
+                                  tempConcerns[condition] = isSelected;
+
+                                  // Exclusive selection logic
+                                  if (isExclusive && isSelected) {
+                                    for (var key in tempConcerns.keys) {
+                                      if (key != condition) {
+                                        tempConcerns[key] = false;
+                                      }
+                                    }
+                                  } else if (isSelected && !isExclusive) {
+                                    tempConcerns["I don't have any"] = false;
+                                  }
+                                  
+                                  // Fallback: if nothing is selected, select "I don't have any"
+                                  final hasSelection = tempConcerns.entries.any((e) => e.key != "I don't have any" && e.value == true);
+                                  if (!hasSelection) {
+                                    tempConcerns["I don't have any"] = true;
+                                  }
+                                });
+                              },
+                              activeColor: Theme.of(context).colorScheme.primary,
+                              controlAffinity: ListTileControlAffinity.leading,
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () => Navigator.of(innerDialogContext).pop(null), // Return null on cancel
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () async {
+                                  if (!_formKey.currentState!.validate()) return;
+                                  
+                                  setInnerState(() {
+                                    isLoading = true;
+                                    errorMessage = null;
+                                  });
+
+                                  try {
+                                    // API Call: Send the full updated map to the backend
+                                    await _callHealthConcernsAPI(tempConcerns);
+                                    
+                                    // Success: return the full map to the parent state
+                                    setInnerState(() => isLoading = false);
+                                    if (mounted) Navigator.of(innerDialogContext).pop(tempConcerns);
+                                    
+                                  } catch (e) {
+                                    final errorMsg = e.toString().replaceFirst("Exception: ", "");
+                                    setInnerState(() {
+                                      errorMessage = errorMsg;
+                                      isLoading = false;
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  // Modal Bottom Sheet Dialog for updating Email (multi-step OTP process)
   Future<void> _showEmailUpdateDialog(BuildContext context, String currentEmail) async {
     final TextEditingController newEmailController = TextEditingController();
     final TextEditingController otpController = TextEditingController();
@@ -707,6 +1095,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header and Subtitle (dynamically updated)
                       Text(
                         dialogTitle,
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -723,7 +1112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // --- Status Messages ---
+                      // Status Messages
                       if (errorMessage != null)
                         _StatusMessage(
                           message: errorMessage!,
@@ -752,10 +1141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             prefixIcon: Icon(Icons.email_outlined),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a new email.';
-                            }
-                            if (!value.contains('@') || !value.contains('.')) {
+                            if (value == null || value.isEmpty || !value.contains('@')) {
                               return 'Enter a valid email address.';
                             }
                             return null;
@@ -784,7 +1170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       const SizedBox(height: 24),
 
-                      // --- Action Buttons ---
+                      // Action Buttons
                       Row(
                         children: [
                           Expanded(
@@ -827,11 +1213,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     // Success
                                     setInnerState(() {
                                       successMessage = 'Email updated successfully!';
-                                      // Update the parent state immediately
                                       if (mounted) setState(() => _userEmail = newEmail);
+                                      LocalDB.setUserEmail(newEmail);
                                     });
 
-                                    // Close dialog after delay
                                     await Future.delayed(const Duration(seconds: 2));
                                     if(mounted) Navigator.of(innerDialogContext).pop();
                                     return;
@@ -866,7 +1251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 🚀 REFACTORED: Password Update Dialog Logic (From previous step, included here for completeness)
+  // Modal Bottom Sheet Dialog for changing the user's password
   Future<void> _showPasswordUpdateDialog(BuildContext context) async {
     final TextEditingController oldPasswordController = TextEditingController();
     final TextEditingController newPasswordController = TextEditingController();
@@ -900,6 +1285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header
                       Text(
                         'Change Password',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -916,7 +1302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // --- Status Messages ---
+                      // Status Messages
                       if (errorMessage != null)
                         _StatusMessage(
                           message: errorMessage!,
@@ -1023,7 +1409,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // --- Action Buttons ---
+                      // Action Buttons
                       Row(
                         children: [
                           Expanded(
@@ -1105,7 +1491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
 
-  // 🚀 NEW: General Styled Confirmation Dialog using Modal Sheet (replaces showDialog for Logout/Delete)
+  // General Modal Bottom Sheet for confirmation actions (Logout, Delete)
   Future<void> _showStyledConfirmationDialog({
     required BuildContext context,
     required String title,
@@ -1131,8 +1517,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Icon and Header
                   Icon(
-                    confirmColor == Colors.red ? Icons.warning_amber_rounded : Icons.help_outline,
+                    confirmColor == Colors.red.shade700 ? Icons.warning_amber_rounded : Icons.help_outline,
                     size: 40,
                     color: confirmColor,
                   ),
@@ -1141,7 +1528,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: confirmColor == Colors.red ? confirmColor : Theme.of(context).colorScheme.primary,
+                      color: confirmColor == Colors.red.shade700 ? confirmColor : Theme.of(context).colorScheme.primary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1155,6 +1542,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Error Message
                   if (errorMessage != null)
                      Padding(
                       padding: const EdgeInsets.only(bottom: 16),
@@ -1166,6 +1554,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
 
+                  // Action Buttons
                   Row(
                     children: [
                       Expanded(
@@ -1188,11 +1577,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             });
                             try {
                               await onConfirm();
-                              // The onConfirm usually handles navigation (e.g., pop/pushReplacement)
-                              // If it fails to navigate, we ensure the modal closes
-                              if(mounted && Navigator.canPop(innerDialogContext)) {
-                                Navigator.of(innerDialogContext).pop();
-                              }
                             } catch (e) {
                               setInnerState(() {
                                 errorMessage = e.toString().replaceFirst("Exception: ", "");
@@ -1232,11 +1616,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: 'Log Out',
       content: 'Are you sure you want to log out? You will be taken back to the login screen.',
       confirmText: 'Log Out',
-      confirmColor: Theme.of(context).colorScheme.primary, // Using primary color for positive action
+      confirmColor: Theme.of(context).colorScheme.primary,
       onConfirm: () async {
         await _authService.logout();
-        MyApp.restartApp(context);
-
+        MyApp.restartApp(context); // Optional app restart utility
         if (mounted) {
           Navigator.pushReplacement(context,
               MaterialPageRoute(builder: (_) => const CreativeLoginPage()));
@@ -1254,17 +1637,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       confirmColor: Colors.red.shade700,
       onConfirm: () async {
         await _handleAccountDeletion();
-        // Navigation is handled inside _handleAccountDeletion, but will also pop the dialog
       },
     );
   }
   
-  // NOTE: This function's content remains largely the same, but it's now called from the styled confirmation dialog
+  // Handles the account deletion process
   Future<void> _handleAccountDeletion() async {
     try {
       await _authService.deleteAccount();
       if (mounted) {
-        // SnackBar for final confirmation before app restart
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Account deleted successfully.'),
@@ -1273,13 +1654,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MyApp.restartApp(context);
       }
     } catch (e) {
-      // Re-throw the exception so the confirmation dialog can display the error message
+      // Re-throw the exception so the confirmation dialog can display the error
       throw Exception(e.toString().replaceFirst("Exception: ", ""));
     }
   }
 }
 
-// --- NEW HELPER WIDGETS ---
+// ----------------------------------------------------------------------
+// 🎨 HELPER WIDGETS
+// ----------------------------------------------------------------------
 
 /// Custom styled container for showing success or error messages
 class _StatusMessage extends StatelessWidget {
@@ -1321,9 +1704,7 @@ class _StatusMessage extends StatelessWidget {
   }
 }
 
-// --- HELPER WIDGETS FOR THE NEW DESIGN (Unchanged) ---
-
-/// A card that mimics the semi-transparent white style from the homepage.
+/// A custom card with a semi-transparent, blurred background effect.
 class _SettingsCard extends StatelessWidget {
   final Widget child;
   const _SettingsCard({required this.child});
@@ -1354,7 +1735,7 @@ class _SettingsCard extends StatelessWidget {
   }
 }
 
-/// A consistently styled divide
+/// A consistently styled divider line.
 class _StyledDivider extends StatelessWidget {
   const _StyledDivider();
 
@@ -1369,7 +1750,7 @@ class _StyledDivider extends StatelessWidget {
   }
 }
 
-/// A simple animated background for visual flair.
+/// A simple animated gradient background for visual flair.
 class _LivingAnimatedBackground extends StatefulWidget {
   const _LivingAnimatedBackground();
 

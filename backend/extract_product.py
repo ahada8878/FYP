@@ -4,6 +4,7 @@ import sys
 import json
 import asyncio
 import aiohttp
+import os
 from typing import Dict, List, Any, Optional
 
 from PIL import Image
@@ -18,8 +19,7 @@ import pytesseract
 
 # --- Centralized Configuration ---
 CONFIG = {
-    # "NODE_API_BASE_URL": "http://localhost:5000",  # Local testing URL
-    "NODE_API_BASE_URL": "https://nutriwisebckend-production.up.railway.app:8080",  # Deployment URL
+    "NODE_API_BASE_URL": "https://nutriwisebckend-production.up.railway.app:8080",  # Deployment URL (No longer used, but kept for context)
     "OFF_API_BASE_URL": "https://world.openfoodfacts.org",
     "REQUEST_TIMEOUT": 90,  # Timeout in seconds for individual API calls
     "MAX_ALTERNATIVES": 15,
@@ -53,7 +53,9 @@ class AsyncOpenFoodFactsClient:
         if not self._session:
             raise RuntimeError("Session not started. Use 'async with' context.")
         try:
-            async with self._session.get(url, params=params) as response:
+            # Set User-Agent for better API citizenship
+            headers = {'User-Agent': 'NutriwiseScanner - PythonScript - v1.0'}
+            async with self._session.get(url, params=params, headers=headers) as response:
                 response.raise_for_status()
                 return await response.json()
         except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
@@ -98,30 +100,12 @@ class AsyncOpenFoodFactsClient:
 # ----------------------------------------------------------------------
 # SYNCHRONOUS HELPER FUNCTIONS (No I/O)
 # ----------------------------------------------------------------------
-# Note: These functions do not perform network requests, so they remain synchronous.
-
-def fetch_patient_data_from_db(user_id: str) -> Dict[str, Dict]:
-    """Fetches personalized health data from the Node.js server."""
-    import requests  # Import locally to keep it out of the async path if not needed
-    fetch_url = f"{CONFIG['NODE_API_BASE_URL']}/api/user-details/conditions/{user_id}"
-    sys.stderr.write(f"--- INFO: Attempting to fetch user data from Node.js at: {fetch_url} ---\n")
-    try:
-        response = requests.get(fetch_url, timeout=CONFIG['REQUEST_TIMEOUT'])
-        response.raise_for_status()
-        data = response.json()
-        if not data or not data.get("success"):
-             raise Exception(data.get("message") or "Node.js returned failure.")
-        sys.stderr.write("--- INFO: Successfully fetched user data. ---\n")
-        return {"conditions": data["conditions"], "preferences": data["preferences"]}
-    except Exception as e:
-        sys.stderr.write(f"--- ERROR: Could not fetch user data: {e}. Using fallback data. ---\n")
-        return { # Fallback mock data
-            "conditions": {"Hypertension": True, "Diabetes": True},
-            "preferences": {"Lactose Free": True},
-        }
 
 def decode_barcode(image_path: str) -> Optional[str]:
     try:
+        if not os.path.exists(image_path):
+             sys.stderr.write(f"Barcode decoding failed: Image file not found at {image_path}\n")
+             return None
         barcodes = decode(Image.open(image_path))
         return barcodes[0].data.decode("utf-8") if barcodes else None
     except Exception as e:
@@ -130,6 +114,10 @@ def decode_barcode(image_path: str) -> Optional[str]:
 
 def extract_text(image_path: str) -> str:
     try:
+        if not os.path.exists(image_path):
+             sys.stderr.write(f"OCR failed: Image file not found at {image_path}\n")
+             return ""
+        # Adding a try-except block for Tesseract itself can be helpful
         return pytesseract.image_to_string(Image.open(image_path), lang='eng').strip()
     except Exception as e:
         sys.stderr.write(f"OCR extraction failed (Check Tesseract install): {e}\n")
@@ -144,6 +132,7 @@ def get_best_category(categories_string: Optional[str]) -> List[str]:
     return filtered[:CONFIG['MAX_CATEGORIES_TO_SEARCH']] if filtered else categories[:1]
 
 def extract_main_nutrients(nutriments: Dict) -> Dict:
+    """Extracts and cleans up key nutritional data."""
     if not nutriments: return {}
     return {
         "calories_kcal_100g": nutriments.get("energy-kcal_100g"),
@@ -154,7 +143,15 @@ def extract_main_nutrients(nutriments: Dict) -> Dict:
         "salt_100g": nutriments.get("salt_100g"),
     }
 
-def get_product_safety_statuses(product: Dict, conditions: List[str], preferences: Dict) -> tuple[List[Dict], int]:
+# --- MODIFIED FUNCTION ---
+def get_product_safety_statuses(product: Dict, conditions: Dict, preferences: Dict) -> tuple[List[Dict], int]:
+    """
+    Checks product against user's health conditions and dietary preferences.
+    
+    Returns:
+        A tuple: (list of detailed status objects including 'is_safe', total count of failed checks)
+    """
+    
     def n(key: str) -> Optional[float]:
         v = nutrients.get(key)
         try: return float(v) if v is not None else None
@@ -162,21 +159,89 @@ def get_product_safety_statuses(product: Dict, conditions: List[str], preference
 
     nutrients = extract_main_nutrients(product.get("nutriments", {}))
     statuses, failed_count = [], 0
-    
-    # Simplified checks for brevity
-    if "Hypertension" in conditions and n("salt_100g") is not None and n("salt_100g") > 1.5: failed_count += 1
-    if "Diabetes" in conditions and n("sugars_100g") is not None and n("sugars_100g") > 22.5: failed_count += 1
-    # Add other condition checks here...
-    
-    # Simplified preference checks
     ingredients = product.get("ingredients_text", "").lower()
-    if preferences.get("Lactose Free") and any(i in ingredients for i in ["lactose", "milk"]):
-        failed_count += 1
-    # Add other preference checks here...
     
-    # For a full implementation, you'd generate a detailed statuses list here.
-    # This simplified version just returns the failure count for scoring.
+    # --- Health Condition Checks (Thresholds per 100g) ---
+    
+    # Check 1: Hypertension (High Salt)
+    if conditions.get("Hypertension"):
+        salt = n("salt_100g")
+        is_safe = salt is None or salt <= 1.5
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Hypertension (Salt)", 
+            "is_safe": is_safe,
+            "status_detail": "High Salt" if not is_safe else "OK",
+            "value": f"{salt}g" if salt is not None else "N/A"
+        })
+    
+    # Check 2: Diabetes (High Sugar)
+    if conditions.get("Diabetes"):
+        sugar = n("sugars_100g")
+        is_safe = sugar is None or sugar <= 22.5
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Diabetes (Sugar)",
+            "is_safe": is_safe,
+            "status_detail": "High Sugar" if not is_safe else "OK",
+            "value": f"{sugar}g" if sugar is not None else "N/A"
+        })
+        
+    # Check 3: High Cholesterol/Heart Disease (Saturated Fat)
+    if conditions.get("High Cholesterol") or conditions.get("Heart Disease"):
+        sat_fat = n("saturated_fat_100g")
+        is_safe = sat_fat is None or sat_fat <= 5
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Heart Risk (Sat. Fat)",
+            "is_safe": is_safe,
+            "status_detail": "High Saturated Fat" if not is_safe else "OK",
+            "value": f"{sat_fat}g" if sat_fat is not None else "N/A"
+        })
+        
+    # Check 4: Obesity/Weight Management (High Calories)
+    if conditions.get("Obesity"):
+        calories = n("calories_kcal_100g")
+        is_safe = calories is None or calories <= 500
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Obesity (Calories)",
+            "is_safe": is_safe,
+            "status_detail": "High Calories" if not is_safe else "OK",
+            "value": f"{calories}kcal" if calories is not None else "N/A"
+        })
+
+    # --- Dietary Preference Checks ---
+    
+    # Check A: Lactose Free
+    if preferences.get("Lactose Free"):
+        is_safe = not any(term in ingredients for term in ["lactose", "milk", "whey", "casein"])
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Lactose Free", 
+            "is_safe": is_safe, 
+            "status_detail": "Contains Milk/Lactose" if not is_safe else "OK",
+            "value": "N/A"
+        })
+        
+    # Check B: Vegan/Vegetarian (Simplified)
+    if preferences.get("Vegan"):
+        is_safe = not any(term in ingredients for term in ["meat", "chicken", "beef", "pork", "fish", "gelatin"])
+        if not is_safe: failed_count += 1
+        statuses.append({
+            "name": "Vegan", 
+            "is_safe": is_safe, 
+            "status_detail": "Contains Animal Products" if not is_safe else "OK",
+            "value": "N/A"
+        })
+        
+    
+    # If no active checks were performed (no conditions/preferences active)
+    if not statuses:
+        statuses.append({"name": "No Active Checks", "is_safe": True, "status_detail": "No profile restrictions found."})
+
     return statuses, failed_count
+# --- END MODIFIED FUNCTION ---
 
 
 # ----------------------------------------------------------------------
@@ -184,16 +249,36 @@ def get_product_safety_statuses(product: Dict, conditions: List[str], preference
 # ----------------------------------------------------------------------
 
 async def main():
-    if len(sys.argv) < 3:
-        print(json.dumps({"error": "Missing image path or user ID argument"}))
+    if len(sys.argv) != 2:
+        print(json.dumps({"error": "Missing input JSON file path argument."}))
         return
 
-    image_path, user_id = sys.argv[1], sys.argv[2]
+    input_json_path = sys.argv[1]
     
-    # 1. Fetch User Profile
-    patient_data = fetch_patient_data_from_db(user_id)
-    target_conditions = [k for k, v in patient_data.get("conditions", {}).items() if v]
-    target_preferences = {k: v for k, v in patient_data.get("preferences", {}).items() if v}
+    # 1. Read input data from the JSON file
+    try:
+        with open(input_json_path, 'r') as f:
+            input_data = json.load(f)
+            image_path = input_data.get("image_path")
+            user_id = input_data.get("user_id")
+            # The conditions and preferences dictionaries are now directly available
+            target_conditions = input_data.get("conditions", {}) 
+            target_preferences = input_data.get("restrictions", {}) # Renamed from preferences in old file
+            
+            if not image_path:
+                raise ValueError("Missing 'image_path' in input JSON.")
+    
+    except Exception as e:
+        sys.stderr.write(f"ERROR: Failed to read or parse input JSON file: {e}\n")
+        print(json.dumps({"error": "Invalid input data received from server.", "details": str(e)}))
+        return
+    
+    # Filter conditions/preferences to only include active ones (True)
+    active_conditions = {k: v for k, v in target_conditions.items() if v}
+    active_preferences = {k: v for k, v in target_preferences.items() if v}
+    
+    sys.stderr.write(f"--- INFO: Scan starting for User {user_id}. Conditions: {list(active_conditions.keys())}. ---\n")
+
 
     async with AsyncOpenFoodFactsClient(CONFIG["OFF_API_BASE_URL"], CONFIG["REQUEST_TIMEOUT"]) as client:
         # 2. Identify Product (Barcode -> OCR)
@@ -201,22 +286,24 @@ async def main():
         
         barcode = decode_barcode(image_path)
         if barcode:
+            sys.stderr.write(f"--- INFO: Barcode detected: {barcode} ---\n")
             product = await client.fetch_by_barcode(barcode)
             method = "barcode"
 
         if not product:
             text = extract_text(image_path)
+            sys.stderr.write(f"--- INFO: OCR text extracted: {text[:50]}... ---\n")
             if text:
                 products = await client.search_by_name(text)
                 product = products[0] if products else None
                 method = "ocr"
         
         if not product:
-            print(json.dumps({"error": "Product not found.", "extracted_text": text or "N/A"}))
+            print(json.dumps({"success": False, "error": "Product not found.", "extracted_text": text or "N/A"}))
             return
 
         # 3. Process Scanned Product
-        main_statuses, main_failure_count = get_product_safety_statuses(product, target_conditions, target_preferences)
+        main_statuses, main_failure_count = get_product_safety_statuses(product, active_conditions, active_preferences)
 
         # 4. Find Alternatives Concurrently
         relevant_categories = get_best_category(product.get("categories"))
@@ -226,27 +313,43 @@ async def main():
                 relevant_categories, 
                 CONFIG["MAX_SEARCH_RESULTS_PER_CATEGORY"]
             )
+        sys.stderr.write(f"--- INFO: Found {len(raw_alternatives)} raw alternatives from {len(relevant_categories)} categories. ---\n")
+
 
         # 5. Score and Sort Alternatives
         seen_barcodes = {product.get("code")}
         scored_alternatives = []
         for p in raw_alternatives:
             code = p.get("code")
-            if not code or code in seen_barcodes: continue
+            # Skip if no code or if it's the same as the scanned product
+            if not code or code in seen_barcodes: continue 
             seen_barcodes.add(code)
             
-            _, alt_failure_count = get_product_safety_statuses(p, target_conditions, target_preferences)
+            # Score against user's health profile
+            alt_statuses, alt_failure_count = get_product_safety_statuses(p, active_conditions, active_preferences)
+            
+            # Filter criteria: Alternatives must be *better* or *equal* to the main product,
+            # but ideally, we only want those with a low/zero failure count.
+            if alt_failure_count > main_failure_count and main_failure_count > 0:
+                continue # Skip if alternative is strictly worse than the scanned product (and the scanned product failed)
+
+            # Store only products that meet the criteria
             scored_alternatives.append({
-                "score": alt_failure_count,
+                "score": alt_failure_count, # Lower score is better
                 "data": {
                     "name": p.get("product_name"), "brand": p.get("brands"),
-                    "image_url": p.get("image_url"),
+                    "image_url": p.get("image_url"), 
                     "nutrients": extract_main_nutrients(p.get("nutriments", {})),
+                    # Include the status so the client knows why it's a good alternative
+                    "safety_statuses": alt_statuses 
                 }
             })
 
+        # Sort: Primary key is the score (lowest failure count first), secondary can be name or another factor
         scored_alternatives.sort(key=lambda x: x['score'])
         alternatives = [alt["data"] for alt in scored_alternatives][:CONFIG['MAX_ALTERNATIVES']]
+
+        sys.stderr.write(f"--- INFO: Final number of alternatives sent: {len(alternatives)} ---\n")
 
         # 6. Final JSON Output
         output = {
@@ -255,6 +358,8 @@ async def main():
                 "name": product.get("product_name"), "brand": product.get("brands"),
                 "image_url": product.get("image_url"), "failure_count": main_failure_count,
                 "nutrients": extract_main_nutrients(product.get("nutriments", {})),
+                # Include the detailed statuses for the main product
+                "safety_statuses": main_statuses 
             },
             "alternatives": alternatives
         }

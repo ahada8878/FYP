@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:convert';
-import 'dart:ui'; // Added for color interpolation
+import 'dart:ui'; // Needed for Color.lerp
 import '../../services/config_service.dart';
  
 // Configuration constant
@@ -55,7 +55,8 @@ class LabelScannerPage extends StatefulWidget {
   State<LabelScannerPage> createState() => _LabelScannerPageState();
 }
 
-class _LabelScannerPageState extends State<LabelScannerPage> {
+// TickerProviderStateMixin is now removed from here, as the background manages its own
+class _LabelScannerPageState extends State<LabelScannerPage> { 
   ScreenState _currentState = ScreenState.initial;
   File? _image;
   Map<String, dynamic>? _results;
@@ -70,6 +71,13 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     super.initState();
     _fetchToken();
   }
+
+  // Dispose is cleaner as the AnimationController is no longer here
+  // @override
+  // void dispose() {
+  //   super.dispose();
+  // }
+
 
   Future<void> _fetchToken() async {
     final token = await _authService.getToken();
@@ -105,12 +113,21 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     return (brand is String && brand.isNotEmpty) ? _capitalizeText(brand) : 'N/A';
   }
 
-  Map<String, dynamic> _getOverallSafetyStatus(List<dynamic> safetyStatuses) {
+  // Logic Fix: Use failure_count for reliable overall status
+  Map<String, dynamic> _getOverallSafetyStatus(Map<String, dynamic> productData) {
+    final List<dynamic> safetyStatuses = productData['safety_statuses'] ?? [];
+    // Prioritize failure_count from the Python script for the main product
+    final int failureCount = productData['failure_count'] ?? (
+      // Fallback for alternatives or if field is missing: count fails manually
+      safetyStatuses.where((s) => s['is_safe'] == false).length
+    );
+
     if (safetyStatuses.isEmpty) {
       return {'is_safe': false, 'emoji': '❓', 'text': 'NO DATA'};
     }
-    final bool isOverallSafe =
-        safetyStatuses.every((s) => (s['is_safe'] == true));
+    
+    final bool isOverallSafe = (failureCount == 0);
+    
     return {
       'is_safe': isOverallSafe,
       'emoji': isOverallSafe ? '✅' : '❌',
@@ -118,7 +135,7 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     };
   }
 
-  // Image Picking
+  // Image Picking (unchanged)
   Future<void> _pickImage() async {
     if (_userToken == null || _userId == null) {
       setState(() {
@@ -218,8 +235,11 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
           _currentState = ScreenState.error;
         });
       } else {
+        final jsonResponse = jsonDecode(response.body);
+        final String serverMessage = jsonResponse['message'] ?? 'Failed to process image due to server error.';
+        
         setState(() {
-          _errorMessage = "Server error: Status ${response.statusCode}. Details: ${response.body}";
+          _errorMessage = "Server error: Status ${response.statusCode}. $serverMessage";
           _results = null;
           _currentState = ScreenState.error;
         });
@@ -233,7 +253,7 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     }
   }
 
-  // Reset Screen
+  // Reset Screen (unchanged)
   void _resetScreen() {
     setState(() {
       _currentState = ScreenState.initial;
@@ -243,15 +263,18 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     });
   }
 
-  // Product Card Widget (unchanged structure, updated colors)
+  // Product Card Builder (Card color is plain white/default)
   Widget _buildProductCard(Map<String, dynamic> productData, {bool isAlternative = false}) {
     final List<dynamic> safetyStatuses = productData['safety_statuses'] ?? [];
-    final Map<String, dynamic> overallStatus = _getOverallSafetyStatus(safetyStatuses);
+    // Use the whole map in _getOverallSafetyStatus to access failure_count
+    final Map<String, dynamic> overallStatus = _getOverallSafetyStatus(productData); 
     final bool isSafe = overallStatus['is_safe'];
     final Color safeColor = safeGreen;
     final Color riskColor = riskyRed;
-    final Color cardColor = isSafe ? primaryAppColor.shade50 : Colors.red.shade50;
+    
     final Color statusColor = isSafe ? safeColor : riskColor;
+    final Color cardColor = Colors.white; // Set card background to plain white
+    
     final String statusText = "${overallStatus['emoji']} OVERALL ${overallStatus['text']}";
     final String imageUrl = productData['image_url'] ?? 'https://via.placeholder.com/100?text=No+Image';
     final Map<String, dynamic> nutrients = productData['nutrients'] ?? {};
@@ -259,11 +282,12 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
         nutrients.entries.where((e) => e.value != null).toList();
 
     return Card(
-      color: cardColor,
+      color: cardColor, // Use the plain white card color
       elevation: isAlternative ? 2 : 6,
       margin: const EdgeInsets.only(bottom: 16.0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
+        // Border color retains the safety status
         side: BorderSide(
             color: statusColor.withOpacity(isAlternative ? 0.3 : 1.0),
             width: isAlternative ? 1 : 3),
@@ -341,9 +365,11 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
                 spacing: 8.0,
                 runSpacing: 4.0,
                 children: safetyStatuses.map((status) {
-                  final bool statusIsSafe = status['is_safe'] ?? false;
+                  // Relies on the 'is_safe' flag added in the Python script
+                  final bool statusIsSafe = status['is_safe'] ?? false; 
                   final Color chipColor = statusIsSafe ? safeGreen : riskyRed;
-                  final String chipLabel = '${status['name']}';
+                  // Use the 'name' and 'status_detail' field from the Python output
+                  final String chipLabel = '${status['name']} (${status['status_detail']})';
 
                   return Chip(
                     avatar: Icon(
@@ -414,7 +440,7 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     );
   }
 
-  // UI Builders
+  // UI Builders (unchanged)
   Widget _buildBody() {
     switch (_currentState) {
       case ScreenState.results:
@@ -527,27 +553,27 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     );
   }
 
-  // Main Build Method
+  // Main Build Method 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // MODIFIED: Make scaffold and appbar transparent for the background to show through
-      backgroundColor: Colors.transparent,
+      // Restoring transparent background
+      backgroundColor: Colors.transparent, 
       appBar: AppBar(
         title: const Text('Food Scanner'),
         centerTitle: true,
-        backgroundColor: Color(0xffa8edea),
-       
+        // Restoring previous light color
+        backgroundColor: const Color(0xffa8edea), 
         elevation: 0,
         actions: [
           if (_currentState != ScreenState.initial)
             IconButton(icon: const Icon(Icons.refresh), onPressed: _resetScreen)
         ],
       ),
-      // MODIFIED: Use a Stack to layer the background behind the main content
+      // Restoring Stack to layer the background behind the content
       body: Stack(
         children: [
-          const _LivingAnimatedBackground(), // Layer 1: The background
+          const _LivingAnimatedBackground(), // Layer 1: The animated background (no controller passed)
           AnimatedSwitcher( // Layer 2: The original page content
             duration: const Duration(milliseconds: 300),
             child: _buildBody(),
@@ -558,20 +584,23 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
   }
 }
 
-// NEW: The animated background widget
+// CORRECTED: The animated background widget now manages its own state and ticker.
 class _LivingAnimatedBackground extends StatefulWidget {
   const _LivingAnimatedBackground();
+  
+  // Creates the associated state object
   @override
-  State<_LivingAnimatedBackground> createState() =>
-      _LivingAnimatedBackgroundState();
+  State<_LivingAnimatedBackground> createState() => _LivingAnimatedBackgroundState();
 }
 
 class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin { // The TickerProviderStateMixin is here now
   late AnimationController _controller;
+  
   @override
   void initState() {
     super.initState();
+    // Animation controller is initialized here
     _controller =
         AnimationController(vsync: this, duration: const Duration(seconds: 40))
           ..repeat(reverse: true);
@@ -582,23 +611,26 @@ class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground>
     _controller.dispose();
     super.dispose();
   }
-
+  
   @override
   Widget build(BuildContext context) {
-    final colors = [
-      Color.lerp(
-          const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
-      Color.lerp(
-          const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
-    ];
+    // Interpolate between the two light colors based on the controller's value
     return AnimatedBuilder(
       animation: _controller,
-      builder: (context, child) => Container(
-          decoration: BoxDecoration(
-              gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: colors))),
+      builder: (context, child) {
+        final colors = [
+          Color.lerp(
+              const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
+          Color.lerp(
+              const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
+        ];
+        return Container(
+            decoration: BoxDecoration(
+                gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: colors)));
+      },
     );
   }
 }
