@@ -274,7 +274,6 @@ Also include a boolean field "enoughData": true if the provided data is sufficie
 });
 
 
-
 // --- ADDED: New route to get user's name and calorie goal ---
 app.get('/api/user/profile-summary', protect, async (req, res) => {
     const userId = req.userId;

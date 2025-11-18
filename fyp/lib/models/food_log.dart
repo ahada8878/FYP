@@ -1,38 +1,30 @@
-// lib/models/food_log.dart
-
-import 'dart:convert';
+// lib/models/food_log.dart (Assuming this structure based on backend)
 
 class FoodLog {
   final String id;
-  final String user;
-  final DateTime date;
   final String mealType;
   final String productName;
-  final String? brands;
-  final String? imageUrl;
   final Nutrients nutrients;
+  final String? imageUrl;
+  final String? brands;
 
   FoodLog({
-    required this.id,
-    required this.user,
-    required this.date,
-    required this.mealType,
-    required this.productName,
-    this.brands,
-    this.imageUrl,
-    required this.nutrients,
+    required this.id, 
+    required this.mealType, 
+    required this.productName, 
+    required this.nutrients, 
+    this.imageUrl, 
+    this.brands
   });
-
+  
+  // Factory constructor for parsing JSON from your backend
   factory FoodLog.fromJson(Map<String, dynamic> json) {
     return FoodLog(
-      // Use '_id' from MongoDB
-      id: json['_id'] as String, 
-      user: json['user'] as String,
-      date: DateTime.parse(json['date'] as String),
+      id: json['_id'] as String? ?? json['id'] as String,
       mealType: json['mealType'] as String,
       productName: json['product_name'] as String,
-      brands: json['brands'] as String?,
       imageUrl: json['image_url'] as String?,
+      brands: json['brands'] as String?,
       nutrients: Nutrients.fromJson(json['nutrients'] as Map<String, dynamic>),
     );
   }
@@ -49,18 +41,19 @@ class Nutrients {
   final double carbohydrates;
 
   Nutrients({
-    required this.calories,
-    required this.protein,
-    required this.fat,
-    required this.carbohydrates,
+    required this.calories, 
+    required this.protein, 
+    required this.fat, 
+    required this.carbohydrates
   });
-
+  
+  // Factory constructor for parsing JSON
   factory Nutrients.fromJson(Map<String, dynamic> json) {
     return Nutrients(
-      calories: (json['calories'] ?? 0).toDouble(),
-      protein: (json['protein'] ?? 0).toDouble(),
-      fat: (json['fat'] ?? 0).toDouble(),
-      carbohydrates: (json['carbohydrates'] ?? 0).toDouble(),
+      calories: (json['calories'] as num? ?? 0).toDouble(),
+      protein: (json['protein'] as num? ?? 0).toDouble(),
+      fat: (json['fat'] as num? ?? 0).toDouble(),
+      carbohydrates: (json['carbohydrates'] as num? ?? 0).toDouble(),
     );
   }
 }
