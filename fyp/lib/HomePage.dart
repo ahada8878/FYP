@@ -27,6 +27,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'camera_overlay_controller.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
+import 'package:fyp/services/food_log_service.dart';
 
 // --- Service to handle fetching the auth token ---
 class AuthService {

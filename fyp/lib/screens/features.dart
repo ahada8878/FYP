@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart'; // Import the package
 
 // Preserved original imports for your feature pages
-import 'Features/meal_planner_page.dart';
+import 'Features/nutritrack_page.dart';
 import 'Features/label_scanner_page.dart';
 import 'Features/cravings_page.dart';
 import 'Features/nutrition_tips_page.dart';
@@ -156,7 +156,7 @@ class _FeaturesPageState extends State<Features> {
       {'title': 'Label Scanner', 'icon': Icons.qr_code_scanner_rounded, 'color': Colors.green, 'subtitle': 'Analyze your groceries', 'page': const LabelScannerPage()},
       {'title': 'Craving Hunt', 'icon': Icons.food_bank_outlined, 'color': Colors.orange, 'subtitle': 'Find healthy alternatives', 'page': const CravingsPage()},
       {'title': 'Nutrition Tips', 'icon': Icons.lightbulb_outline_rounded, 'color': Colors.purple, 'subtitle': 'Get expert advice daily', 'page': const NutritionTipsPage()},
-      {'title': 'Community', 'icon': Icons.people_alt_outlined, 'color': const Color.fromRGBO(244, 67, 54, 1), 'subtitle': 'Connect and share your journey', 'page': const MealPlannerPage()},
+      {'title': 'NutriTrack', 'icon': Icons.calendar_month_outlined, 'color': const Color.fromRGBO(244, 67, 54, 1), 'subtitle': 'Track your nutritions intake', 'page': const NutriTrackPage()},
     ];
 
     return SliverList(

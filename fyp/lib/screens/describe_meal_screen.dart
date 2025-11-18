@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-// You need to ensure this path is correct and contains the baseURL constant
-import 'package:fyp/services/config_service.dart'; 
-
+import 'package:fyp/services/config_service.dart'; // Your config service
+// Import the FoodLogService to log the meal
+import 'package:fyp/services/food_log_service.dart';
 
 // --- DATA MODEL (MATCHES BACKEND SCHEMA) ---
+// This model is for the AI *response*, so it's OK that it has more
+// fields than the food log database. We will extract what we need.
 class NutritionData {
   final bool enoughData;
   final String foodName;
@@ -36,10 +38,10 @@ class NutritionData {
   factory NutritionData.fromJson(Map<String, dynamic> json) {
     // Uses null-aware operators (??) for null safety and new backend keys
     return NutritionData(
-      enoughData: (json['enoughData'] as bool?) ?? false, 
-      foodName: (json['food_name'] as String?) ?? 'Unknown Food', 
-      category: (json['category'] as String?) ?? 'N/A', 
-      calories: (json['calories'] as String?) ?? 'N/A', 
+      enoughData: (json['enoughData'] as bool?) ?? false,
+      foodName: (json['food_name'] as String?) ?? 'Unknown Food',
+      category: (json['category'] as String?) ?? 'N/A',
+      calories: (json['calories'] as String?) ?? 'N/A',
       protein: (json['protein'] as String?) ?? 'N/A',
       carbs: (json['carbs'] as String?) ?? 'N/A',
       fat: (json['fat'] as String?) ?? 'N/A',
@@ -66,7 +68,7 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
   final TextEditingController _foodNameController = TextEditingController();
   final TextEditingController _ingredientsController = TextEditingController();
   bool _isAnalyzeEnabled = false;
-  bool _isAnalyzing = false; 
+  bool _isAnalyzing = false;
 
   // NOTE: Assuming baseURL is defined in config_service.dart
   static const String _apiUrl = '$baseURL/api/get-nutrition-data';
@@ -108,14 +110,15 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-      
+
       if (jsonResponse.containsKey('error')) {
         throw Exception(jsonResponse['error']);
       }
-      
+
       return NutritionData.fromJson(jsonResponse);
     } else {
-      throw Exception('Failed to load nutrition data. Status: ${response.statusCode}');
+      throw Exception(
+          'Failed to load nutrition data. Status: ${response.statusCode}');
     }
   }
 
@@ -146,7 +149,7 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
         // Use rootNavigator: true for robust dismissal of top-level dialog
         Navigator.of(context, rootNavigator: true).pop();
       }
-      
+
       // Add a small delay to prevent navigation conflict
       await Future.delayed(const Duration(milliseconds: 100));
 
@@ -154,14 +157,14 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
       if (mounted) {
         _showResultsDialog(results);
       }
-
     } catch (e) {
       if (mounted) {
         // Ensure loading dialog is dismissed on error
-        Navigator.of(context, rootNavigator: true).pop(); 
+        Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Uh oh! Analysis failed. Please check the server connection and try again.'),
+            content: Text(
+                'Uh oh! Analysis failed. Please check the server connection and try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -182,14 +185,96 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return NutritionResultsDialog(data: data); 
+        return NutritionResultsDialog(
+          data: data,
+          // NEW: Pass a callback for the log button
+          onLogPressed: () {
+            // This runs when 'LOG THIS MEAL' is pressed
+            Navigator.pop(context); // Close the results dialog
+            _showMealTypeDialog(data); // Open the new meal type dialog
+          },
+        );
       },
     );
   }
 
+  // --- NEW: SHOW MEAL TYPE SELECTION DIALOG ---
+  void _showMealTypeDialog(NutritionData data) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return MealTypeSelectionDialog(
+          // Pass the data to the new dialog
+          data: data,
+          // Pass the logging function as a callback
+          onLog: (selectedMealType) {
+            // This function logs to the DB and closes the dialog
+            _logMealToDatabase(data, selectedMealType);
+            Navigator.pop(dialogContext); // Close the meal type dialog
+          },
+        );
+      },
+    );
+  }
+
+  // --- NEW: LOGIC TO SAVE MEAL TO DATABASE ---
+  void _logMealToDatabase(NutritionData data, String mealType) async {
+    // Show a loading/confirmation snackbar
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Logging "${data.foodName}" as $mealType...'),
+        backgroundColor: const Color(0xFF0D324D), // Dark blue
+      ),
+    );
+
+    // 1. Instantiate the service
+    final FoodLogService foodLogService = FoodLogService();
+
+    // 2. Helper function to parse nutrient strings (e.g., "150 kcal" -> 150.0)
+    double parseNutrient(String s) {
+      try {
+        // Takes the first part of the string (e.g., "150" from "150 kcal")
+        // and parses it to a double. Returns 0.0 on failure.
+        return double.tryParse(s.split(' ')[0]) ?? 0.0;
+      } catch (e) {
+        return 0.0;
+      }
+    }
+
+    // 3. Create the nutrient map matching the backend model
+    final nutrientsMap = {
+      'calories': parseNutrient(data.calories),
+      'protein': parseNutrient(data.protein),
+      'fat': parseNutrient(data.fat),
+      'carbohydrates': parseNutrient(data.carbs),
+    };
+
+    // 4. Call the service
+    bool success = await foodLogService.logFood(
+      mealType: mealType,
+      productName: data.foodName,
+      nutrients: nutrientsMap,
+      imageUrl: null, // AI analysis doesn't provide an image URL
+      date: DateTime.now(), // Log for the current date and time
+    );
+
+    // 5. Show final success/failure message
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar(); // Hide loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success
+              ? 'Successfully logged "${data.foodName}"! 🎉'
+              : 'Failed to log meal. Please try again.'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+      Navigator.pop(context); // Close the meal type dialog
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContextVscaffoldContext) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -228,7 +313,8 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _foodNameController,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: 'e.g Chicken Caesar Salad',
                     hintStyle: TextStyle(color: Colors.grey[400]),
@@ -238,7 +324,8 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   ),
                 ),
               ],
@@ -267,9 +354,11 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                       expands: true,
                       textAlignVertical: TextAlignVertical.top,
                       keyboardType: TextInputType.multiline,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500),
                       decoration: InputDecoration(
-                        hintText: 'e.g., 200g chicken breast, 1 cup romaine lettuce, 1 tbsp olive oil...',
+                        hintText:
+                            'e.g., 200g chicken breast, 1 cup romaine lettuce, 1 tbsp olive oil...',
                         hintStyle: TextStyle(color: Colors.grey[400]),
                         filled: true,
                         fillColor: Colors.grey[50],
@@ -277,7 +366,8 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                       ),
                     ),
                   ),
@@ -312,7 +402,7 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                       : null,
                 ),
                 child: ElevatedButton(
-                  onPressed: _isAnalyzeEnabled ? _analyzeMeal : null, 
+                  onPressed: _isAnalyzeEnabled ? _analyzeMeal : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
@@ -322,11 +412,13 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                     ),
                   ),
                   child: Text(
-                    _isAnalyzing ? 'MIXING NUTRIENTS...' : 'ANALYZE MEAL', 
+                    _isAnalyzing ? 'MIXING NUTRIENTS...' : 'ANALYZE MEAL',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: _isAnalyzeEnabled || _isAnalyzing ? Colors.white : Colors.grey[400],
+                      color: _isAnalyzeEnabled || _isAnalyzing
+                          ? Colors.white
+                          : Colors.grey[400],
                       letterSpacing: 1.0,
                     ),
                   ),
@@ -381,14 +473,20 @@ class AnalyzingMealDialog extends StatelessWidget {
 // --- Custom Widget for Results Dialogue (Solid Color Header) ---
 class NutritionResultsDialog extends StatelessWidget {
   final NutritionData data;
-  
-  const NutritionResultsDialog({super.key, required this.data});
+  // NEW: Callback function for the log button
+  final VoidCallback onLogPressed;
+
+  const NutritionResultsDialog({
+    super.key,
+    required this.data,
+    required this.onLogPressed,
+  });
 
   // Custom Macro Row Widget for visualization (Chip style)
   Widget _buildMacroBar(String label, String value, Color color) {
     final numericValue = double.tryParse(value.split(' ')[0]) ?? 0.0;
-    const maxReference = 80.0; 
-    final widthFactor = (numericValue / maxReference).clamp(0.1, 1.0); 
+    const maxReference = 80.0;
+    final widthFactor = (numericValue / maxReference).clamp(0.1, 1.0);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -409,7 +507,8 @@ class NutritionResultsDialog extends StatelessWidget {
               ),
               // Value Chip
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(15),
@@ -435,7 +534,7 @@ class NutritionResultsDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: FractionallySizedBox(
-              widthFactor: widthFactor, 
+              widthFactor: widthFactor,
               alignment: Alignment.centerLeft,
               child: Container(
                 decoration: BoxDecoration(
@@ -459,7 +558,7 @@ class NutritionResultsDialog extends StatelessWidget {
 
   // --- REFINED WIDGET FOR INSUFFICIENT DATA MESSAGE (APP MESSAGE STYLE) ---
   Widget _buildInsufficientDataMessage(BuildContext context) {
-    const Color primaryColor = Color(0xFF7F5A83); 
+    const Color primaryColor = Color(0xFF7F5A83);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 25.0),
@@ -469,7 +568,7 @@ class NutritionResultsDialog extends StatelessWidget {
           // Icon is now a helpful prompt style, not an error style
           const Icon(
             Icons.lightbulb_outline,
-            color: primaryColor, 
+            color: primaryColor,
             size: 55,
           ),
           const SizedBox(height: 15),
@@ -500,9 +599,9 @@ class NutritionResultsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Solid primary color used across the dialog for consistency
-    const Color primarySolidColor = Color(0xFF7F5A83); 
+    const Color primarySolidColor = Color(0xFF7F5A83);
     const Color secondarySolidColor = Color.fromARGB(255, 23, 62, 92);
-    
+
     // Determine if we show the detailed results or the warning message
     final bool showDetailedResults = data.enoughData;
 
@@ -529,7 +628,7 @@ class NutritionResultsDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: secondarySolidColor, 
+                color: secondarySolidColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(20),
                   topRight: Radius.circular(20),
@@ -541,16 +640,18 @@ class NutritionResultsDialog extends StatelessWidget {
                     data.foodName,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w900, 
-                      fontSize: 24, 
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
                       color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    showDetailedResults ? 'Your Meal\'s Nutritional Blueprint' : 'Requires Detailed Input',
+                    showDetailedResults
+                        ? 'Your Meal\'s Nutritional Blueprint'
+                        : 'Requires Detailed Input',
                     style: const TextStyle(
-                      fontSize: 13, 
+                      fontSize: 13,
                       color: Colors.white70,
                       fontWeight: FontWeight.w500,
                     ),
@@ -558,7 +659,7 @@ class NutritionResultsDialog extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Body Content (Conditional Rendering)
             showDetailedResults
                 ? Padding(
@@ -569,9 +670,10 @@ class NutritionResultsDialog extends StatelessWidget {
                         // Calories - Big Number Highlight
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 15, horizontal: 10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEECEF), 
+                            color: const Color(0xFFFEECEF),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Column(
@@ -581,7 +683,7 @@ class NutritionResultsDialog extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 34,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFFC70039), 
+                                  color: Color(0xFFC70039),
                                 ),
                               ),
                               const Text(
@@ -595,43 +697,40 @@ class NutritionResultsDialog extends StatelessWidget {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Macro Breakdown (Chip-Style Bars)
-                        _buildMacroBar('Carbohydrates', data.carbs, Colors.blue),
+                        _buildMacroBar(
+                            'Carbohydrates', data.carbs, Colors.blue),
                         _buildMacroBar('Protein', data.protein, Colors.green),
                         _buildMacroBar('Fat', data.fat, Colors.orange),
                       ],
                     ),
                   )
                 : _buildInsufficientDataMessage(context), // Show refined app message
-            
+
             // Action Button (LOG or REVISE)
             Padding(
               padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
               child: SizedBox(
                 width: double.infinity,
                 child: TextButton(
-                  // Action: Log if results are good, Pop (to allow revision) if results are bad
-                  onPressed: showDetailedResults ? () {
-                    Navigator.pop(context); // Close dialog
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Awesome! "${data.foodName}" is now logged in your diet diary! 🎉'), 
-                        backgroundColor: primarySolidColor, // Consistent button color
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  } : () {
-                     // If data is insufficient, close the dialog so the user can edit
-                    Navigator.pop(context); 
-                  },
+                  // MODIFIED: Use the onLogPressed callback
+                  onPressed: showDetailedResults
+                      ? onLogPressed
+                      : () {
+                          // If data is insufficient, close the dialog so the user can edit
+                          Navigator.pop(context);
+                        },
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     // Use the secondary color for logging, softer primary color for revision prompt
-                    backgroundColor: showDetailedResults ? secondarySolidColor : primarySolidColor.withOpacity(0.8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: showDetailedResults
+                        ? secondarySolidColor
+                        : primarySolidColor.withOpacity(0.8),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
                     showDetailedResults ? 'LOG THIS MEAL' : 'REVISE INPUT',
@@ -648,6 +747,112 @@ class NutritionResultsDialog extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// --- NEW WIDGET: MEAL TYPE SELECTION DIALOG ---
+// This is a new StatefulWidget to manage the meal type selection
+class MealTypeSelectionDialog extends StatefulWidget {
+  final NutritionData data;
+  final Function(String) onLog; // Callback when a meal type is chosen
+
+  const MealTypeSelectionDialog({
+    super.key,
+    required this.data,
+    required this.onLog,
+  });
+
+  @override
+  State<MealTypeSelectionDialog> createState() => _MealTypeSelectionDialogState();
+}
+
+class _MealTypeSelectionDialogState extends State<MealTypeSelectionDialog> {
+  String? _selectedMealType; // Holds the user's selection
+  final List<String> _mealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF7F5A83);
+    const Color secondaryColor = Color(0xFF0D324D);
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        'Log as...',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: secondaryColor,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Using Wrap to let choice chips flow if needed
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 4.0,
+            alignment: WrapAlignment.center,
+            children: _mealTypes.map((mealType) {
+              final bool isSelected = _selectedMealType == mealType;
+              return ChoiceChip(
+                label: Text(mealType),
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                selected: isSelected,
+                selectedColor: primaryColor,
+                backgroundColor: primaryColor.withOpacity(0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected ? primaryColor : primaryColor.withOpacity(0.3),
+                  ),
+                ),
+                onSelected: (bool selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedMealType = mealType;
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      actions: [
+        // Cancel Button
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            'CANCEL',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+        // Log Button (Enabled only when a type is selected)
+        ElevatedButton(
+          onPressed: _selectedMealType == null
+              ? null // Disable button if nothing is selected
+              : () {
+                  // Call the onLog callback with the selected meal type
+                  widget.onLog(_selectedMealType!);
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: secondaryColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text(
+            'LOG MEAL',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
     );
   }
 }
