@@ -60,11 +60,15 @@ class ScanMealScreen extends StatelessWidget {
   }
 }
 
-// --- UPDATED: Bottom sheet for manually logging food ---
-class ManualLogFoodSheet extends StatefulWidget {
-  final void Function(LoggedFood food) onLog;
+// Assuming LoggedFood is defined elsewhere in your app, 
+// if not, you can remove references to it if you only strictly need backend logging.
+// import 'package:fyp/models/logged_food.dart'; 
 
-  const ManualLogFoodSheet({super.key, required this.onLog});
+class ManualLogFoodSheet extends StatefulWidget {
+  // Keeping onLog to update local state if your parent widget needs it
+  final Function(dynamic) onLog; 
+
+  const ManualLogFoodSheet({Key? key, required this.onLog}) : super(key: key);
 
   @override
   State<ManualLogFoodSheet> createState() => _ManualLogFoodSheetState();
@@ -78,6 +82,9 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   final _proteinController = TextEditingController();
   final _fatController = TextEditingController();
 
+  // Service instance
+  final FoodLogService _foodLogService = FoodLogService();
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -88,17 +95,85 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
     super.dispose();
   }
 
+  // 1. UPDATED SUBMIT: Validates form, then asks for Meal Type
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      final newFood = LoggedFood(
-        name: _nameController.text.trim(),
-        // UPDATED: Use a single, generic emoji for all manually logged items
-        icon: '🍴',
-        calories: int.parse(_caloriesController.text),
+      // Form is valid, now show the popup to select Meal Type
+      _showMealTypeDialog();
+    }
+  }
+
+  // 2. NEW: Pop-up to select Meal Type
+  void _showMealTypeDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _MealTypeSelectorDialog(
+          onMealSelected: (String selectedMealType) {
+            // 3. When confirmed, Log to Backend
+            _logToBackend(selectedMealType);
+            Navigator.pop(context); // Close the dialog
+          },
+        );
+      },
+    );
+  }
+
+  // 4. NEW: Send data to Backend
+  Future<void> _logToBackend(String mealType) async {
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Saving to food log...')),
+    );
+
+    try {
+      // Prepare nutrients map
+      final nutrients = {
+        'calories': int.tryParse(_caloriesController.text) ?? 0,
+        'carbohydrates': double.tryParse(_carbsController.text) ?? 0.0,
+        'protein': double.tryParse(_proteinController.text) ?? 0.0,
+        'fat': double.tryParse(_fatController.text) ?? 0.0,
+      };
+
+      // Call the service
+      final success = await _foodLogService.logFood(
+        mealType: mealType,
+        productName: _nameController.text.trim(),
+        nutrients: nutrients,
+        date: DateTime.now(),
+        imageUrl: null, // No image for manual entry
       );
 
-      widget.onLog(newFood);
-      Navigator.of(context).pop();
+      if (success) {
+        if (mounted) {
+          // Optional: construct a local object if you need to update the UI immediately
+          // final newFood = LoggedFood(...); 
+          // widget.onLog(newFood); 
+
+          Navigator.of(context).pop(); // Close the Bottom Sheet
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Food logged successfully! 🎉'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to log food. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -236,6 +311,76 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   }
 }
 
+// --- HELPER WIDGET FOR THE POPUP ---
+class _MealTypeSelectorDialog extends StatefulWidget {
+  final Function(String) onMealSelected;
+
+  const _MealTypeSelectorDialog({Key? key, required this.onMealSelected})
+      : super(key: key);
+
+  @override
+  State<_MealTypeSelectorDialog> createState() =>
+      _MealTypeSelectorDialogState();
+}
+
+class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog> {
+  String? _selectedType;
+  final List<String> _options = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        'Log as...',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: 8,
+            children: _options.map((type) {
+              final isSelected = _selectedType == type;
+              return ChoiceChip(
+                label: Text(type),
+                selected: isSelected,
+                selectedColor: Theme.of(context).colorScheme.primary,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedType = selected ? type : null;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          onPressed: _selectedType == null
+              ? null
+              : () => widget.onMealSelected(_selectedType!),
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text('Log'),
+        ),
+      ],
+    );
+  }
+}
 // class CameraScreen extends StatelessWidget {
 //   const CameraScreen({super.key});
 //   @override
