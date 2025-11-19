@@ -320,7 +320,6 @@ Also include a boolean field "enoughData": true if the provided data is sufficie
 });
 
 
-
 // --- ADDED: New route to get user's name and calorie goal ---
 app.get('/api/user/profile-summary', protect, async (req, res) => {
     const userId = req.userId;
@@ -383,6 +382,7 @@ app.post('/api/predict', upload.single('image'), (req, res) => {
   const imagePath = path.resolve(req.file.path);
   
   // This part still calls your original 'predict.py' or can be modified as needed
+  console.log(`python ${path.join(__dirname, 'predict.py')} ${imagePath}`);
   exec(`python ${path.join(__dirname, 'predict.py')} ${imagePath}`, 
     (error, stdout, stderr) => {
       if (error) {

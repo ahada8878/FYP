@@ -70,7 +70,7 @@ const getFoodLogForDate = async (req, res) => {
         }).sort({ createdAt: 'asc' }); // Show in the order they were logged
 
         res.status(200).json({ success: true, count: foodLogs.length, data: foodLogs });
-
+    
     } catch (error) {
         console.error('Error in getFoodLogForDate:', error);
         res.status(500).json({ success: false, message: 'Server error while fetching food log.' });

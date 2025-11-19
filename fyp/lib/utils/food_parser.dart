@@ -1,6 +1,5 @@
 // lib/utils/food_parser.dart
 class FoodParser {
-  // Parses "Apple Pie: calories: 1325, protein: 10g, fat: 65g, carbohydrates: 185g"
   static Map<String, dynamic> parsePredictionString(String prediction) {
     try {
       final parts = prediction.split(':');
