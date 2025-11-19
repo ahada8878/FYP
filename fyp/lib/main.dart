@@ -1,4 +1,4 @@
-import 'dart:async'; // Required for the Timer
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fyp/LocalDB.dart';
 import 'package:fyp/MissingRouteDataForSignUp.dart';
@@ -7,15 +7,17 @@ import 'package:fyp/camera_overlay_controller.dart';
 import 'package:fyp/water_tracker_controller.dart';
 import 'package:provider/provider.dart';
 
-// ADD THIS IMPORT
+// Notifications
+import 'package:awesome_notifications/awesome_notifications.dart';
+
 import 'package:fyp/Loginpage.dart';
 
-// ADD THIS GLOBAL KEY
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDB.init();
+
   runApp(
     MultiProvider(
       providers: [
@@ -41,14 +43,42 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   Key _key = UniqueKey();
-  
-  // NEW: State to track if the custom splash screen delay is over.
   bool _isSplashFinished = false;
 
   @override
   void initState() {
     super.initState();
-    // Start a timer for the 2-second display delay.
+
+    // --- 1. Initialize Notification System ---
+    AwesomeNotifications().initialize(
+      null,
+      [
+        NotificationChannel(
+          channelKey: 'routine_reminders_channel',
+          channelName: 'Routine Reminders',
+          channelDescription: 'Notifications for water intake and weekly weight logging.',
+          importance: NotificationImportance.High,
+          defaultColor: Colors.deepPurple,
+          ledColor: Colors.white,
+        ),
+      ],
+      debug: true,
+    );
+
+    // --- 2. Request permission after UI loads ---
+    AwesomeNotifications().isNotificationAllowed().then((isAllowed) {
+      if (!isAllowed) {
+        AwesomeNotifications().requestPermissionToSendNotifications();
+      }
+    });
+
+    // --- 3. Schedule notifications AFTER first frame ---
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scheduleWaterReminder();
+      scheduleWeightReminder();
+    });
+
+    // Splash delay
     Timer(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
@@ -58,12 +88,10 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  /// Changes the key to trigger a rebuild of the widget tree.
   void restartApp() {
     setState(() {
       _key = UniqueKey();
-      // Reset splash state to false if you want the splash screen to show on restart
-      _isSplashFinished = false; 
+      _isSplashFinished = false;
     });
   }
 
@@ -72,7 +100,6 @@ class _MyAppState extends State<MyApp> {
     return KeyedSubtree(
       key: _key,
       child: MaterialApp(
-        // ADD THIS LINE TO ATTACH THE KEY
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'NutriWise',
@@ -85,36 +112,28 @@ class _MyAppState extends State<MyApp> {
           scaffoldBackgroundColor: Colors.grey[50],
           useMaterial3: true,
         ),
-        // Determine which screen to show based on the splash state
-        home: _isSplashFinished 
-            ? getIncompleteStepView() // Show the real app content after delay
-            : const _SplashScreenContent(), // Show the custom splash screen content
+        home: _isSplashFinished
+            ? getIncompleteStepView()
+            : const _SplashScreenContent(),
       ),
     );
   }
 }
 
-/// A dedicated widget to display the content during the 2-second splash delay.
 class _SplashScreenContent extends StatelessWidget {
   const _SplashScreenContent();
 
   @override
   Widget build(BuildContext context) {
-    // This should match your native splash screen's appearance (usually white 
-    // background with your icon centered) for a smooth transition.
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        // Placeholder for the main icon. 
-        // Use Image.asset('assets/images/splash_icon.png') if you 
-        // have a dedicated asset path for the icon.
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Example: Replace this with your actual app icon image widget
             Image.asset('assets/images/icon_splash.png', width: 100, height: 100),
-            SizedBox(height: 20),
-            CircularProgressIndicator(color: Colors.deepPurple),
+            const SizedBox(height: 20),
+            const CircularProgressIndicator(color: Colors.deepPurple),
           ],
         ),
       ),
@@ -122,13 +141,42 @@ class _SplashScreenContent extends StatelessWidget {
   }
 }
 
-// NOTE: Ensure your global function getIncompleteStepView() is defined somewhere, 
-// and that LocalDB.init(), your controllers, and MissingRouteDataForSignUp are
-// correctly implemented in their respective files.
+// ---------------- NOTIFICATION LOGIC ----------------
 
-// Mock implementation of the function used in your original code:
-// Widget getIncompleteStepView() {
-//   // In a real app, this function checks LocalDB and returns the 
-//   // appropriate widget (e.g., SignInScreen, ProfileSetupScreen, or Dashboard).
-//   return const Text("This is the Final Destination Screen."); 
-// }
+void scheduleWaterReminder() {
+  AwesomeNotifications().cancel(1001);
+
+  AwesomeNotifications().createNotification(
+    content: NotificationContent(
+      id: 1001,
+      channelKey: 'routine_reminders_channel',
+      title: '💧 Water Reminder Test',
+      body: 'This notification repeats every 60 seconds.',
+    ),
+    schedule: NotificationInterval(
+interval: Duration(seconds: 60),
+      repeats: true,
+    ),
+  );
+}
+
+
+void scheduleWeightReminder() {
+  AwesomeNotifications().cancel(1002);
+
+  AwesomeNotifications().createNotification(
+    content: NotificationContent(
+      id: 1002,
+      channelKey: 'routine_reminders_channel',
+      title: '⚖️ Weekly Check-In!',
+      body: 'Remember to log your weekly weight.',
+    ),
+    schedule: NotificationCalendar(
+      weekday: DateTime.monday,
+      hour: 9,
+      minute: 0,
+      repeats: true,
+    ),
+  );
+}
+

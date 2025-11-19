@@ -2,7 +2,9 @@ import sys
 import json
 import requests
 import re 
-import os # Need this if we ever use environment variables, but keep for robustness
+import os
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Define risk thresholds (per 100g)
 RISK_THRESHOLDS = {
@@ -11,12 +13,11 @@ RISK_THRESHOLDS = {
     "saturated_fat_100g": 5.0,   # High risk for High Cholesterol
 }
 
-
 # -------- Similarity Scoring Function (Enhanced) --------
 def calculate_similarity_score(input_name, product_name):
     """
     Calculates an enhanced score based on Jaccard similarity and prefix matching.
-    Higher score means better match. Score ranges from 0.0 to 1.1 (max 1.0 Jaccard + 0.1 bonus).
+    Higher score means better match. Score ranges from 0.0 to 1.1.
     """
     if not product_name:
         return 0.0
@@ -35,7 +36,6 @@ def calculate_similarity_score(input_name, product_name):
     # Filter out stop words from input
     filtered_input_words = input_words - stop_words
     
-    # If filtered input is empty, return 0
     if not filtered_input_words:
         return 0.0
         
@@ -43,7 +43,7 @@ def calculate_similarity_score(input_name, product_name):
     common_words = filtered_input_words.intersection(product_words)
     union_words = filtered_input_words.union(product_words)
     
-    # Jaccard Similarity: |Intersection| / |Union|
+    # Jaccard Similarity
     if len(union_words) == 0:
         jaccard_score = 0.0
     else:
@@ -54,32 +54,56 @@ def calculate_similarity_score(input_name, product_name):
     if product_lower.startswith(input_lower):
         prefix_bonus = 0.1
         
-    # Return the final score
     return jaccard_score + prefix_bonus
 
 
 # -------- OpenFoodFacts API (search by name) --------
-def search_openfoodfacts_by_name(name, limit=50):
+def search_openfoodfacts_by_name(name, limit=20): 
     url = "https://world.openfoodfacts.org/cgi/search.pl"
+    
+    # --- OPTIMIZATION: Request Specific Fields Only ---
+    # This reduces the download size by ~95%, making it much faster.
+    fields_to_fetch = "code,product_name,brands,image_url,nutriments,labels_tags,ingredients_text,allergens_tags"
+    
     params = {
         "search_terms": name,
         "search_simple": 1,
         "action": "process",
         "json": 1,
-        "page_size": limit  # fetch multiple products
+        "page_size": limit,
+        "fields": fields_to_fetch # <--- CRITICAL PERFORMANCE FIX
     }
-    # NOTE: No API Key needed for OpenFoodFacts
-    response = requests.get(url, params=params, headers={'User-Agent': 'CravingsSearchApp - PythonScript - v1.0'})
-    response.raise_for_status() # Raise exception for bad status codes (4xx or 5xx)
-    return response.json().get("products", [])
+    
+    # --- RETRY STRATEGY ---
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS"]
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+    try:
+        response = session.get(
+            url, 
+            params=params, 
+            headers={'User-Agent': 'CravingsSearchApp - PythonScript - v1.0'}, 
+            timeout=20, # Lower timeout is fine now because payload is small
+            verify=False 
+        )
+        response.raise_for_status()
+        return response.json().get("products", [])
+    except Exception as e:
+        raise e
 
 # -------- Nutrients extraction --------
 def extract_main_nutrients(nutriments):
-    """Extracts and standardizes main nutrient values from OpenFoodFacts data."""
     if not nutriments:
         return {}
     return {
-        # Using specific keys and fallback keys for common variations
         "calories_kcal_100g": nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal"),
         "proteins_100g": nutriments.get("proteins_100g"),
         "fat_100g": nutriments.get("fat_100g"),
@@ -92,26 +116,21 @@ def extract_main_nutrients(nutriments):
 
 # -------- Risk Analysis --------
 def is_product_risky(product, nutrients, user_profile):
-    """Checks if a product is risky based on user conditions and restrictions, including calorie limit."""
-
-    # Helper function to safely get float value
     def n(key):
         v = nutrients.get(key)
         try:
-            # Handle possible null or non-numeric values
             return float(v) if v is not None and str(v).strip() != '' else None
         except (ValueError, TypeError):
             return None
 
-    # --- 1. Calorie Limit Check ---
-    # The Node.js side passes the key as 'calorie_limit_kcal_100g'
+    # 1. Calorie Limit Check
     calorie_limit = user_profile.get("calorie_limit_kcal_100g") 
     calories = n("calories_kcal_100g")
     
     if calorie_limit and calories and calories > calorie_limit:
         return True, f"Exceeds Calorie Limit ({calories:.0f} kcal/100g)"
 
-    # --- 2. Health Condition Check (High Nutrients) ---
+    # 2. Health Condition Check
     salt = n("salt_100g")
     sugar = n("sugars_100g")
     sat_fat = n("saturated_fat_100g")
@@ -124,17 +143,13 @@ def is_product_risky(product, nutrients, user_profile):
     if conditions.get("High Cholesterol") and sat_fat and sat_fat > RISK_THRESHOLDS["saturated_fat_100g"]:
         return True, "High Saturated Fat for High Cholesterol"
 
-    # --- 3. Dietary Restriction Check (Allergens/Intolerance) ---
-    # The Node.js side passes the key as 'restrictions', so we use that key.
+    # 3. Dietary Restriction Check
     restrictions = user_profile.get("restrictions", {})
-    
-    # Required fields for preference checks
     labels_tags = product.get("labels_tags", [])
     ingredients_text = product.get("ingredients_text", "").lower()
     allergens_tags = product.get("allergens_tags", [])
 
     if restrictions.get("Lactose Free"):
-        # If the product isn't explicitly labeled as lactose-free AND ingredients suggest milk/lactose
         if "en:lactose-free" not in labels_tags and any(
             t in ingredients_text for t in ["lactose", "milk", "cheese", "butter"]
         ):
@@ -142,12 +157,10 @@ def is_product_risky(product, nutrients, user_profile):
 
     if restrictions.get("Nut Free"):
         nut_allergens = ["en:nuts", "en:almonds", "en:hazelnut", "en:walnuts", "en:cashew"]
-        # Check if any nut allergen tags are present
         if any(tag in allergens_tags for tag in nut_allergens):
             return True, "Contains Nut Allergens"
     
     if restrictions.get("Gluten Free"):
-        # If the product isn't explicitly labeled as gluten-free AND ingredients suggest gluten
         if "en:gluten-free" not in labels_tags and any(
             g in ingredients_text for g in ["wheat", "barley", "rye", "malt"]
         ):
@@ -159,70 +172,48 @@ def is_product_risky(product, nutrients, user_profile):
 # -------- Main Execution --------
 def main():
     try:
-        # DEBUG: Immediately show script is running
         print("=== PYTHON SCRIPT STARTED ===", file=sys.stderr)
-        print(f"=== Python version: {sys.version} ===", file=sys.stderr)
-        print(f"=== Command line args: {sys.argv} ===", file=sys.stderr)
         
-        # Read input from file OR stdin
         if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-            # Read from file (new method)
             input_file = sys.argv[1]
-            print(f"=== Reading from file: {input_file} ===", file=sys.stderr)
             with open(input_file, 'r') as f:
                 data = json.load(f)
         else:
-            # Read from stdin (old method)
-            print("=== Reading from stdin ===", file=sys.stderr)
             raw_data = sys.stdin.read()
-            print(f"=== Raw stdin data: {raw_data} ===", file=sys.stderr)
             if not raw_data:
                 raise ValueError("No input data received from Node.js.")
             data = json.loads(raw_data)
 
         product_name = data.get("input_name")
         if not product_name:
-            raise ValueError("Product name ('input_name') is missing from the input payload.")
+            raise ValueError("Product name ('input_name') is missing.")
 
         user_profile = data 
         print(f"=== Searching for: {product_name} ===", file=sys.stderr)
-        print(f"=== User conditions: {list(user_profile.get('conditions', {}).keys())} ===", file=sys.stderr)
         
     except Exception as e:
-        # Print error in JSON format so Node.js can catch and handle it
         error_result = {"error": f"Input processing error: {str(e)}"}
-        print(f"=== ERROR: {str(e)} ===", file=sys.stderr)
         print(json.dumps(error_result))
         sys.exit(1)
 
-    # Search for products (increased limit to fetch more candidates before filtering)
     try:
         print("=== Calling OpenFoodFacts API ===", file=sys.stderr)
-        products = search_openfoodfacts_by_name(product_name, limit=50)
+        # 20 is a good limit now that we are fetching small objects
+        products = search_openfoodfacts_by_name(product_name, limit=20) 
         print(f"=== Found {len(products)} raw products from API ===", file=sys.stderr)
-    except requests.HTTPError as e:
-        # Handle API errors specifically
-        error_result = {"error": f"OpenFoodFacts API error: {e.response.status_code} - {e.response.reason}"}
-        print(f"=== API ERROR: {e.response.status_code} ===", file=sys.stderr)
-        print(json.dumps(error_result))
-        return
-    except requests.RequestException as e:
-        # Handle connection errors
-        error_result = {"error": f"Network error during OpenFoodFacts search: {str(e)}"}
-        print(f"=== NETWORK ERROR: {str(e)} ===", file=sys.stderr)
+    except Exception as e:
+        error_result = {"error": f"API/Network error: {str(e)}"}
         print(json.dumps(error_result))
         return
 
     if not products:
-        # Return an empty list if no products are found
         result = {
             "user_profile": user_profile,
             "input_name": product_name,
             "count_filtered": 0,
             "products": [],
-            "skipped_products_for_debugging": [{"reason": f"No products found for name {product_name}."}]
+            "skipped_products_for_debugging": [{"reason": "No products found in API."}]
         }
-        print("=== No products found from API ===", file=sys.stderr)
         print(json.dumps(result, indent=2))
         return
 
@@ -235,68 +226,45 @@ def main():
         product_name_full = product.get("product_name")
         image_url = product.get("image_url")
         
-        # --- Mandatory checks ---
         if not product_name_full or not image_url:
             skipped_products.append({"name": product_name_full or "N/A", "reason": "Missing Name or Image URL"})
             continue
         
         nutriments_raw = product.get("nutriments", {})
         if not nutriments_raw:
-             # Skip products without nutrient data
              skipped_products.append({"name": product_name_full, "reason": "Missing Nutriments"})
              continue
              
         nutrients = extract_main_nutrients(nutriments_raw)
-        
-        # --- Risk Check and Exclusion ---
         is_risky, reason = is_product_risky(product, nutrients, user_profile)
-        
-        if is_risky:
-            # Store risky products and the reason they were skipped
-            skipped_products.append({"name": product_name_full, "reason": reason})
-            continue 
-        # --------------------------------------
-
-        # --- Calculate Similarity Score (Enhanced) ---
         similarity_score = calculate_similarity_score(product_name, product_name_full)
         
         scored_products.append({
-            "score": similarity_score, # Store the score for sorting
+            "score": similarity_score,
             "barcode": product.get("code"),
             "name": product_name_full,
             "brand": product.get("brands"),
             "image_url": image_url,
             "nutrients": nutrients,
-            "safety_status": reason 
+            "is_safe": not is_risky, 
+            "safety_status": reason if is_risky else "Safe"
         })
         
-    # --- Sort and Finalize ---
-    scored_products.sort(key=lambda x: x['score'], reverse=True)
+    scored_products.sort(key=lambda x: (x['score'], x['is_safe']), reverse=True)
+    filtered_products = [p for p in scored_products if p['score'] > 0]
     
-    # Final filtering and cleaning
-    filtered_products = []
-    for p in scored_products:
-        # Only include products that have a non-zero similarity score
-        if p['score'] > 0:
-            del p['score']
-            filtered_products.append(p)
-        else:
-            # Track products skipped due to poor similarity match
-            skipped_products.append({"name": p['name'], "reason": "Similarity Score Too Low (<= 0)"})
-
-    print(f"=== Final results: {len(filtered_products)} products after filtering ===", file=sys.stderr)
+    print(f"=== Final results: {len(filtered_products)} products ===", file=sys.stderr)
     
     output = {
         "user_profile": user_profile,
         "input_name": product_name,
         "count_filtered": len(filtered_products),
         "products": filtered_products,
-        "skipped_products_for_debugging": skipped_products # Added for debugging
+        "skipped_products_for_debugging": skipped_products
     }
 
     print(json.dumps(output, indent=2))
     print("=== PYTHON SCRIPT COMPLETED SUCCESSFULLY ===", file=sys.stderr)
-
 
 if __name__ == "__main__":
     main()
