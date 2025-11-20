@@ -497,7 +497,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     _userDataFuture = _fetchUserData();
     _todayMealsFuture = _fetchTodayMealPlan();
 
-    // Initialize default meals timeline
     _meals = [
       Meal(
           name: 'Breakfast',
@@ -506,7 +505,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
           loggedFoods: [
             LoggedFood(name: 'Oatmeal', icon: '🥣', calories: 350),
             LoggedFood(name: 'Banana', icon: '🍌', calories: 105),
-            LoggedFood(name: 'Almonds', icon: '🥜', calories: 150),
+            LoggedFood(name: 'Almonds', icon: '🌰', calories: 150),
           ]),
       Meal(
           name: 'Lunch',
@@ -523,10 +522,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     _headerAnimController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1200))
       ..forward();
-    
+
     _recipeScrollController = ScrollController();
-    
-    // Animate recipe scroll position after build
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_recipeScrollController.hasClients && mounted) {
         const double cardWidth = 160;
@@ -543,9 +541,10 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     });
   }
 
-  // --- UPDATED: Robust Fetch Method with Crash Protection ---
+  // ... (Keep _fetchTodayMealPlan, _fetchUserData, _getLocalFallbackData, _refreshData, _initAnimations, _navigateToMealDetails as they were)
+
   Future<TodayMealPlan> _fetchTodayMealPlan() async {
-    const String apiUrl = '$baseURL/api/mealplan'; 
+    const String apiUrl = '$baseURL/api/mealplan';
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('user_id');
     final token = await _authService.getToken();
@@ -564,18 +563,13 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       );
 
       if (response.statusCode == 200) {
-        // 1. Decode as dynamic first
         final dynamic decodedBody = json.decode(response.body);
-
-        // 2. Check if decoded data is null or not a Map (fixes the "Null is not subtype" error)
         if (decodedBody == null || decodedBody is! Map<String, dynamic>) {
           return TodayMealPlan(date: '', meals: []);
         }
-
         final Map<String, dynamic> data = decodedBody;
         final List<dynamic> mealsJson = data['meals'] ?? [];
 
-        // 3. Map safely, filtering out any invalid items
         final meals = mealsJson.map((mealJson) {
           if (mealJson == null || mealJson is! Map<String, dynamic>) {
             return null;
@@ -584,9 +578,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             id: mealJson['id'] as int? ?? 0,
             title: mealJson['title'] as String? ?? 'Unnamed Meal',
             imageUrl: "https://spoonacular.com/recipeImages/${mealJson['id']}-556x370.${mealJson['imageType'] ?? 'jpg'}",
-            rawData: mealJson, // Store full data for the details screen
+            rawData: mealJson,
           );
-        }).whereType<MealPlanItem>().toList(); // Removes nulls
+        }).whereType<MealPlanItem>().toList();
 
         return TodayMealPlan(
           date: data['date'] as String? ?? DateTime.now().toIso8601String(),
@@ -620,12 +614,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 
       if (response.statusCode == 200) {
         final dynamic decodedBody = json.decode(response.body);
-        
-        // Safety check for user data response
         if (decodedBody == null || decodedBody is! Map<String, dynamic>) {
-             return _getLocalFallbackData();
+          return _getLocalFallbackData();
         }
-        
         final data = decodedBody;
         if (data['success'] == true) {
           LocalDB.setCarbs(data['carbs']);
@@ -692,25 +683,23 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-  // --- NEW: Navigate to Meal Details ---
   void _navigateToMealDetails(BuildContext context, MealPlanItem meal) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MealDetailsScreen(
-          meal: meal.rawData, // Pass the full raw JSON
-          date: DateTime.now(), // Since this is "Today's" plan
+          meal: meal.rawData,
+          date: DateTime.now(),
         ),
       ),
     );
-
-    // If result is true, it means the user logged the meal
     if (result == true) {
-      _refreshData(); // Refresh timeline and stats
+      _refreshData();
     }
   }
 
   Future<void> _openCameraScreen() async {
+    // Ensure overlay is hidden if it was showing
     Provider.of<CameraOverlayController>(context, listen: false).hide();
     final imagePath = await Navigator.push<String>(
       context,
@@ -781,6 +770,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  // --- UPDATED: Add Food Options with Describe Meal included ---
   void _showAddFoodOptions(BuildContext context, Meal meal) {
     showModalBottomSheet(
       context: context,
@@ -801,10 +791,24 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 title: const Text('Scan Meal'),
                 onTap: () {
                   Navigator.pop(ctx);
+                  // Note: If you want the real camera here, call _openCameraScreen()
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (context) => const ScanMealScreen()),
+                  );
+                },
+              ),
+              // --- ADDED: Describe Meal Option ---
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline_rounded),
+                title: const Text('Describe Meal'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const DescribeMealScreen()),
                   );
                 },
               ),
@@ -899,10 +903,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                                 const DailyStepsChartCard(),
                                 const SizedBox(height: 24),
                                 _buildSectionHeader(context, 'For You'),
-                                
-                                // --- Today's Meal Plan Section ---
                                 _buildTodayMealPlanSection(context),
-                                
                                 const SizedBox(height: 24),
                                 const _DailyInsightCard(),
                                 const SizedBox(height: 24),
@@ -929,6 +930,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                   child: Text("No data found for your profile."));
             },
           ),
+          // This overlay is kept here as requested, even if unused by the main button
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
         ],
       ),
@@ -970,7 +972,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
-  // --- UPDATED: Recipe Section with OnTap Handler ---
   Widget _buildRecipeSection({
     required ScrollController scrollController,
     required List<MealPlanItem> meals,
@@ -993,7 +994,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             child: Padding(
               padding: const EdgeInsets.only(right: spacing),
               child: _TiltableRecipeCard(
-                // Pass the tap handler specifically for this meal
                 onTap: () => _navigateToMealDetails(context, meal),
                 child: SizedBox(
                   width: cardWidth,
@@ -1038,6 +1038,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  // --- Kept but effectively unused if you bypass the overlay controller ---
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);
     final colorScheme = Theme.of(context).colorScheme;
@@ -1201,7 +1202,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                           builder: (context) => const ActivityLogSheet(),
                         ).then((selectedActivity) {
                           if (selectedActivity != null) {
-                            // ignore: avoid_print
                             print('Logged activity: ${selectedActivity.name}');
                           }
                         });
@@ -1244,6 +1244,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  // ... (Keeping _buildHeader, _buildSectionHeader, _buildMealTimeline, _buildQuickActions, and other widgets as they were)
+  
   SliverAppBar _buildHeader(
       BuildContext context, DailySummary summary, String userName) {
     final String currentDate =

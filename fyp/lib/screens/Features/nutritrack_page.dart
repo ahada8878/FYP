@@ -15,9 +15,9 @@ const Color greyText = Color(0xFF636E72);
 const Color lightBg = Color(0xFFFAFAFA);
 
 class NutriTrackPage extends StatefulWidget {
-  // ✅ --- NEW: Optional message to display when navigating here ---
+  // ✅ Added this back so your other screen doesn't crash
   final String? initialMessage;
-  
+
   const NutriTrackPage({super.key, this.initialMessage});
 
   @override
@@ -31,37 +31,34 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
   @override
   void initState() {
     super.initState();
-    // ✅ Use the new efficient service method
-    _logsFuture = _foodLogService.fetchLastSevenDaysLogs();
+    // ✅ Start with loader enabled
+    _logsFuture = _fetchLastSevenDaysLogs(isInitialLoad: true);
 
-    // ✅ Show SnackBar if initialMessage is present
+    // ✅ Handle the initial message (SnackBar)
     if (widget.initialMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.initialMessage!),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: (){}),
+            backgroundColor: calorieOrange,
+            duration: const Duration(seconds: 3),
           ),
         );
       });
     }
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
+  Future<Map<DateTime, List<FoodLog>>> _fetchLastSevenDaysLogs({bool isInitialLoad = false}) async {
+    // --- ⏳ 5-SECOND LOADER (Only on first load) ---
+    if (isInitialLoad) {
+      await Future.delayed(const Duration(seconds: 5));
+    }
 
-  Future<Map<DateTime, List<FoodLog>>> _fetchLastSevenDaysLogs() async {
     Map<DateTime, List<FoodLog>> logData = {};
     List<DateTime> daysToFetch = [];
     final now = DateTime.now();
     
     for (int i = 0; i < 7; i++) {
-      // Clear time components for reliable date comparison and API call
       final date = now.subtract(Duration(days: i));
       daysToFetch.add(DateTime(date.year, date.month, date.day));
     }
@@ -77,15 +74,14 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
       }
       return logData;
     } catch (e) {
-      // Re-throw the error to be handled by FutureBuilder
       throw Exception('Failed to load logs: $e');
     }
   }
 
   Future<void> _handleRefresh() async {
     setState(() {
-      // ✅ Use the new efficient service method
-      _logsFuture = _foodLogService.fetchLastSevenDaysLogs();
+      // ✅ Instant refresh (no delay)
+      _logsFuture = _fetchLastSevenDaysLogs(isInitialLoad: false);
     });
   }
 
@@ -138,7 +134,6 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
               style: TextStyle(
                   fontSize: 24, 
                   fontWeight: FontWeight.w900, 
-                  // UPDATED: Use Theme Primary
                   color: Theme.of(context).colorScheme.primary 
               )
           ),
@@ -164,10 +159,8 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        // UPDATED: Use Theme Primary
         title: Text("Food History", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
         leading: IconButton(
-          // UPDATED: Use Theme Primary
           icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).colorScheme.primary),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -261,11 +254,9 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // UPDATED: Use Theme Primary for the big number
                   Text("$avgCals", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 28, fontWeight: FontWeight.w900)),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 5, left: 4),
-                    // UPDATED: Use Theme Primary for unit
                     child: Text("kcal / day", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -343,8 +334,7 @@ class _GlassDayCard extends StatelessWidget {
     List<Widget> missingMealWidgets = [];
     if (isTodayOrPast) {
       final loggedMealTypes = logs.map((l) => l.mealType).toSet();
-      final allMealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
-      
+      final allMealTypes = ['Breakfast', 'Lunch', 'Dinner'];
       for (var type in allMealTypes) {
         if (!loggedMealTypes.contains(type)) {
           missingMealWidgets.add(_buildMissingAction(context, type));
@@ -366,7 +356,6 @@ class _GlassDayCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // UPDATED: Use Theme Primary for Day Title
                   Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary)),
                   Text(subtitleDate, style: const TextStyle(fontSize: 12, color: greyText, fontWeight: FontWeight.w600)),
                 ],
@@ -423,7 +412,6 @@ class _GlassDayCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              // UPDATED: Use Theme Primary for Log Button Background
               decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(20)),
               child: const Text("Log +", style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
             ),
@@ -515,7 +503,6 @@ class _ManualLogFoodSheetState extends State<_ManualLogFoodSheet> {
       fillColor: Colors.grey.shade50,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-      // UPDATED: Use Theme Primary for Focused Border
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       labelStyle: const TextStyle(color: greyText),
@@ -537,7 +524,6 @@ class _ManualLogFoodSheetState extends State<_ManualLogFoodSheet> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
-            // UPDATED: Use Theme Primary for Sheet Title
             Text("Log ${widget.mealType}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary)),
             Text(DateFormat('MMMM d').format(widget.date), style: const TextStyle(color: greyText)),
             const SizedBox(height: 30),
@@ -558,7 +544,6 @@ class _ManualLogFoodSheetState extends State<_ManualLogFoodSheet> {
               child: ElevatedButton(
                 onPressed: _submit,
                 style: ElevatedButton.styleFrom(
-                  // UPDATED: Use Theme Primary for Button Background
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
