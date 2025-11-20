@@ -1,62 +1,48 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fyp/services/config_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:convert';
-import 'dart:ui'; // Needed for Color.lerp
-import '../../services/config_service.dart';
- 
-// Configuration constant
+
+// Configuration
 const String apiUrl = "$baseURL/upload";
 
-// Formal Color Palette (unchanged from original, aligned with RecipeSuggestion)
-const MaterialColor primaryAppColor = MaterialColor(0xFF37474F, <int, Color>{
-  50: Color(0xFFECEFF1),
-  100: Color(0xFFCFD8DC),
-  200: Color(0xFFAAB8C0),
-  300: Color(0xFF839AA8),
-  400: Color(0xFF678190),
-  500: Color(0xFF4F6E7F),
-  600: Color(0xFF476677),
-  700: Color(0xFF3E5C6B),
-  800: Color(0xFF37474F), // Primary
-  900: Color(0xFF263238),
-});
-const Color secondaryAccentColor = Color(0xFF00838F);
-const Color safeGreen = Color(0xFF388E3C);
-const Color riskyRed = Color(0xFFD32F2F);
+// --- 🎨 COLOR PALETTE ---
+const Color safeGreen = Color(0xFF2E7D32); 
+const Color riskyRed = Color(0xFFD32F2F);   
+const Color darkText = Color(0xFF2D3436);
+const Color greyText = Color(0xFF636E72);
+const Color lightBg = Color(0xFFFAFAFA);
 
-// Authentication Service (unchanged)
+// Auth Service
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
-
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
   }
-
   Future<String?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_userIdKey);
   }
 }
 
-// State Management
 enum ScreenState { initial, loading, results, error }
 
 class LabelScannerPage extends StatefulWidget {
   const LabelScannerPage({super.key});
-
   @override
   State<LabelScannerPage> createState() => _LabelScannerPageState();
 }
 
-// TickerProviderStateMixin is now removed from here, as the background manages its own
-class _LabelScannerPageState extends State<LabelScannerPage> { 
+class _LabelScannerPageState extends State<LabelScannerPage> {
   ScreenState _currentState = ScreenState.initial;
   File? _image;
   Map<String, dynamic>? _results;
@@ -72,511 +58,519 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
     _fetchToken();
   }
 
-  // Dispose is cleaner as the AnimationController is no longer here
-  // @override
-  // void dispose() {
-  //   super.dispose();
-  // }
-
-
   Future<void> _fetchToken() async {
     final token = await _authService.getToken();
     final userId = await _authService.getUserId();
     setState(() {
       _userToken = token;
       _userId = userId;
-      if (_userToken == null || _userId == null) {
-        _errorMessage = "Authentication required. Please log in.";
-        _currentState = ScreenState.error;
-      }
     });
   }
 
-  // Utility: Text Formatting (unchanged)
-  String _capitalizeText(String text) {
+  // --- HELPERS ---
+  String _capitalize(String text) {
     if (text.isEmpty) return 'N/A';
-    return text.split(' ').map((word) {
-      if (word.isEmpty) return '';
-      return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
-    }).join(' ');
+    return text.split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ');
   }
 
-  String _getFormattedName(Map<String, dynamic> data) {
-    final name = data['name'];
-    return (name is String && name.isNotEmpty)
-        ? _capitalizeText(name)
-        : 'Product Name N/A';
-  }
-
-  String _getFormattedBrand(Map<String, dynamic> data) {
-    final brand = data['brand'];
-    return (brand is String && brand.isNotEmpty) ? _capitalizeText(brand) : 'N/A';
-  }
-
-  // Logic Fix: Use failure_count for reliable overall status
-  Map<String, dynamic> _getOverallSafetyStatus(Map<String, dynamic> productData) {
-    final List<dynamic> safetyStatuses = productData['safety_statuses'] ?? [];
-    // Prioritize failure_count from the Python script for the main product
-    final int failureCount = productData['failure_count'] ?? (
-      // Fallback for alternatives or if field is missing: count fails manually
-      safetyStatuses.where((s) => s['is_safe'] == false).length
-    );
-
-    if (safetyStatuses.isEmpty) {
-      return {'is_safe': false, 'emoji': '❓', 'text': 'NO DATA'};
-    }
+  Map<String, dynamic> _getStatus(Map<String, dynamic> productData) {
+    final List<dynamic> statuses = productData['safety_statuses'] ?? [];
+    final int fails = productData['failure_count'] ?? (statuses.where((s) => s['is_safe'] == false).length);
     
-    final bool isOverallSafe = (failureCount == 0);
-    
+    if (statuses.isEmpty) return {'is_safe': false, 'text': 'NO DATA', 'icon': Icons.help_outline, 'color': Colors.grey};
+
+    bool isSafe = fails == 0;
     return {
-      'is_safe': isOverallSafe,
-      'emoji': isOverallSafe ? '✅' : '❌',
-      'text': isOverallSafe ? 'SAFE' : 'RISKY',
+      'is_safe': isSafe,
+      'text': isSafe ? 'EXCELLENT' : 'ATTENTION',
+      'subtext': isSafe ? 'Clean & Safe Product' : 'Additives / Allergens Detected',
+      'icon': isSafe ? Icons.verified_user_rounded : Icons.warning_amber_rounded,
+      'color': isSafe ? safeGreen : riskyRed,
     };
   }
 
-  // Image Picking (unchanged)
+  // --- ACTIONS ---
   Future<void> _pickImage() async {
-    if (_userToken == null || _userId == null) {
-      setState(() {
-        _errorMessage = "Cannot scan. Authentication token or user ID is missing. Please log in.";
-        _currentState = ScreenState.error;
-      });
-      return;
-    }
-
-    setState(() {
-      _currentState = ScreenState.initial;
-      _results = null;
-      _errorMessage = null;
-    });
-
-    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+    if (_userToken == null) return;
+    final ImageSource? source = await showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                leading: Icon(Icons.photo_library, color: primaryAppColor),
-                title: const Text('Photo Gallery'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
-              ),
-              ListTile(
-                leading: Icon(Icons.camera_alt, color: primaryAppColor),
-                title: const Text('Take a Photo'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
-              ),
-            ],
-          ),
-        );
-      },
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (c) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: const Icon(Icons.photo_library, color: Colors.teal), title: const Text('Gallery'), onTap: () => Navigator.pop(c, ImageSource.gallery)),
+        ListTile(leading: const Icon(Icons.camera_alt, color: Colors.teal), title: const Text('Camera'), onTap: () => Navigator.pop(c, ImageSource.camera)),
+      ])),
     );
-
     if (source == null) return;
-    final XFile? pickedFile = await _picker.pickImage(source: source);
-
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-        _currentState = ScreenState.loading;
-      });
+    final XFile? picked = await _picker.pickImage(source: source);
+    if (picked != null) {
+      setState(() { _image = File(picked.path); _currentState = ScreenState.loading; });
       _uploadImage(_image!);
     }
   }
 
-  // Image Upload and API Call (unchanged)
-  Future<void> _uploadImage(File imageFile) async {
-    if (_userToken == null || _userId == null) {
-      setState(() {
-        _currentState = ScreenState.error;
-        _errorMessage = "Missing authorization or user ID.";
-      });
-      return;
-    }
-
-    final String token = _userToken!;
-    final String userId = _userId!;
-
-    final Map<String, String> headers = {
-      'Authorization': 'Bearer $token',
-    };
-
+  Future<void> _uploadImage(File f) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-      request.headers.addAll(headers);
-      request.fields['user_id'] = userId;
-      request.files.add(
-        await http.MultipartFile.fromPath('image', imageFile.path),
-      );
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
-        if (jsonResponse.containsKey('error')) {
-          setState(() {
-            _errorMessage = jsonResponse['error'] as String;
-            _results = null;
-            _currentState = ScreenState.error;
-          });
+      final req = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      req.headers['Authorization'] = 'Bearer $_userToken';
+      req.fields['user_id'] = _userId!;
+      req.files.add(await http.MultipartFile.fromPath('image', f.path));
+      final res = await http.Response.fromStream(await req.send());
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['error'] != null) {
+          setState(() { _errorMessage = data['error']; _currentState = ScreenState.error; });
         } else {
-          setState(() {
-            _results = jsonResponse;
-            _currentState = ScreenState.results;
-          });
+          setState(() { _results = data; _currentState = ScreenState.results; });
         }
-      } else if (response.statusCode == 401) {
-        setState(() {
-          _errorMessage = "Authentication failed. Token is invalid or expired. Please log in.";
-          _results = null;
-          _currentState = ScreenState.error;
-        });
       } else {
-        final jsonResponse = jsonDecode(response.body);
-        final String serverMessage = jsonResponse['message'] ?? 'Failed to process image due to server error.';
-        
-        setState(() {
-          _errorMessage = "Server error: Status ${response.statusCode}. $serverMessage";
-          _results = null;
-          _currentState = ScreenState.error;
-        });
+        setState(() { _errorMessage = "Server Error: ${res.statusCode}"; _currentState = ScreenState.error; });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = "Network error or failed to connect to server. Details: $e";
-        _results = null;
-        _currentState = ScreenState.error;
-      });
+      setState(() { _errorMessage = "Network Error"; _currentState = ScreenState.error; });
     }
   }
 
-  // Reset Screen (unchanged)
-  void _resetScreen() {
-    setState(() {
-      _currentState = ScreenState.initial;
-      _image = null;
-      _results = null;
-      _errorMessage = null;
-    });
-  }
+  void _reset() => setState(() { _currentState = ScreenState.initial; _image = null; _results = null; });
 
-  // Product Card Builder (Card color is plain white/default)
-  Widget _buildProductCard(Map<String, dynamic> productData, {bool isAlternative = false}) {
-    final List<dynamic> safetyStatuses = productData['safety_statuses'] ?? [];
-    // Use the whole map in _getOverallSafetyStatus to access failure_count
-    final Map<String, dynamic> overallStatus = _getOverallSafetyStatus(productData); 
-    final bool isSafe = overallStatus['is_safe'];
-    final Color safeColor = safeGreen;
-    final Color riskColor = riskyRed;
-    
-    final Color statusColor = isSafe ? safeColor : riskColor;
-    final Color cardColor = Colors.white; // Set card background to plain white
-    
-    final String statusText = "${overallStatus['emoji']} OVERALL ${overallStatus['text']}";
-    final String imageUrl = productData['image_url'] ?? 'https://via.placeholder.com/100?text=No+Image';
-    final Map<String, dynamic> nutrients = productData['nutrients'] ?? {};
-    final List<MapEntry<String, dynamic>> validNutrients =
-        nutrients.entries.where((e) => e.value != null).toList();
+  // --- 🎨 UI BUILDERS ---
 
-    return Card(
-      color: cardColor, // Use the plain white card color
-      elevation: isAlternative ? 2 : 6,
-      margin: const EdgeInsets.only(bottom: 16.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        // Border color retains the safety status
-        side: BorderSide(
-            color: statusColor.withOpacity(isAlternative ? 0.3 : 1.0),
-            width: isAlternative ? 1 : 3),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Image and Name
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    imageUrl,
-                    width: isAlternative ? 60 : 80,
-                    height: isAlternative ? 60 : 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                        Icons.image_not_supported,
-                        size: isAlternative ? 60 : 80,
-                        color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getFormattedName(productData),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: isAlternative ? 16 : 20,
-                            color: Colors.black87),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text('Brand: ${_getFormattedBrand(productData)}',
-                          style: TextStyle(
-                              fontSize: 14, color: Colors.grey[600])),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          borderRadius: BorderRadius.circular(25.0),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  // 1. THE HEADER
+  Widget _buildHeaderResult(Map<String, dynamic> product, Map<String, dynamic> status) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        // Background Image Container
+        Container(
+          width: double.infinity,
+          height: 320,
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
+            image: DecorationImage(
+              image: const CachedNetworkImageProvider("https://images.pexels.com/photos/15182665/pexels-photo-15182665.jpeg"),
+              fit: BoxFit.cover,
+              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.2), BlendMode.darken),
             ),
-
-            const SizedBox(height: 15),
-
-            // Individual Safety Statuses
-            Text('Personalized Safety Checks:',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold, color: Colors.black)),
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Wrap(
-                spacing: 8.0,
-                runSpacing: 4.0,
-                children: safetyStatuses.map((status) {
-                  // Relies on the 'is_safe' flag added in the Python script
-                  final bool statusIsSafe = status['is_safe'] ?? false; 
-                  final Color chipColor = statusIsSafe ? safeGreen : riskyRed;
-                  // Use the 'name' and 'status_detail' field from the Python output
-                  final String chipLabel = '${status['name']} (${status['status_detail']})';
-
-                  return Chip(
-                    avatar: Icon(
-                      statusIsSafe
-                          ? Icons.check_circle_outline
-                          : Icons.cancel_outlined,
-                      color: chipColor,
-                      size: 18,
+          ),
+          // --- BLUR EFFECT STARTS HERE ---
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+              child: Container(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: (status['color'] as Color).withOpacity(0.2),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: status['color'], width: 2),
+                      ),
+                      child: Icon(status['icon'], size: 40, color: status['color']),
                     ),
-                    label: Text(
-                      chipLabel,
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: chipColor,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    backgroundColor: chipColor.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.all(4),
-                  );
-                }).toList(),
+                    const SizedBox(height: 12),
+                    Text(status['text'], style: TextStyle(color: status['color'], fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                    Text(status['subtext'], style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 50),
+                  ],
+                ),
               ),
             ),
-
-            // Nutrient Snapshot
-            if (validNutrients.isNotEmpty) ...[
-              const SizedBox(height: 15),
-              Text('Nutrient Snapshot (per 100g):',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold, color: Colors.black)),
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Wrap(
-                  spacing: 12.0,
-                  runSpacing: 4.0,
-                  children: validNutrients.map((entry) {
-                    final key = entry.key
-                        .replaceAll('_100g', '')
-                        .replaceAll('_kcal', '')
-                        .replaceAll('_', ' ');
-                    final unit = entry.key.contains('kcal') ? 'kcal' : 'g';
-                    final displayColor = primaryAppColor.shade600;
-
-                    return Chip(
-                      label: Text(
-                        '${_capitalizeText(key)}: ${double.parse(entry.value.toString()).toStringAsFixed(1)}$unit',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: displayColor,
-                            fontWeight: FontWeight.w500),
-                      ),
-                      backgroundColor: displayColor.withOpacity(0.1),
-                      padding: const EdgeInsets.all(4),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 10),
-              Text('Nutrient Snapshot: N/A',
-                  style: TextStyle(
-                      fontStyle: FontStyle.italic, color: Colors.grey[600])),
-            ],
-          ],
+          ),
         ),
-      ),
+
+        // Floating Product Image
+        Positioned(
+          bottom: -50,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 25, offset: const Offset(0, 10))]
+            ),
+            child: CircleAvatar(
+              radius: 65,
+              backgroundColor: Colors.white,
+              backgroundImage: NetworkImage(product['image_url'] ?? ''),
+              onBackgroundImageError: (_, __) => const Icon(Icons.image_not_supported),
+            ),
+          ),
+        )
+      ],
     );
   }
 
-  // UI Builders (unchanged)
-  Widget _buildBody() {
-    switch (_currentState) {
-      case ScreenState.results:
-        return _buildResultsUI();
-      case ScreenState.loading:
-        return const Center(child: CircularProgressIndicator());
-      case ScreenState.error:
-        return _buildErrorUI();
-      case ScreenState.initial:
-      default:
-        return _buildInitialUI();
-    }
-  }
+  // 2. DASHBOARD
+  Widget _buildNutrientDashboard(Map<String, dynamic>? nutrients) {
+    if (nutrients == null) return const SizedBox();
+    
+    final items = [
+      {'key': 'energy_kcal', 'label': 'Calories', 'unit': '', 'color': Colors.orange, 'icon': Icons.local_fire_department_rounded},
+      {'key': 'proteins_100g', 'label': 'Protein', 'unit': 'g', 'color': Colors.blue, 'icon': Icons.fitness_center_rounded},
+      {'key': 'carbohydrates_100g', 'label': 'Carbs', 'unit': 'g', 'color': Colors.amber, 'icon': Icons.grain_rounded},
+      {'key': 'fat_100g', 'label': 'Fat', 'unit': 'g', 'color': Colors.redAccent, 'icon': Icons.water_drop_rounded},
+    ];
 
-  Widget _buildInitialUI() {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Lottie.asset(
-            'assets/animation/qr_scanner.json',
-            width: 300,
-            height: 300,
-          ),
-          const SizedBox(height: 30),
-          Text(
-            'Ready to Scan?',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Take a picture of a product barcode or nutrition label for an instant safety check.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Start Scanning...'),
-            onPressed: _pickImage,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30.0),
-              ),
-            ),
+          const SizedBox(height: 15),
+
+          const Text("NUTRITION DASHBOARD", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black, letterSpacing: 1.2)),
+          const SizedBox(height: 15),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 1.5),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final val = nutrients[item['key']] ?? '-';
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20), 
+                  border: Border.all(color: Colors.grey.shade500),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(item['icon'] as IconData, color: item['color'] as Color, size: 28),
+                    const SizedBox(height: 8),
+                    Text("${item['label']}", style: const TextStyle(fontSize: 12, color: greyText, fontWeight: FontWeight.w600)),
+                    Text("$val${item['unit']}", style: const TextStyle(fontSize: 20, color: darkText, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildErrorUI() {
+  // 3. TIMELINE
+  Widget _buildSafetyTimeline(List<dynamic>? checks) {
+    if (checks == null || checks.isEmpty) return const SizedBox();
+
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 60),
-          const SizedBox(height: 20),
-          const Text('Oops!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Text(_errorMessage ?? 'An unknown error occurred.', textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _resetScreen,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: secondaryAccentColor,
-            ),
-            child: const Text('Try Again'),
-          ),
+
+          const Text("INGREDIENT ANALYSIS", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black, letterSpacing: 1.2)),
+          const SizedBox(height: 15),
+          ListView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: checks.length,
+            itemBuilder: (context, index) {
+              final check = checks[index];
+              final isSafe = check['is_safe'] == true;
+              return IntrinsicHeight(
+                child: Row(
+                  children: [
+                    Column(
+                      children: [
+                        Container(width: 1, height: 20, color: Colors.grey.shade500),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: isSafe ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE), shape: BoxShape.circle, border: Border.all(color: isSafe ? Colors.green : Colors.red, width: 2)),
+                          child: Icon(isSafe ? Icons.check : Icons.priority_high, size: 14, color: isSafe ? Colors.green : Colors.red),
+                        ),
+                        Expanded(child: Container(width: 1, color: Colors.grey.shade500)),
+                      ],
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 15),
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white, 
+                          borderRadius: BorderRadius.circular(15), 
+                          border: Border.all(color: Colors.grey.shade500),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(check['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: darkText)),
+                            const SizedBox(height: 4),
+                            Text(check['status_detail'] ?? '', style: TextStyle(fontSize: 13, color: isSafe ? greyText : Colors.redAccent)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          )
         ],
       ),
     );
   }
 
-  Widget _buildResultsUI() {
-    final product = _results!['product'] as Map<String, dynamic>;
-    final alternatives = _results!['alternatives'] as List<dynamic>;
-    final limitedAlternatives = alternatives.take(15).toList();
+  // 4. ALTERNATIVES
+  Widget _buildAlternatives(List<dynamic> alts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text("BETTER CHOICES", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black, letterSpacing: 1.2)),
+        ),
+        const SizedBox(height: 15),
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(left: 20, right: 10),
+            physics: const BouncingScrollPhysics(),
+            itemCount: alts.length,
+            itemBuilder: (context, index) {
+              final alt = alts[index];
+              return Container(
+                width: 140,
+                margin: const EdgeInsets.only(right: 15, bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white, 
+                  borderRadius: BorderRadius.circular(20), 
+                  border: Border.all(color: Colors.grey.shade400),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 3, offset: const Offset(0, 5))]
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(15),
+                        child: Image.network(alt['image_url'] ?? '', fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.broken_image, color: Colors.grey)),
+                      ),
+                    ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: lightBg, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20))),
+                      child: Column(
+                        children: [
+                          Text(_capitalize(alt['name'] ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: darkText)),
+                          const SizedBox(height: 4),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: const Text("Safe Swap", style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold))),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- MAIN BUILDERS ---
+
+  Widget _buildResults() {
+    final product = _results!['product'];
+    final alts = _results!['alternatives'];
+    final status = _getStatus(product);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 50),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Your Scanned Product:',
-            style: Theme.of(context).textTheme.headlineSmall,
+          _buildHeaderResult(product, status),
+          const SizedBox(height: 60), 
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Text(
+              _capitalize(product['name'] ?? ''), 
+              textAlign: TextAlign.center, 
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: darkText)
+            ),
           ),
-          const SizedBox(height: 16),
-          _buildProductCard(product),
-          const SizedBox(height: 24),
-          Text(
-            'Better Alternatives:',
-            style: Theme.of(context).textTheme.headlineSmall,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Text(
+              _capitalize(product['brand'] ?? ''), 
+              textAlign: TextAlign.center, 
+              style: const TextStyle(fontSize: 14, color: greyText, fontWeight: FontWeight.w600)
+            ),
           ),
-          const SizedBox(height: 8),
-          if (limitedAlternatives.isEmpty)
-            Text(
-              'No alternatives found in the same category.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600], fontStyle: FontStyle.italic),
-            )
-          else
-            ...limitedAlternatives.map((alt) => _buildProductCard(alt as Map<String, dynamic>, isAlternative: true)),
+
+          const SizedBox(height: 30),
+          _buildNutrientDashboard(product['nutrients']),
+          const SizedBox(height: 40),
+          _buildSafetyTimeline(product['safety_statuses']),
+          const SizedBox(height: 40),
+          if (alts.isNotEmpty) _buildAlternatives(alts),
         ],
       ),
     );
   }
 
-  // Main Build Method 
+  Widget _buildInitial() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 70,),
+          Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color:  Colors.white.withOpacity(0.5), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 30)]), child: Lottie.asset('assets/animation/qr_scanner.json', width: 200, height: 200)),
+          const SizedBox(height: 40),
+           Text("Scan Product", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary,)),
+          const SizedBox(height: 10),
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 50), child: Text("Point your camera at a barcode or nutrition label for an instant health analysis.", textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: greyText))),
+          const SizedBox(height: 40),
+          InkWell(
+            onTap: () { HapticFeedback.lightImpact(); _pickImage(); },
+            borderRadius: BorderRadius.circular(50),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(50), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8))]),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.center_focus_weak, color: Colors.white), SizedBox(width: 10), Text("START SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))]),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // --- MAIN BUILDERS (Error Screen Update) ---
+
+Widget _buildError(BuildContext context) {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Error Icon
+          Icon(
+            Icons.sentiment_dissatisfied_rounded,
+            size: 76,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+
+          const SizedBox(height: 30),
+
+          // Title
+          Text(
+            "Scan Failed",
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: darkText,
+            ),
+          ),
+
+          // Error Message
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0),
+            child: Text(
+              _errorMessage ??
+                  "An unexpected error occurred while processing the image. Please try again.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: greyText,
+                fontSize: 16,
+                height: 1.4,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // Try Again Button
+          InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _reset();
+            },
+            borderRadius: BorderRadius.circular(50),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(50),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withOpacity(0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  )
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "TRY AGAIN",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Restoring transparent background
-      backgroundColor: Colors.transparent, 
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Food Scanner'),
+        // MODIFIED: Show title if Initial OR Error state
+        title: (_currentState == ScreenState.initial || _currentState == ScreenState.error) 
+            ? Text("Scanner", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary,)) 
+            : null,
         centerTitle: true,
-        // Restoring previous light color
-        backgroundColor: const Color(0xffa8edea), 
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          if (_currentState != ScreenState.initial)
-            IconButton(icon: const Icon(Icons.refresh), onPressed: _resetScreen)
-        ],
-      ),
-      // Restoring Stack to layer the background behind the content
+        leading: _currentState == ScreenState.results 
+            ? IconButton(icon: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white,), onPressed: _reset) 
+            : Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).colorScheme.primary,)
+      ),  
+      // Stack handles the background + content
       body: Stack(
         children: [
-          const _LivingAnimatedBackground(), // Layer 1: The animated background (no controller passed)
-          AnimatedSwitcher( // Layer 2: The original page content
-            duration: const Duration(milliseconds: 300),
-            child: _buildBody(),
+          const _LivingAnimatedBackground(), // The gradient
+          Container(color: Colors.white.withOpacity(0.2)), // The tint you requested
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: _currentState == ScreenState.loading 
+              ?  Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)) 
+              : _currentState == ScreenState.results 
+                  ? _buildResults() 
+                  : _currentState == ScreenState.error 
+                      ? _buildError(context) 
+                      : _buildInitial()
           ),
         ],
       ),
@@ -584,53 +578,18 @@ class _LabelScannerPageState extends State<LabelScannerPage> {
   }
 }
 
-// CORRECTED: The animated background widget now manages its own state and ticker.
+// --- BACKGROUND ---
 class _LivingAnimatedBackground extends StatefulWidget {
   const _LivingAnimatedBackground();
-  
-  // Creates the associated state object
   @override
   State<_LivingAnimatedBackground> createState() => _LivingAnimatedBackgroundState();
 }
-
-class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground>
-    with TickerProviderStateMixin { // The TickerProviderStateMixin is here now
-  late AnimationController _controller;
-  
+class _LivingAnimatedBackgroundState extends State<_LivingAnimatedBackground> with TickerProviderStateMixin {
+  late AnimationController _c;
   @override
-  void initState() {
-    super.initState();
-    // Animation controller is initialized here
-    _controller =
-        AnimationController(vsync: this, duration: const Duration(seconds: 40))
-          ..repeat(reverse: true);
-  }
-
+  void initState() { super.initState(); _c = AnimationController(vsync: this, duration: const Duration(seconds: 40))..repeat(reverse: true); }
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  
+  void dispose() { _c.dispose(); super.dispose(); }
   @override
-  Widget build(BuildContext context) {
-    // Interpolate between the two light colors based on the controller's value
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final colors = [
-          Color.lerp(
-              const Color(0xffa8edea), const Color(0xfffed6e3), _controller.value)!,
-          Color.lerp(
-              const Color(0xfffed6e3), const Color(0xffa8edea), _controller.value)!,
-        ];
-        return Container(
-            decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: colors)));
-      },
-    );
-  }
+  Widget build(BuildContext context) => AnimatedBuilder(animation: _c, builder: (ctx, _) => Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color.lerp(const Color(0xffa8edea), const Color(0xfffed6e3), _c.value)!, Color.lerp(const Color(0xfffed6e3), const Color(0xffa8edea), _c.value)!]))));
 }
