@@ -15,7 +15,10 @@ const Color greyText = Color(0xFF636E72);
 const Color lightBg = Color(0xFFFAFAFA);
 
 class NutriTrackPage extends StatefulWidget {
-  const NutriTrackPage({super.key});
+  // ✅ --- NEW: Optional message to display when navigating here ---
+  final String? initialMessage;
+  
+  const NutriTrackPage({super.key, this.initialMessage});
 
   @override
   State<NutriTrackPage> createState() => _NutriTrackPageState();
@@ -28,18 +31,37 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
   @override
   void initState() {
     super.initState();
-    _logsFuture = _fetchLastSevenDaysLogs();
+    // ✅ Use the new efficient service method
+    _logsFuture = _foodLogService.fetchLastSevenDaysLogs();
+
+    // ✅ Show SnackBar if initialMessage is present
+    if (widget.initialMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.initialMessage!),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: (){}),
+          ),
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<Map<DateTime, List<FoodLog>>> _fetchLastSevenDaysLogs() async {
-    // --- ⏳ ARTIFICIAL 5-SECOND LOADER ---
-    await Future.delayed(const Duration(seconds: 5));
-
     Map<DateTime, List<FoodLog>> logData = {};
     List<DateTime> daysToFetch = [];
     final now = DateTime.now();
     
     for (int i = 0; i < 7; i++) {
+      // Clear time components for reliable date comparison and API call
       final date = now.subtract(Duration(days: i));
       daysToFetch.add(DateTime(date.year, date.month, date.day));
     }
@@ -55,13 +77,15 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
       }
       return logData;
     } catch (e) {
+      // Re-throw the error to be handled by FutureBuilder
       throw Exception('Failed to load logs: $e');
     }
   }
 
   Future<void> _handleRefresh() async {
     setState(() {
-      _logsFuture = _fetchLastSevenDaysLogs();
+      // ✅ Use the new efficient service method
+      _logsFuture = _foodLogService.fetchLastSevenDaysLogs();
     });
   }
 
@@ -319,7 +343,8 @@ class _GlassDayCard extends StatelessWidget {
     List<Widget> missingMealWidgets = [];
     if (isTodayOrPast) {
       final loggedMealTypes = logs.map((l) => l.mealType).toSet();
-      final allMealTypes = ['Breakfast', 'Lunch', 'Dinner'];
+      final allMealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+      
       for (var type in allMealTypes) {
         if (!loggedMealTypes.contains(type)) {
           missingMealWidgets.add(_buildMissingAction(context, type));
