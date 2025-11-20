@@ -17,12 +17,15 @@ import 'package:fyp/services/food_log_service.dart';
 // If the actual imports fail, temporarily use this to verify the UI:
 // class FoodLog { final String id; final String mealType; final String productName; final Nutrients nutrients; final String? imageUrl; final String? brands; FoodLog({required this.id, required this.mealType, required this.productName, required this.nutrients, this.imageUrl, this.brands}); }
 // class Nutrients { final double calories; final double protein; final double fat; final double carbohydrates; Nutrients({required this.calories, required this.protein, required this.fat, required this.carbohydrates}); }
-// class FoodLogService { Future<bool> logFood({ required String mealType, required String productName, required Map<String, dynamic> nutrients, String? imageUrl, required DateTime date, }) async { await Future.delayed(const Duration(milliseconds: 500)); return true; } Future<List<FoodLog>> getFoodLogsForDate(DateTime date) async { await Future.delayed(const Duration(milliseconds: 500)); if (date.day == DateTime.now().day) { return [ FoodLog(id: '1', mealType: 'Breakfast', productName: 'Oatmeal with berries', nutrients: Nutrients(calories: 350, protein: 10, fat: 5, carbohydrates: 60)), FoodLog(id: '2', mealType: 'Lunch', productName: 'Chicken Salad', nutrients: Nutrients(calories: 450, protein: 30, fat: 15, carbohydrates: 25)), ]; } return []; } }
+// class FoodLogService { Future<bool> logFood({ required String mealType, required String productName, required Map<String, dynamic> nutrients, String? imageUrl, required DateTime date, }) async { await Future.delayed(const Duration(milliseconds: 500)); return true; } Future<List<FoodLog>> getFoodLogsForDate(DateTime date) async { await Future.delayed(const Duration(milliseconds: 500)); if (date.day == DateTime.now().day) { return [ FoodLog(id: '1', mealType: 'Breakfast', productName: 'Oatmeal with berries', nutrients: Nutrients(calories: 350, protein: 10, fat: 5, carbohydrates: 60)), FoodLog(id: '2', mealType: 'Lunch', productName: 'Chicken Salad', nutrients: Nutrients(calories: 450, protein: 30, fat: 15, carbohydrates: 25)), ]; } return []; } Future<Map<DateTime, List<FoodLog>>> fetchLastSevenDaysLogs() async { await Future.delayed(const Duration(milliseconds: 500)); return {DateTime.now(): []}; } }
 // =========================================================
 
 
 class NutriTrackPage extends StatefulWidget {
-  const NutriTrackPage({super.key});
+  // ✅ --- NEW: Optional message to display when navigating here ---
+  final String? initialMessage;
+  
+  const NutriTrackPage({super.key, this.initialMessage});
 
   @override
   State<NutriTrackPage> createState() => _NutriTrackPageState();
@@ -36,7 +39,22 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
   @override
   void initState() {
     super.initState();
-    _logsFuture = _fetchLastSevenDaysLogs();
+    // ✅ Use the new efficient service method
+    _logsFuture = _foodLogService.fetchLastSevenDaysLogs();
+
+    // ✅ Show SnackBar if initialMessage is present
+    if (widget.initialMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.initialMessage!),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: (){}),
+          ),
+        );
+      });
+    }
   }
 
   @override
@@ -45,37 +63,11 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
     super.dispose();
   }
 
-  Future<Map<DateTime, List<FoodLog>>> _fetchLastSevenDaysLogs() async {
-    Map<DateTime, List<FoodLog>> logData = {};
-    List<DateTime> daysToFetch = [];
-    final now = DateTime.now();
-    
-    for (int i = 0; i < 7; i++) {
-      // Clear time components for reliable date comparison and API call
-      final date = now.subtract(Duration(days: i));
-      daysToFetch.add(DateTime(date.year, date.month, date.day));
-    }
-    
-    List<Future<List<FoodLog>>> fetchFutures = daysToFetch
-        .map((date) => _foodLogService.getFoodLogsForDate(date))
-        .toList();
-        
-    try {
-      final List<List<FoodLog>> results = await Future.wait(fetchFutures);
-      for (int i = 0; i < daysToFetch.length; i++) {
-        logData[daysToFetch[i]] = results[i];
-      }
-      return logData;
-    } catch (e) {
-      // Re-throw the error to be handled by FutureBuilder
-      throw Exception('Failed to load logs: $e');
-    }
-  }
-
   Future<void> _handleRefresh() async {
     // This function is used by the CupertinoSliverRefreshControl
     setState(() {
-      _logsFuture = _fetchLastSevenDaysLogs();
+      // ✅ Use the new efficient service method
+      _logsFuture = _foodLogService.fetchLastSevenDaysLogs();
     });
   }
 
@@ -268,6 +260,7 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
     List<Widget> missingMealWidgets = [];
     if (isTodayOrPast) {
       final loggedMealTypes = logs.map((l) => l.mealType).toSet();
+      // ✅ Use shared validation list from Service if desired, but hardcoding here is fine for UI display
       final allMealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
       
       for (var type in allMealTypes) {

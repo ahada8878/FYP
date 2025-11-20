@@ -7,7 +7,6 @@ const { exec } = require('child_process');
 const connectDB = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
-const mealRoutes = require('./routes/mealRoutes');
 const userDetailsRoutes = require('./routes/userDetailsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
@@ -69,7 +68,6 @@ connectDB();
 // --- Application Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/meals', mealRoutes);
 app.use('/api/user-details', userDetailsRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/rewards', rewardRoutes);
