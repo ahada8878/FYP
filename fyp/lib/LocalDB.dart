@@ -18,144 +18,144 @@ class LocalDB {
   }
   
   /// -- Auth Token --
-static Future<void> setAuthToken(String token) async {
-  await _prefs?.setString('authToken', token);
-}
+  static Future<void> setAuthToken(String token) async {
+    await _prefs?.setString('authToken', token);
+  }
 
-static Future<void> setUserEmail(String token) async {
-  await _prefs?.setString('email', token);
-}
-
-
-static String getAuthToken() {
-  return _prefs?.getString('authToken') ?? '';
-}
-
-static String getUserEmail() {
-  return _prefs?.getString('email') ?? '';
-}
-
-static Future<void> setOTP(String token) async {
-  await _prefs?.setString('OTP', token);
-}
-
-static String getOTP() {
-  return _prefs?.getString('OTP') ?? '';
-}
-
-static Future<void> setUser(String user) async {
-  await _prefs?.setString('user', user);
-}
-
-static String getUser() {
-  return _prefs?.getString('user') ?? '';
-}
-
-static int getCarbs() {
-  // Use getInt() for retrieving integers.
-  // The null-aware operator (??) provides the default value (0) if the key isn't found.
-  return _prefs?.getInt('carbs') ?? 0;
-}
-
-// Make sure to use the correct return type: 'int'
-static int getProtein() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('protein') ?? 0;
-}
-
-// Make sure to use the correct return type: 'int'
-static int getFats() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('fat') ?? 0; // Keeping your original 45 default for fat
-}
-
-static int getConsumedCalories() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('consumedCalories') ?? 0; // Keeping your original 45 default for fat
-}
-
-static int getGoalCalories() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('goalCalories') ?? 0; // Keeping your original 45 default for fat
-}
-
-static int getSteps() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('steps') ?? 0; // Keeping your original 45 default for fat
-}
-
-static int getStepsGoal() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('stepsGoal') ?? 0; // Keeping your original 45 default for fat
-}
+  static Future<void> setUserEmail(String token) async {
+    await _prefs?.setString('email', token);
+  }
 
 
+  static String getAuthToken() {
+    return _prefs?.getString('authToken') ?? '';
+  }
+
+  static String getUserEmail() {
+    return _prefs?.getString('email') ?? '';
+  }
+
+  static Future<void> setOTP(String token) async {
+    await _prefs?.setString('OTP', token);
+  }
+
+  static String getOTP() {
+    return _prefs?.getString('OTP') ?? '';
+  }
+
+  static Future<void> setUser(String user) async {
+    await _prefs?.setString('user', user);
+  }
+
+  static String getUser() {
+    return _prefs?.getString('user') ?? '';
+  }
+
+  static int getCarbs() {
+    // Use getInt() for retrieving integers.
+    // The null-aware operator (??) provides the default value (0) if the key isn't found.
+    return _prefs?.getInt('carbs') ?? 0;
+  }
+
+  // Make sure to use the correct return type: 'int'
+  static int getProtein() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('protein') ?? 0;
+  }
+
+  // Make sure to use the correct return type: 'int'
+  static int getFats() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('fat') ?? 0; // Keeping your original 45 default for fat
+  }
+
+  static int getConsumedCalories() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('consumedCalories') ?? 0; // Keeping your original 45 default for fat
+  }
+
+  static int getGoalCalories() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('goalCalories') ?? 0; // Keeping your original 45 default for fat
+  }
+
+  static int getSteps() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('steps') ?? 0; // Keeping your original 45 default for fat
+  }
+
+  static int getStepsGoal() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('stepsGoal') ?? 0; // Keeping your original 45 default for fat
+  }
 
 
 
 
 
-static int getWaterGoal() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('waterGoal') ?? 0; // Keeping your original 45 default for fat
-}
-
-static int getWaterConsumed() {
-  // Use getInt() for retrieving integers.
-  return _prefs?.getInt('waterConsumed') ?? 0; // Keeping your original 45 default for fat
-}
 
 
-static Future<void> setWaterGoal(int name) async {
-  await _prefs?.setInt('waterGoal', name);
-}
+  static int getWaterGoal() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('waterGoal') ?? 0; // Keeping your original 45 default for fat
+  }
 
-static Future<void> setWaterConsumed(int name) async {
-  await _prefs?.setInt('waterConsumed', name);
-}
-
-
-static Future<void> setSteps(int name) async {
-  await _prefs?.setInt('steps', name);
-}
+  static int getWaterConsumed() {
+    // Use getInt() for retrieving integers.
+    return _prefs?.getInt('waterConsumed') ?? 0; // Keeping your original 45 default for fat
+  }
 
 
-static Future<void> setStepsGoal(int name) async {
-  await _prefs?.setInt('stepsGoal', name);
-}
+  static Future<void> setWaterGoal(int name) async {
+    await _prefs?.setInt('waterGoal', name);
+  }
+
+  static Future<void> setWaterConsumed(int name) async {
+    await _prefs?.setInt('waterConsumed', name);
+  }
 
 
+  static Future<void> setSteps(int name) async {
+    await _prefs?.setInt('steps', name);
+  }
 
- /// -- User Name --
-static Future<void> setUserName(String name) async {
-  await _prefs?.setString('userName', name);
-}
+
+  static Future<void> setStepsGoal(int name) async {
+    await _prefs?.setInt('stepsGoal', name);
+  }
 
 
 
-static String getUserName() {
-  return _prefs?.getString('userName') ?? '';
-}
+  /// -- User Name --
+  static Future<void> setUserName(String name) async {
+    await _prefs?.setString('userName', name);
+  }
 
-static Future<void> setConsumedCalories(int name) async {
-  await _prefs?.setInt('consumedCalories', name);
-}
 
-static Future<void> setGoalCalories(int name) async {
-  await _prefs?.setInt('goalCalories', name);
-}
 
-static Future<void> setCarbs(int name) async {
-  await _prefs?.setInt('carbs', name);
-}
+  static String getUserName() {
+    return _prefs?.getString('userName') ?? '';
+  }
 
-static Future<void> setProtein(int name) async {
-  await _prefs?.setInt('protein', name);
-}
+  static Future<void> setConsumedCalories(int name) async {
+    await _prefs?.setInt('consumedCalories', name);
+  }
 
-static Future<void> setFats(int name) async {
-  await _prefs?.setInt('fat', name);
-}
+  static Future<void> setGoalCalories(int name) async {
+    await _prefs?.setInt('goalCalories', name);
+  }
+
+  static Future<void> setCarbs(int name) async {
+    await _prefs?.setInt('carbs', name);
+  }
+
+  static Future<void> setProtein(int name) async {
+    await _prefs?.setInt('protein', name);
+  }
+
+  static Future<void> setFats(int name) async {
+    await _prefs?.setInt('fat', name);
+  }
 
   /// -- Simple Strings --
   static Future<void> setSelectedMonth(String month) async =>
@@ -225,11 +225,6 @@ static Future<void> setFats(int name) async {
     return string;
   }
 
-
-
-
-  
-
   static Future<void> setHealthConcerns(Map<String, bool> map) async =>
       await _prefs?.setString('healthConcerns', jsonEncode(map));
   static Map<String, bool> getHealthConcerns() {
@@ -239,19 +234,17 @@ static Future<void> setFats(int name) async {
     return decoded.map((k, v) => MapEntry(k, v as bool));
   }
 
-
-
   static Future<void> setHealthConcerns2(Map<String, dynamic> map) async {
   await _prefs?.setString('healthConcerns2', jsonEncode(map));
-}
+  }
 
-static Map<String, dynamic> getHealthConcerns2() {
-  final jsonString = _prefs?.getString('healthConcerns2');
-  if (jsonString == null) return {};
+  static Map<String, dynamic> getHealthConcerns2() {
+    final jsonString = _prefs?.getString('healthConcerns2');
+    if (jsonString == null) return {};
 
-  // Decode and ensure the result is a Map<String, dynamic>
-  return Map<String, dynamic>.from(jsonDecode(jsonString));
-}
+    // Decode and ensure the result is a Map<String, dynamic>
+    return Map<String, dynamic>.from(jsonDecode(jsonString));
+  }
 
   static Future<void> setLevels(String map) async =>
       await _prefs?.setString('levels', map);
@@ -301,48 +294,37 @@ static Map<String, dynamic> getHealthConcerns2() {
     return jsonDecode(jsonString) as Map<String, dynamic>;
   }
 
- /// -- Start Times --
-static Future<void> setStartTimes(List<Map<String, dynamic>> list) async {
-  await _prefs?.setString('startTimes', jsonEncode(list));
-}
-
-static List<Map<String, dynamic>> getStartTimes() {
-  final jsonString = _prefs?.getString('startTimes');
-  if (jsonString == null) return [];
-
-  final decoded = jsonDecode(jsonString);
-  if (decoded is List) {
-    return decoded.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+  /// -- Start Times --
+  static Future<void> setStartTimes(List<Map<String, dynamic>> list) async {
+    await _prefs?.setString('startTimes', jsonEncode(list));
   }
 
-  return [];
-}
+  static List<Map<String, dynamic>> getStartTimes() {
+    final jsonString = _prefs?.getString('startTimes');
+    if (jsonString == null) return [];
 
-/// -- End Times --
-static Future<void> setEndTimes(List<Map<String, dynamic>> list) async {
-  await _prefs?.setString('endTimes', jsonEncode(list));
-}
+    final decoded = jsonDecode(jsonString);
+    if (decoded is List) {
+      return decoded.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+    }
 
-static List<Map<String, dynamic>> getEndTimes() {
-  final jsonString = _prefs?.getString('endTimes');
-  if (jsonString == null) return [];
-
-  final decoded = jsonDecode(jsonString);
-  if (decoded is List) {
-    return decoded.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+    return [];
   }
 
-  return [];
-}
+  /// -- End Times --
+  static Future<void> setEndTimes(List<Map<String, dynamic>> list) async {
+    await _prefs?.setString('endTimes', jsonEncode(list));
+  }
 
+  static List<Map<String, dynamic>> getEndTimes() {
+    final jsonString = _prefs?.getString('endTimes');
+    if (jsonString == null) return [];
 
+    final decoded = jsonDecode(jsonString);
+    if (decoded is List) {
+      return decoded.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+    }
 
-
-
-
-
-
-
-
-
+    return [];
+  }
 }

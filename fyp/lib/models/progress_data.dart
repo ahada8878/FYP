@@ -72,8 +72,6 @@ class ProgressData {
   // =======================================================
   factory ProgressData.fromJson(Map<String, dynamic> json) {
 
-        print("yooooooooooooooooooooooooooooooooooooo");
-
     final double rawCurrentWeight = _parseUnitString(json['currentWeight'], 0.0);
     final double rawStartWeight = _parseUnitString(json['startWeight'], 0.0);
     final double rawTargetWeight = _parseUnitString(json['targetWeight'], 0.0);

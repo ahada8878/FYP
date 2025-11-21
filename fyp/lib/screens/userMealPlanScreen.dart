@@ -162,20 +162,21 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
     }
   }
 
-  // --- MODIFIED: This now handles the result from MealDetailsScreen ---
-  Future<void> _navigateToDetails(MealInfo meal, DateTime date) async {
+  // --- MODIFIED: Updated to accept mealType and pass it to MealDetailsScreen ---
+  Future<void> _navigateToDetails(MealInfo meal, DateTime date, String mealType) async {
     final result = await Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => MealDetailsScreen(
-      meal: {
-        ...meal.rawData,
-        'loggedAt': meal.rawData['loggedAt'] ?? meal.isLogged ? DateTime.now().toIso8601String() : null,
-      },
-      date: date,
-    ),
-  ),
-);
+      context,
+      MaterialPageRoute(
+        builder: (context) => MealDetailsScreen(
+          meal: {
+            ...meal.rawData,
+            'loggedAt': meal.rawData['loggedAt'] ?? (meal.isLogged ? DateTime.now().toIso8601String() : null),
+          },
+          date: date,
+          mealType: mealType, // Pass the determined meal type
+        ),
+      ),
+    );
 
     // If the result is true, it means a meal was logged, so we reload the data.
     if (result == true && mounted) {
@@ -269,7 +270,7 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
                   return Transform.translate(
                       offset: Offset(0, offset * 0.5), child: child);
                 },
-                child: SafeArea(
+                child: const SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
@@ -313,12 +314,18 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
         sliver: SliverList.builder(
           itemCount: dayPlan.meals.length,
           itemBuilder: (context, index) {
+            // --- MODIFIED: Determine Meal Type based on Index ---
+            String mealType = 'Snack';
+            if (index == 0) mealType = 'Breakfast';
+            if (index == 1) mealType = 'Lunch';
+            if (index == 2) mealType = 'Dinner';
+
             return StaggeredAnimation(
               index: animationIndex++,
               child: _MealCard(
                 meal: dayPlan.meals[index],
-                onTap: () =>
-                    _navigateToDetails(dayPlan.meals[index], dayPlan.date),
+                // Pass the determined mealType to the navigation function
+                onTap: () => _navigateToDetails(dayPlan.meals[index], dayPlan.date, mealType),
               ),
             );
           },

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config_service.dart';
 import 'package:fyp/Loginpage.dart'; // New
 import 'package:fyp/main.dart'; // New
+import 'package:fyp/LocalDB.dart';
 
 class AuthService {
   // The base URL for your authentication endpoints.
@@ -511,6 +512,9 @@ class AuthService {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_userEmailKey);
+    await LocalDB.clear();
+
+
     print("🔒 Token cleared due to 401 error or logout.");
 
     // Use the global navigator key to navigate to LoginPage
@@ -530,9 +534,6 @@ class AuthService {
     await prefs.setString(_userEmailKey, email);
     await prefs.setString(_userIdKey, userId);
   }
-
-
-
 
   /// Retrieves the user's authentication token from local storage.
   Future<String?> getToken() async {

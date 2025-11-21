@@ -11,7 +11,7 @@ import 'dart:ui'; // Already here, but needed for the background
 
 // --- CONFIGURATION CONSTANTS (ADD THESE) ---
 // NOTE: For a real app, use a proper environment variable solution
-const String _spoonacularApiKey = '3ae6af7175864f2b96f71cf261f1e16a'; // Replace with your actual key if needed
+const String _spoonacularApiKey = 'c6a3e3582f49410cb652ae8ffbac8ac7'; // Replace with your actual key if needed
 // The base URL for the ingredient detection service remains local
 // const String baseURL = '$baseURL'; // <-- IMPORTANT: Use your PC's IP address
 

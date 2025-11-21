@@ -11,7 +11,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fyp/models/food_log.dart'; 
 import 'package:fyp/services/food_log_service.dart'; 
 
-
 // =========================================================
 // MOCK CLASSES for Compilation (DELETE THIS SECTION IF YOU USE IMPORTS ABOVE)
 // If the actual imports fail, temporarily use this to verify the UI:
@@ -19,7 +18,6 @@ import 'package:fyp/services/food_log_service.dart';
 // class Nutrients { final double calories; final double protein; final double fat; final double carbohydrates; Nutrients({required this.calories, required this.protein, required this.fat, required this.carbohydrates}); }
 // class FoodLogService { Future<bool> logFood({ required String mealType, required String productName, required Map<String, dynamic> nutrients, String? imageUrl, required DateTime date, }) async { await Future.delayed(const Duration(milliseconds: 500)); return true; } Future<List<FoodLog>> getFoodLogsForDate(DateTime date) async { await Future.delayed(const Duration(milliseconds: 500)); if (date.day == DateTime.now().day) { return [ FoodLog(id: '1', mealType: 'Breakfast', productName: 'Oatmeal with berries', nutrients: Nutrients(calories: 350, protein: 10, fat: 5, carbohydrates: 60)), FoodLog(id: '2', mealType: 'Lunch', productName: 'Chicken Salad', nutrients: Nutrients(calories: 450, protein: 30, fat: 15, carbohydrates: 25)), ]; } return []; } }
 // =========================================================
-
 
 class NutriTrackPage extends StatefulWidget {
   const NutriTrackPage({super.key});
@@ -149,7 +147,7 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
                 builder: (context, snapshot) {
                   // --- Error and Loading States must be wrapped in Slivers ---
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return SliverFillRemaining(
+                    return const SliverFillRemaining(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -227,13 +225,13 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
                   ),
                 ),
               ),
-              SafeArea(
+              const SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: EdgeInsets.all(24.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Spacer(),
                       _AnimatedHeaderGreeting(greeting: "NutriTrack History", subtitle: "Your daily food log."),
                       Spacer(),

@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import 'camera_overlay_controller.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:fyp/services/food_log_service.dart';
+import 'package:fyp/models/food_log.dart'; 
 
 // --- Service to handle fetching the auth token ---
 class AuthService {
@@ -60,14 +61,8 @@ class ScanMealScreen extends StatelessWidget {
   }
 }
 
-// Assuming LoggedFood is defined elsewhere in your app, 
-// if not, you can remove references to it if you only strictly need backend logging.
-// import 'package:fyp/models/logged_food.dart'; 
-
 class ManualLogFoodSheet extends StatefulWidget {
-  // Keeping onLog to update local state if your parent widget needs it
   final Function(dynamic) onLog; 
-
   const ManualLogFoodSheet({Key? key, required this.onLog}) : super(key: key);
 
   @override
@@ -81,8 +76,6 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   final _carbsController = TextEditingController();
   final _proteinController = TextEditingController();
   final _fatController = TextEditingController();
-
-  // Service instance
   final FoodLogService _foodLogService = FoodLogService();
 
   @override
@@ -95,39 +88,31 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
     super.dispose();
   }
 
-  // 1. UPDATED SUBMIT: Validates form, then asks for Meal Type
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      // Form is valid, now show the popup to select Meal Type
       _showMealTypeDialog();
     }
   }
 
-  // 2. NEW: Pop-up to select Meal Type
   void _showMealTypeDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return _MealTypeSelectorDialog(
           onMealSelected: (String selectedMealType) {
-            // 3. When confirmed, Log to Backend
             _logToBackend(selectedMealType);
-            Navigator.pop(context); // Close the dialog
+            Navigator.pop(context);
           },
         );
       },
     );
   }
 
-  // 4. NEW: Send data to Backend
   Future<void> _logToBackend(String mealType) async {
-    // Show loading indicator
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saving to food log...')),
     );
-
     try {
-      // Prepare nutrients map
       final nutrients = {
         'calories': int.tryParse(_caloriesController.text) ?? 0,
         'carbohydrates': double.tryParse(_carbsController.text) ?? 0.0,
@@ -135,25 +120,21 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
         'fat': double.tryParse(_fatController.text) ?? 0.0,
       };
 
-      // Call the service
       final success = await _foodLogService.logFood(
         mealType: mealType,
         productName: _nameController.text.trim(),
         nutrients: nutrients,
         date: DateTime.now(),
-        imageUrl: null, // No image for manual entry
+        imageUrl: null, 
       );
 
       if (success) {
         if (mounted) {
-          // Optional: construct a local object if you need to update the UI immediately
-          // final newFood = LoggedFood(...); 
-          // widget.onLog(newFood); 
-
-          Navigator.of(context).pop(); // Close the Bottom Sheet
+          widget.onLog(true);
+          Navigator.of(context).pop(); 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Food logged successfully! 🎉'),
+              content: Text('Food logged successfully! 脂'),
               backgroundColor: Colors.green,
             ),
           );
@@ -179,7 +160,6 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Helper function for consistent input field styling
     InputDecoration inputDecoration(String label, IconData icon) {
       return InputDecoration(
         prefixIcon: Icon(icon, color: Colors.grey[600]),
@@ -195,10 +175,8 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
     }
 
     return Padding(
-      // Adjust padding to avoid the keyboard
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      // Use SingleChildScrollView to prevent overflow when keyboard is visible
       child: SingleChildScrollView(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -209,7 +187,6 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle for the sheet
               Container(
                 width: 40,
                 height: 5,
@@ -311,10 +288,8 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   }
 }
 
-// --- HELPER WIDGET FOR THE POPUP ---
 class _MealTypeSelectorDialog extends StatefulWidget {
   final Function(String) onMealSelected;
-
   const _MealTypeSelectorDialog({Key? key, required this.onMealSelected})
       : super(key: key);
 
@@ -381,12 +356,6 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog> {
     );
   }
 }
-// class CameraScreen extends StatelessWidget {
-//   const CameraScreen({super.key});
-//   @override
-//   Widget build(BuildContext context) => Scaffold(
-//       appBar: AppBar(), body: const Center(child: Text("Camera Screen")));
-// }
 
 // --- Data Models ---
 class DailySummary {
@@ -456,42 +425,27 @@ class MealTrackingPage extends StatefulWidget {
 class _MealTrackingPageState extends State<MealTrackingPage>
     with TickerProviderStateMixin {
   late Future<Map<String, dynamic>> _userDataFuture;
+  // FIX 1: Added the missing Future variable for TodayMealPlan
+  late Future<TodayMealPlan> _todayMealsFuture;
+  
   late AnimationController _headerAnimController;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   final ScrollController _scrollController = ScrollController();
   late final ScrollController _recipeScrollController;
   final AuthService _authService = AuthService();
+  final FoodLogService _foodLogService = FoodLogService();
 
-  late List<Meal> _meals;
+  List<Meal> _meals = [];
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _userDataFuture = _fetchUserData();
-
-    _meals = [
-      Meal(
-          name: 'Breakfast',
-          icon: Icons.breakfast_dining_rounded,
-          goal: 600,
-          loggedFoods: [
-            LoggedFood(name: 'Oatmeal', icon: '🥣', calories: 350),
-            LoggedFood(name: 'Banana', icon: '🍌', calories: 105),
-            LoggedFood(name: 'Almonds', icon: '🥜', calories: 150),
-          ]),
-      Meal(
-          name: 'Lunch',
-          icon: Icons.lunch_dining_rounded,
-          goal: 800,
-          loggedFoods: [
-            LoggedFood(name: 'Chicken Salad', icon: '🥗', calories: 450),
-            LoggedFood(name: 'Apple', icon: '🍎', calories: 150),
-          ]),
-      Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800),
-      Meal(name: 'Snacks', icon: Icons.cookie_outlined, goal: 300),
-    ];
+    
+    // FIX 2: Initialize the missing Future
+    _todayMealsFuture = _fetchTodayMealPlan();
 
     _headerAnimController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1200))
@@ -513,88 +467,163 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     });
   }
 
+  // FIX 3: Added the missing fetch method for TodayMealPlan
+  Future<TodayMealPlan> _fetchTodayMealPlan() async {
+    // Returns a mock plan for now. Replace with actual API call if available.
+    return Future.delayed(const Duration(seconds: 1), () {
+      return TodayMealPlan(
+        breakfast: [
+          MealPlanItem(id: '1', title: 'Oatmeal & Berries', calories: 350, imageUrl: 'https://example.com/oatmeal.jpg', prepTimeMinutes: 10),
+        ],
+        lunch: [
+          MealPlanItem(id: '2', title: 'Grilled Chicken Salad', calories: 450, imageUrl: 'https://example.com/salad.jpg', prepTimeMinutes: 15),
+        ],
+        dinner: [
+          MealPlanItem(id: '3', title: 'Salmon & Veggies', calories: 550, imageUrl: 'https://example.com/salmon.jpg', prepTimeMinutes: 25),
+        ]
+      );
+    });
+  }
+  
+  // FIX 4: Added the missing navigation method
+  void _navigateToMealDetails(MealPlanItem item) {
+    // Replace with your actual detail screen or a dialog
+    showDialog(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        title: Text(item.title),
+        content: Text("Calories: ${item.calories}\nPrep time: ${item.prepTimeMinutes} mins"),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK"))],
+      )
+    );
+  }
+
   Future<Map<String, dynamic>> _fetchUserData() async {
-    const String apiUrl = '$baseURL/api/user/profile-summary';
     final token = await _authService.getToken();
-    debugPrint('Fetched token: $token');
-
-
-
+    
     if (token == null || token.isEmpty) {
       debugPrint('No token found. Using local data.');
-
       return _getLocalFallbackData();
     }
 
     try {
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final results = await Future.wait([
+        http.get(
+          Uri.parse('$baseURL/api/user/profile-summary'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        _foodLogService.getFoodLogsForDate(DateTime.now())
+      ]);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          // SUCCESS: Store to LocalDB and return fresh data
-          LocalDB.setCarbs(data['carbs']);
-          LocalDB.setProtein(data['protein']);
-          LocalDB.setFats(data['fat']);
-          LocalDB.setUserName(data['userName']);
-          LocalDB.setConsumedCalories(data['caloriesConsumed']);
-          LocalDB.setGoalCalories(data['caloriesGoal']);
-          LocalDB.setWaterGoal(data['waterGoal']);
-          LocalDB.setWaterConsumed(data['waterConsumed']);
+      final profileResponse = results[0] as http.Response;
+      final foodLogs = results[1] as List<FoodLog>;
+
+      if (profileResponse.statusCode == 200) {
+        final profileData = json.decode(profileResponse.body);
+        if (profileData['success'] == true) {
+          
+          LocalDB.setCarbs(profileData['carbs']);
+          LocalDB.setProtein(profileData['protein']);
+          LocalDB.setFats(profileData['fat']);
+          LocalDB.setUserName(profileData['userName']);
+          LocalDB.setGoalCalories(profileData['caloriesGoal']);
+          LocalDB.setWaterGoal(profileData['waterGoal']);
+          LocalDB.setWaterConsumed(profileData['waterConsumed']);
+
+          List<Meal> processedMeals = [
+            Meal(name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600, loggedFoods: []),
+            Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800, loggedFoods: []),
+            Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800, loggedFoods: []),
+            Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300, loggedFoods: []), 
+          ];
+
+          int totalCaloriesConsumed = 0;
+          double totalCarbs = 0;
+          double totalProtein = 0;
+          double totalFat = 0;
+
+          for (var log in foodLogs) {
+            totalCaloriesConsumed += log.nutrients.calories.toInt();
+            totalCarbs += log.nutrients.carbohydrates;
+            totalProtein += log.nutrients.protein;
+            totalFat += log.nutrients.fat;
+
+            final loggedFood = LoggedFood(
+              name: log.productName, 
+              icon: '･｣', 
+              calories: log.nutrients.calories.toInt()
+            );
+
+            String targetMeal = log.mealType;
+            if (targetMeal == 'Snack') targetMeal = 'Snack'; 
+            
+            final mealIndex = processedMeals.indexWhere((m) => m.name == targetMeal);
+            if (mealIndex != -1) {
+               List<LoggedFood> newFoods = List.from(processedMeals[mealIndex].loggedFoods);
+               newFoods.add(loggedFood);
+               
+               processedMeals[mealIndex] = Meal(
+                 name: processedMeals[mealIndex].name, 
+                 icon: processedMeals[mealIndex].icon, 
+                 goal: processedMeals[mealIndex].goal, 
+                 loggedFoods: newFoods
+               );
+            }
+          }
+          
+          LocalDB.setConsumedCalories(totalCaloriesConsumed);
 
           return {
-            'userName': data['userName'] as String? ?? 'User',
-            'caloriesGoal': data['caloriesGoal'] as int? ?? 2000,
-            'carbs': data['carbs'] as int? ?? 150,
-            'protein': data['protein'] as int? ?? 80,
-            'fat': data['fat'] as int? ?? 45,
-            'caloriesConsumed': data['caloriesConsumed'] as int? ?? 0,
-            'waterGoal': data['waterGoal'] as int? ?? 2000,
-             'waterConsumed': data['waterConsumed'] as int? ?? 0,
+            'userName': profileData['userName'] as String? ?? 'User',
+            'caloriesGoal': profileData['caloriesGoal'] as int? ?? 2000,
+            'caloriesConsumed': totalCaloriesConsumed,
+            'carbsConsumed': totalCarbs,
+            'proteinConsumed': totalProtein,
+            'fatConsumed': totalFat,
+            'carbsGoal': profileData['carbs'] as int? ?? 150,
+            'proteinGoal': profileData['protein'] as int? ?? 80,
+            'fatGoal': profileData['fat'] as int? ?? 45,
+            'waterGoal': profileData['waterGoal'] as int? ?? 2000,
+            'waterConsumed': profileData['waterConsumed'] as int? ?? 0,
+            'processedMeals': processedMeals
           };
-        } else {
-          // 2. Failure: API call status 200, but success=false (e.g., malformed data/user not found on server)
-          debugPrint(
-              'API reported failure (success: false). Using local data.');
-          return _getLocalFallbackData();
         }
-      } else if (response.statusCode == 401) {
-        // 3. Failure: Authentication expired/401 Unauthorized
-        debugPrint('API 401 error. Using local data.');
-        return _getLocalFallbackData();
-      } else {
-        // 4. Failure: Other server errors (500, 404, etc.)
-        debugPrint('Server error ${response.statusCode}. Using local data.');
-        return _getLocalFallbackData();
       }
+      return _getLocalFallbackData();
+      
     } catch (e) {
-      // 5. Failure: Network/Connection error (SocketException, Timeout, etc.)
-      debugPrint("Network/Exception Error fetching user data: $e");
-      return _getLocalFallbackData(); // Return local data instead of letting the error propagate to FutureBuilder
+      debugPrint("Error fetching user data: $e");
+      return _getLocalFallbackData();
     }
   }
 
   Map<String, dynamic> _getLocalFallbackData() {
-    // Assuming LocalDB.getCarbs(), etc., now return int
     return {
       'userName': LocalDB.getUserName() as String? ?? 'User',
       'caloriesGoal': LocalDB.getGoalCalories(),
-      'carbs': LocalDB.getCarbs(),
-      'protein': LocalDB.getProtein(),
-      'fat': LocalDB.getFats(),
-      'caloriesConsumed': LocalDB.getConsumedCalories()
+      'caloriesConsumed': LocalDB.getConsumedCalories(),
+      'carbsConsumed': 0.0,
+      'proteinConsumed': 0.0,
+      'fatConsumed': 0.0,
+      'carbsGoal': LocalDB.getCarbs(),
+      'proteinGoal': LocalDB.getProtein(),
+      'fatGoal': LocalDB.getFats(),
+      'processedMeals': [
+          Meal(name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600),
+          Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800),
+          Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800),
+          Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300),
+      ]
     };
   }
 
   Future<void> _refreshData() async {
     setState(() {
       _userDataFuture = _fetchUserData();
+      _todayMealsFuture = _fetchTodayMealPlan();
     });
   }
 
@@ -653,41 +682,23 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     return 'Good Evening,';
   }
 
-  // --- Handle adding a new food item to a meal ---
-  void _handleLogFood(Meal meal, LoggedFood newFood) {
-    setState(() {
-      final mealIndex = _meals.indexWhere((m) => m.name == meal.name);
-      if (mealIndex != -1) {
-        // Create a new list of foods by adding the new one
-        final updatedFoods =
-            List<LoggedFood>.from(_meals[mealIndex].loggedFoods)..add(newFood);
-
-        // Create a new Meal instance with the updated list to trigger rebuild
-        _meals[mealIndex] = Meal(
-          name: _meals[mealIndex].name,
-          icon: _meals[mealIndex].icon,
-          goal: _meals[mealIndex].goal,
-          loggedFoods: updatedFoods,
-        );
-      }
-    });
+  void _handleLogFood(dynamic result) {
+     _refreshData();
   }
 
-  // --- Show the manual food log bottom sheet ---
   void _showManualLogSheet(BuildContext context, Meal meal) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => ManualLogFoodSheet(
-        onLog: (newFood) {
-          _handleLogFood(meal, newFood);
+        onLog: (result) {
+          _handleLogFood(result);
         },
       ),
     );
   }
 
-  // --- Show options for logging food ---
   void _showAddFoodOptions(BuildContext context, Meal meal) {
     showModalBottomSheet(
       context: context,
@@ -699,7 +710,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 leading: const Icon(Icons.edit_note_rounded),
                 title: const Text('Log Manually'),
                 onTap: () {
-                  Navigator.pop(ctx); // Close the options sheet
+                  Navigator.pop(ctx); 
                   _showManualLogSheet(context, meal);
                 },
               ),
@@ -707,7 +718,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 leading: const Icon(Icons.qr_code_scanner_rounded),
                 title: const Text('Scan Meal'),
                 onTap: () {
-                  Navigator.pop(ctx); // Close the options sheet
+                  Navigator.pop(ctx); 
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -725,10 +736,12 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   @override
   Widget build(BuildContext context) {
     final overlayController = Provider.of<CameraOverlayController>(context);
+    
     return Scaffold(
       body: Stack(
         children: [
           const _LivingAnimatedBackground(),
+          
           FutureBuilder<Map<String, dynamic>>(
             future: _userDataFuture,
             builder: (context, snapshot) {
@@ -753,12 +766,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          snapshot.error
-                              .toString()
-                              .replaceFirst("Exception: ", ""),
+                          snapshot.error.toString().replaceFirst("Exception: ", ""),
                           textAlign: TextAlign.center,
-                          style:
-                              TextStyle(color: Colors.grey[700], fontSize: 16),
+                          style: TextStyle(color: Colors.grey[700], fontSize: 16),
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
@@ -777,77 +787,143 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 final String userName = fetchedData['userName']!;
                 final int caloriesGoal = fetchedData['caloriesGoal']!;
 
+                _meals = fetchedData['processedMeals'] as List<Meal>;
+
                 final summary = DailySummary(
-                    caloriesGoal: caloriesGoal,
-                    caloriesConsumed:
-                        (fetchedData['caloriesConsumed'] as int? ?? 100),
-                    carbsConsumed: (fetchedData['carbs'] as int).toDouble(),
-                    proteinConsumed: (fetchedData['protein'] as int).toDouble(),
-                    fatConsumed: (fetchedData['fat'] as int).toDouble());
+                  caloriesGoal: caloriesGoal,
+                  caloriesConsumed: (fetchedData['caloriesConsumed'] as int),
+                  carbsConsumed: (fetchedData['carbsConsumed'] as num).toDouble(),
+                  proteinConsumed: (fetchedData['proteinConsumed'] as num).toDouble(),
+                  fatConsumed: (fetchedData['fatConsumed'] as num).toDouble(),
+                  carbsGoal: (fetchedData['carbsGoal'] as num).toDouble(),
+                  proteinGoal: (fetchedData['proteinGoal'] as num).toDouble(),
+                  fatGoal: (fetchedData['fatGoal'] as num).toDouble(),
+                );
 
                 return RefreshIndicator(
                   onRefresh: _refreshData,
-                  child: Stack(
-                    children: [
-                      CustomScrollView(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics()),
-                        slivers: [
-                          _buildHeader(context, summary, userName),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
-                            sliver: SliverList(
-                              delegate: SliverChildListDelegate([
-                                _buildSectionHeader(
-                                    context, "Today's Timeline"),
-                                _buildMealTimeline(fetchedData),
-
-                                SizedBox(height: 30,),
-
-
-      DailyStepsChartCard(),
-
-
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'For You'),
-                                _buildRecipeSection(
-                                    scrollController: _recipeScrollController),
-                                const SizedBox(height: 24),
-                                const _DailyInsightCard(),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'Daily Breakdown'),
-                                _MacroBreakdownCard(summary: summary),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(
-                                    context, 'See Your Meal Plan'),
-                                const _MealPlanCard(),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'Quick Actions'),
-                                _buildQuickActions(),
-                              ]),
-                            ),
-                          ),
-                        ],
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics()),
+                    slivers: [
+                      _buildHeader(context, summary, userName),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            _buildSectionHeader(context, "Today's Timeline"),
+                            _buildMealTimeline(fetchedData),
+                            
+                            const SizedBox(height: 30),
+                            
+                            const DailyStepsChartCard(),
+                            
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'For You'),
+                            _buildRecipeSection(
+                                scrollController: _recipeScrollController,
+                                meals: const []), // Provide an empty list or your actual meal data here
+                            const SizedBox(height: 24),
+                            const _DailyInsightCard(),
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'Daily Breakdown'),
+                            _MacroBreakdownCard(summary: summary),
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'See Your Meal Plan'),
+                            const _MealPlanCard(),
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'Quick Actions'),
+                            _buildQuickActions(),
+                          ]),
+                        ),
                       ),
                     ],
                   ),
                 );
               }
 
-              return const Center(
-                  child: Text("No data found for your profile."));
+              return const Center(child: Text("No data found for your profile."));
             },
           ),
+          
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
         ],
       ),
     );
   }
 
+// ... (The rest of your helper widgets like _buildHeader, _buildMealTimeline etc. remain here)
+
+  Widget _buildRecipeSection({
+    required ScrollController scrollController,
+    required List<MealPlanItem> meals,
+  }) {
+    const double cardWidth = 161;
+    const double spacing = 18;
+
+    return SizedBox(
+      height: 260,
+      child: ListView.builder(
+        controller: scrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: meals.length,
+        padding: const EdgeInsets.symmetric(horizontal: spacing),
+        itemBuilder: (context, index) {
+          final meal = meals[index];
+          return StaggeredAnimation(
+            index: index + _meals.length + 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: spacing),
+              child: _TiltableRecipeCard(
+                onTap: () => _navigateToMealDetails(meal),
+                child: SizedBox(
+                  width: cardWidth,
+                  child: Stack(fit: StackFit.expand, children: [
+                    ClipRRect(
+                        borderRadius: BorderRadius.circular(20.0),
+                        child: CachedNetworkImage(
+                            imageUrl: meal.imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (c, u) =>
+                                Container(color: Colors.grey[200]),
+                            errorWidget: (c, u, e) => Container(
+                                color: Colors.grey[200],
+                                child: const Icon(Icons.broken_image)))),
+                    Container(
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20.0),
+                            gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.center,
+                                colors: [
+                                  Colors.black.withOpacity(0.8),
+                                  Colors.transparent
+                                ]))),
+                    Positioned(
+                      bottom: 12,
+                      left: 12,
+                      right: 12,
+                      child: Text(meal.title,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // --- Kept but effectively unused if you bypass the overlay controller ---
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);
-    // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('hehehaha')));
     final colorScheme = Theme.of(context).colorScheme;
 
     return AnimatedPositioned(
@@ -1009,7 +1085,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                           builder: (context) => const ActivityLogSheet(),
                         ).then((selectedActivity) {
                           if (selectedActivity != null) {
-                            // ignore: avoid_print
                             print('Logged activity: ${selectedActivity.name}');
                           }
                         });
@@ -1052,6 +1127,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  // ... (Keeping _buildHeader, _buildSectionHeader, _buildMealTimeline, _buildQuickActions, and other widgets as they were)
+  
   SliverAppBar _buildHeader(
       BuildContext context, DailySummary summary, String userName) {
     final String currentDate =
@@ -1071,7 +1148,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             children: [
               CachedNetworkImage(
                 imageUrl:
-                    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=687',
+                    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%D%3D&auto=format&fit=crop&q=80&w=687',
                 fit: BoxFit.cover,
                 placeholder: (context, url) =>
                     Container(color: Colors.grey[300]),
@@ -1172,90 +1249,12 @@ class _MealTrackingPageState extends State<MealTrackingPage>
           index: waterIndex,
           child: _CreativeTimelineHydrationItem(
           isLast: true,
-          // FIX: Safely retrieve water data using fetchedData parameter
           initialWaterGoal: fetchedData['waterGoal'] as int? ?? LocalDB.getWaterGoal(),
           initialWaterConsumed: fetchedData['waterConsumed'] as int? ?? LocalDB.getWaterConsumed(),
       )),
     );
 
     return Column(children: timelineItems);
-  }
-
-  Widget _buildRecipeSection({required ScrollController scrollController}) {
-    final recipes = [
-      {
-        'title': 'Avocado Salad',
-        'image':
-            'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg'
-      },
-      {
-        'title': 'Grilled Salmon',
-        'image':
-            'https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg'
-      },
-      {
-        'title': 'Berry Smoothie',
-        'image':
-            'https://images.pexels.com/photos/2144112/pexels-photo-2144112.jpeg'
-      },
-    ];
-
-    const double cardWidth = 161;
-    const double spacing = 18;
-
-    return SizedBox(
-      height: 260,
-      child: ListView.builder(
-        controller: scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: recipes.length,
-        padding: const EdgeInsets.symmetric(horizontal: spacing),
-        itemBuilder: (context, index) {
-          final recipe = recipes[index];
-          return StaggeredAnimation(
-            index: index + _meals.length + 2,
-            child: Padding(
-              padding: const EdgeInsets.only(right: spacing),
-              child: _TiltableRecipeCard(
-                child: SizedBox(
-                  width: cardWidth,
-                  child: Stack(fit: StackFit.expand, children: [
-                    ClipRRect(
-                        borderRadius: BorderRadius.circular(20.0),
-                        child: CachedNetworkImage(
-                            imageUrl: recipe['image'] as String,
-                            fit: BoxFit.cover,
-                            placeholder: (c, u) =>
-                                Container(color: Colors.grey[200]))),
-                    Container(
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20.0),
-                            gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.center,
-                                colors: [
-                                  Colors.black.withOpacity(0.8),
-                                  Colors.transparent
-                                ]))),
-                    Positioned(
-                      bottom: 12,
-                      left: 12,
-                      right: 12,
-                      child: Text(recipe['title'] as String,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
   }
 
   Widget _buildQuickActions() {
@@ -1317,9 +1316,488 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       },
     );
   }
-}
+
+} // End of _MealTrackingPageState
 
 // --- ALL HELPER WIDGETS ---
+// (Included from previous context for a complete file)
+
+// Model for Step Analysis (Assuming this structure)
+class StepAnalysis {
+  final bool okData;
+  final List<int> steps;
+
+  StepAnalysis({required this.okData, required this.steps});
+
+  factory StepAnalysis.fromJson(Map<String, dynamic> json) {
+    // Ensure steps are parsed as int
+    final List<dynamic> stepsData = json['steps'] ?? [];
+    final List<int> parsedSteps = stepsData.map((s) => s as int? ?? 0).toList();
+    
+    return StepAnalysis(
+      okData: json['OkData'] as bool? ?? false,
+      steps: parsedSteps,
+    );
+  }
+}
+
+class DailyStepsChartCard extends StatefulWidget {
+  const DailyStepsChartCard({super.key});
+
+  @override
+  State<DailyStepsChartCard> createState() => _DailyStepsChartCardState();
+}
+
+class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
+  late Future<StepAnalysis> _stepAnalysisFuture;
+  final AuthService _authService = AuthService();
+
+  // Color palette for the new dark card
+  final Color darkYellow =
+      const Color(0xFFFFA000); // Amber 700 (Used for achievement)
+  final Color cardBackgroundColor =
+      const Color(0xFF1A2E35); // Dark Teal/Blue
+  final Color cardBackgroundGradientEnd =
+      const Color(0xFF1A2E35); // Darker shade
+  final Color progressTrackColor = Colors.white.withOpacity(0.1);
+  final Color lightTextColor = Colors.white.withOpacity(0.8);
+  final Color veryLightTextColor = Colors.white.withOpacity(0.4);
+
+  final stepGoal = 10000.0; // The fixed goal
+
+  @override
+  void initState() {
+    super.initState();
+    _stepAnalysisFuture = _fetchStepAnalysis();
+  }
+
+  // UNCHANGED: Fetch logic for step data
+  Future<StepAnalysis> _fetchStepAnalysis() async {
+    final String apiUrl = '$baseURL/api/get_last_7days_steps';
+    final token = await _authService.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required for step data.');
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonBody = json.decode(response.body);
+        return StepAnalysis.fromJson(jsonBody);
+      } else {
+        // Fallback for failed API, keeping the existing structure
+        print(
+            'Step API failed with status ${response.statusCode}. Falling back to mock data.');
+        final mockData = {
+          'OkData': true,
+          'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
+        };
+        return StepAnalysis.fromJson(mockData);
+      }
+    } catch (e) {
+      // Fallback for network error
+      print(
+          'Network error for step data: ${e.toString()}. Falling back to mock data.');
+      final mockData = {
+        'OkData': true,
+        'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
+      };
+      return StepAnalysis.fromJson(mockData);
+    }
+  }
+
+  // --- NEW WIDGETS FOR CREATIVE UI ---
+
+  // 1. The main dark container for all states (loading, error, success)
+  Widget _buildDarkContainer({required Widget child}) {
+    return StaggeredAnimation(
+      index: 2, // Keeps its place in the page animation
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cardBackgroundColor, cardBackgroundGradientEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 15,
+              spreadRadius: -5,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  // 2. Custom Painter for the Radial "Speedometer"
+  /* (MOVED b-SIDE b) */
+
+  // 3. Vertical bar for the weekly chart
+  Widget _buildVerticalBar({
+    required String dayLabel,
+    required int steps,
+    required double goal,
+    required double maxSteps, // Max steps in the week for scaling
+    required Color color,
+  }) {
+    const double maxBarHeight = 80.0;
+    final bool achieved = steps >= goal;
+    // Ensure maxSteps is not zero to avoid division by zero
+    final double barHeight = maxSteps > 0 ? (steps / maxSteps) * maxBarHeight : 0.0;
+    final barColor =
+        achieved ? color : Colors.white.withOpacity(0.6);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // The animated bar
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: barHeight),
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeOutCubic,
+          builder: (context, height, child) {
+            return Container(
+              width: 18,
+              height: height,
+              decoration: BoxDecoration(
+                color: barColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        // Day label
+        Text(
+          dayLabel,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: achieved ? Colors.white : veryLightTextColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 4. NEW: Dark-themed widget for when data is not available
+  Widget _buildDataNotAvailable(BuildContext context, StepAnalysis? analysis) {
+    final bool notEnoughData = analysis?.okData == false;
+    final String title;
+    final String message;
+    final IconData icon;
+
+    // Use light text colors for the dark card
+    final Color color = Colors.white.withOpacity(0.7);
+
+    if (notEnoughData) {
+      title = 'Insufficient Data';
+      message = 'Need 7 full days of step history to show your dashboard.';
+      icon = Icons.calendar_today_rounded;
+    } else {
+      title = 'Data Unavailable';
+      message =
+          'Feature isn\'t available, Server issue. Please try again later.';
+      icon = Icons.gpp_bad_rounded;
+    }
+
+    return Container(
+      height: 300, // Give it a fixed height
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 50, color: color.withOpacity(0.6)),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 5. NEW: Rebuilt Chart UI with "Speedometer" and Vertical Bars
+  Widget _buildChartUI(BuildContext context, List<int> dailySteps) {
+    // 1. Calculate Averages and Status
+    final int recentSteps = dailySteps.isNotEmpty ? dailySteps.last : 0; // Get the most recent day
+    final double progress = (recentSteps / stepGoal).clamp(0.0, 1.0);
+    // Find max steps for scaling the bar chart
+    final double maxWeeklySteps = (dailySteps.isNotEmpty ? (dailySteps.reduce(math.max) * 1.1) : stepGoal);
+
+    // Logic for dynamic day labels (Mon, Tue, etc.)
+    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final todayIndex = (DateTime.now().weekday - 1) % 7;
+
+    List<String> chartDays = [];
+    for (int i = 0; i < dailySteps.length; i++) {
+      final dayOffset = (todayIndex - (dailySteps.length - 1) + i) % 7;
+      final chartDayIndex = (dayOffset < 0 ? dayOffset + 7 : dayOffset);
+      chartDays.add(days[chartDayIndex]);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // --- HEADER ---
+        Row(
+          children: [
+            Icon(Icons.directions_run_rounded, color: darkYellow, size: 28),
+            const SizedBox(width: 10),
+            Text(
+              'Step Dashboard',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 50),
+
+        // --- HERO SECTION: RADIAL "SPEEDOMETER" ---
+        SizedBox(
+          width: 200,
+          height: 200,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: progress),
+            duration: const Duration(milliseconds: 1200),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedProgress, child) {
+              return CustomPaint(
+                painter: _StepRadialPainter(
+                  progress: animatedProgress,
+                  color: darkYellow,
+                  trackColor: progressTrackColor,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 20), // Offset for dial
+                      Text(
+                        '${recentSteps.toInt()}',
+                        style: const TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        '/ ${stepGoal.toInt()} steps',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: lightTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: recentSteps >= stepGoal
+                              ? darkYellow.withOpacity(0.2)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: recentSteps >= stepGoal
+                                ? darkYellow
+                                : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Text(
+                          recentSteps >= stepGoal ? 'GOAL MET!' : 'Recent Day',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: recentSteps >= stepGoal
+                                ? darkYellow
+                                : lightTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 30),
+        const Divider(height: 40, color: Colors.white24, thickness: 1),
+
+        // --- VISUALIZATION: WEEKLY VERTICAL BARS ---
+        Text(
+          'Weekly Review',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: lightTextColor,
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 110, // Fixed height for bars + labels
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: dailySteps.asMap().entries.map((entry) {
+              final index = entry.key;
+              final steps = entry.value;
+
+              return _buildVerticalBar(
+                dayLabel: chartDays.length > index ? chartDays[index] : '...',
+                steps: steps,
+                goal: stepGoal,
+                maxSteps: maxWeeklySteps,
+                color: darkYellow,
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- Main Build Method (FutureBuilder) ---
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<StepAnalysis>(
+      future: _stepAnalysisFuture,
+      builder: (context, snapshot) {
+        // STATE 1: LOADING
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildDarkContainer(
+            child: const SizedBox(
+              height: 300, // Give it a fixed height
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFFFFA000), // Use darkYellow
+                  strokeWidth: 2.0,
+                ),
+              ),
+            ),
+          );
+        }
+
+        // STATE 2: ERROR or OK_DATA = FALSE
+        if (snapshot.hasError || (snapshot.hasData && !snapshot.data!.okData)) {
+          return _buildDarkContainer(
+            child: _buildDataNotAvailable(context, snapshot.data),
+          );
+        }
+
+        // STATE 3: SUCCESS
+        if (snapshot.hasData && snapshot.data!.okData) {
+           final dailySteps = snapshot.data!.steps;
+           return _buildDarkContainer(
+             child: _buildChartUI(context, dailySteps),
+           );
+        }
+
+        // Fallback state
+        return _buildDarkContainer(
+          child: _buildDataNotAvailable(context, null),
+        );
+      },
+    );
+  }
+}
+
+class _StepRadialPainter extends CustomPainter {
+  final double progress; // 0.0 to 1.0
+  final Color color;
+  final Color trackColor;
+
+  _StepRadialPainter(
+      {required this.progress,
+      required this.color,
+      required this.trackColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double strokeWidth = 12.0;
+    final Offset center = size.center(Offset.zero);
+    final double radius = (size.width - strokeWidth) / 3;
+
+    // Define the "speedometer" arcs
+    const double startAngle = -math.pi * 0.85; // ~2 o'clock
+    const double totalAngle = math.pi * 1.7; // ~10 o'clock
+
+    // Paint for the background track
+    final Paint trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Paint for the progress arc
+    final Paint progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Draw the track
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      totalAngle,
+      false,
+      trackPaint,
+    );
+
+    // Draw the progress
+    final double progressAngle = progress * totalAngle;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      progressAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _StepRadialPainter oldDelegate) => 
+    oldDelegate.progress != progress ||
+    oldDelegate.color != color ||
+    oldDelegate.trackColor != trackColor;
+}
 
 class AnimatedScannerButton extends StatefulWidget {
   final IconData icon;
@@ -2086,7 +2564,7 @@ class _CreativeTimelineHydrationItemState
 
     
     // FIX: Calculate serving size dynamically (1/8th of the goal)
-    _servingSizeMl = (_goalWaterMl / _dropletCount).round();
+    _servingSizeMl = (_goalWaterMl > 0 ? (_goalWaterMl / _dropletCount) : 250).round();
     
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 1));
@@ -2109,7 +2587,7 @@ class _CreativeTimelineHydrationItemState
             setState(() {
                 _goalWaterMl = widget.initialWaterGoal;
                 _currentWaterMl = widget.initialWaterConsumed;
-                _servingSizeMl = (_goalWaterMl / _dropletCount).round();
+                _servingSizeMl = (_goalWaterMl > 0 ? (_goalWaterMl / _dropletCount) : 250).round();
                 LocalDB.setWaterConsumed(_currentWaterMl);
                 LocalDB.setWaterGoal(_goalWaterMl);
 
@@ -2176,7 +2654,7 @@ class _CreativeTimelineHydrationItemState
     }
   }
 
-  double get _progress => _currentWaterMl / _goalWaterMl;
+  double get _progress => _goalWaterMl > 0 ? _currentWaterMl / _goalWaterMl : 0.0;
   bool get _isComplete => _progress >= 1.0;
   
   @override
@@ -2540,6 +3018,7 @@ class _DropletProgressIndicator extends StatelessWidget {
             }));
       });
 }
+
 class _LogActionButton extends StatelessWidget {
   final int servingSize;
   final VoidCallback onTap;
@@ -2896,6 +3375,7 @@ class _MacroLegend extends StatelessWidget {
         // Removed the percentage display SizedBox completely
       ]);
 }
+
 class _DailyInsightCard extends StatefulWidget {
   const _DailyInsightCard();
   @override
@@ -2941,7 +3421,10 @@ class _DailyInsightCardState extends State<_DailyInsightCard> {
 
 class _TiltableRecipeCard extends StatefulWidget {
   final Widget child;
-  const _TiltableRecipeCard({required this.child});
+  final VoidCallback? onTap; // Added onTap support
+
+  const _TiltableRecipeCard({required this.child, this.onTap});
+
   @override
   State<_TiltableRecipeCard> createState() => _TiltableRecipeCardState();
 }
@@ -2949,6 +3432,7 @@ class _TiltableRecipeCard extends StatefulWidget {
 class _TiltableRecipeCardState extends State<_TiltableRecipeCard> {
   double _tiltX = 0;
   double _tiltY = 0;
+
   @override
   void initState() {
     super.initState();
@@ -2977,7 +3461,11 @@ class _TiltableRecipeCardState extends State<_TiltableRecipeCard> {
                 ..rotateX(tiltX)
                 ..rotateY(-tiltY),
               alignment: FractionalOffset.center,
-              child: _InteractiveCard(child: widget.child))));
+              // Wrap the child in _InteractiveCard and pass the onTap
+              child: _InteractiveCard(
+                onTap: widget.onTap, 
+                child: widget.child,
+              ))));
 }
 
 class _CalorieRingPainter extends CustomPainter {
@@ -3097,444 +3585,35 @@ class _QuickActionButton extends StatelessWidget {
                 style: TextStyle(fontSize: 12, color: Colors.grey[800]))
           ]));
 }
-class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
-  late Future<StepAnalysis> _stepAnalysisFuture;
-  final AuthService _authService = AuthService();
 
-  // Color palette for the new dark card
-  final Color darkYellow =
-      const Color(0xFFFFA000); // Amber 700 (Used for achievement)
-  final Color cardBackgroundColor =
-      const Color(0xFF1A2E35); // Dark Teal/Blue
-  final Color cardBackgroundGradientEnd =
-      const Color(0xFF1A2E35); // Darker shade
-  final Color progressTrackColor = Colors.white.withOpacity(0.1);
-  final Color lightTextColor = Colors.white.withOpacity(0.8);
-  final Color veryLightTextColor = Colors.white.withOpacity(0.4);
+// --- FIX 5: Add these missing Data Models at the end of the file ---
 
-  final stepGoal = 10000.0; // The fixed goal
-
-  @override
-  void initState() {
-    super.initState();
-    _stepAnalysisFuture = _fetchStepAnalysis();
-  }
-
-  // UNCHANGED: Fetch logic for step data
-  Future<StepAnalysis> _fetchStepAnalysis() async {
-    final String apiUrl = '$baseURL/api/get_last_7days_steps';
-    final token = await _authService.getToken();
-
-    if (token == null || token.isEmpty) {
-      throw Exception('Authentication required for step data.');
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonBody = json.decode(response.body);
-        return StepAnalysis.fromJson(jsonBody);
-      } else {
-        // Fallback for failed API, keeping the existing structure
-        print(
-            'Step API failed with status ${response.statusCode}. Falling back to mock data.');
-        final mockData = {
-          'OkData': true,
-          'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
-        };
-        return StepAnalysis.fromJson(mockData);
-      }
-    } catch (e) {
-      // Fallback for network error
-      print(
-          'Network error for step data: ${e.toString()}. Falling back to mock data.');
-      final mockData = {
-        'OkData': true,
-        'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
-      };
-      return StepAnalysis.fromJson(mockData);
-    }
-  }
-
-  // --- NEW WIDGETS FOR CREATIVE UI ---
-
-  // 1. The main dark container for all states (loading, error, success)
-  Widget _buildDarkContainer({required Widget child}) {
-    return StaggeredAnimation(
-      index: 2, // Keeps its place in the page animation
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [cardBackgroundColor, cardBackgroundGradientEnd],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 15,
-              spreadRadius: -5,
-              offset: const Offset(0, 10),
-            )
-          ],
-        ),
-        child: child,
-      ),
-    );
-  }
-
-  // 2. Custom Painter for the Radial "Speedometer"
-  /* (MOVED b-SIDE b) */
-
-  // 3. Vertical bar for the weekly chart
-  Widget _buildVerticalBar({
-    required String dayLabel,
-    required int steps,
-    required double goal,
-    required double maxSteps, // Max steps in the week for scaling
-    required Color color,
-  }) {
-    const double maxBarHeight = 80.0;
-    final bool achieved = steps >= goal;
-    final double barHeight = (steps / maxSteps) * maxBarHeight;
-    final barColor =
-        achieved ? color : Colors.white.withOpacity(0.6);
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        // The animated bar
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0.0, end: barHeight),
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeOutCubic,
-          builder: (context, height, child) {
-            return Container(
-              width: 18,
-              height: height,
-              decoration: BoxDecoration(
-                color: barColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 6),
-        // Day label
-        Text(
-          dayLabel,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: achieved ? Colors.white : veryLightTextColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 4. NEW: Dark-themed widget for when data is not available
-  Widget _buildDataNotAvailable(BuildContext context, StepAnalysis? analysis) {
-    final bool notEnoughData = analysis?.okData == false;
-    final String title;
-    final String message;
-    final IconData icon;
-
-    // Use light text colors for the dark card
-    final Color color = Colors.white.withOpacity(0.7);
-
-    if (notEnoughData) {
-      title = 'Insufficient Data';
-      message = 'Need 7 full days of step history to show your dashboard.';
-      icon = Icons.calendar_today_rounded;
-    } else {
-      title = 'Data Unavailable';
-      message =
-          'Feature isn\'t available, Server issue. Please try again later.';
-      icon = Icons.gpp_bad_rounded;
-    }
-
-    return Container(
-      height: 300, // Give it a fixed height
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 50, color: color.withOpacity(0.6)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 5. NEW: Rebuilt Chart UI with "Speedometer" and Vertical Bars
-  Widget _buildChartUI(BuildContext context, List<int> dailySteps) {
-    // 1. Calculate Averages and Status
-    final int recentSteps = dailySteps.last; // Get the most recent day
-    final double progress = (recentSteps / stepGoal).clamp(0.0, 1.0);
-    // Find max steps for scaling the bar chart
-    final double maxWeeklySteps = (dailySteps.reduce(math.max) * 1.1);
-
-    // Logic for dynamic day labels (Mon, Tue, etc.)
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final todayIndex = (DateTime.now().weekday - 1) % 7;
-
-    List<String> chartDays = [];
-    for (int i = 0; i < dailySteps.length; i++) {
-      final dayOffset = (todayIndex - (dailySteps.length - 1) + i) % 7;
-      final chartDayIndex = (dayOffset < 0 ? dayOffset + 7 : dayOffset);
-      chartDays.add(days[chartDayIndex]);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // --- HEADER ---
-        Row(
-          children: [
-            Icon(Icons.directions_run_rounded, color: darkYellow, size: 28),
-            const SizedBox(width: 10),
-            Text(
-              'Step Dashboard',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 50),
-
-        // --- HERO SECTION: RADIAL "SPEEDOMETER" ---
-        SizedBox(
-          width: 200,
-          height: 200,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0.0, end: progress),
-            duration: const Duration(milliseconds: 1200),
-            curve: Curves.easeOutCubic,
-            builder: (context, animatedProgress, child) {
-              return CustomPaint(
-                painter: _StepRadialPainter(
-                  progress: animatedProgress,
-                  color: darkYellow,
-                  trackColor: progressTrackColor,
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20), // Offset for dial
-                      Text(
-                        '${recentSteps.toInt()}',
-                        style: const TextStyle(
-                          fontSize: 42,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        '/ ${stepGoal.toInt()} steps',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: lightTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: recentSteps >= stepGoal
-                              ? darkYellow.withOpacity(0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: recentSteps >= stepGoal
-                                ? darkYellow
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          recentSteps >= stepGoal ? 'GOAL MET!' : 'Recent Day',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: recentSteps >= stepGoal
-                                ? darkYellow
-                                : lightTextColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        SizedBox(height: 30,),
-        const Divider(height: 40, color: Colors.white24, thickness: 1),
-
-        // --- VISUALIZATION: WEEKLY VERTICAL BARS ---
-        Text(
-          'Weekly Review',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: lightTextColor,
-          ),
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          height: 110, // Fixed height for bars + labels
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: dailySteps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final steps = entry.value;
-
-              return _buildVerticalBar(
-                dayLabel: chartDays[index],
-                steps: steps,
-                goal: stepGoal,
-                maxSteps: maxWeeklySteps,
-                color: darkYellow,
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // --- Main Build Method (FutureBuilder) ---
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<StepAnalysis>(
-      future: _stepAnalysisFuture,
-      builder: (context, snapshot) {
-        // STATE 1: LOADING
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildDarkContainer(
-            child: const SizedBox(
-              height: 300, // Give it a fixed height
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFFFA000), // Use darkYellow
-                  strokeWidth: 2.0,
-                ),
-              ),
-            ),
-          );
-        }
-
-        // STATE 2: ERROR or OK_DATA = FALSE
-        if (snapshot.hasError || (snapshot.hasData && !snapshot.data!.okData)) {
-          return _buildDarkContainer(
-            child: _buildDataNotAvailable(context, snapshot.data),
-          );
-        }
-
-        // STATE 3: SUCCESS
-        // (snapshot.hasData && snapshot.data!.okData)
-        final dailySteps = snapshot.data!.steps;
-        return _buildDarkContainer(
-          child: _buildChartUI(context, dailySteps),
-        );
-      },
-    );
-  }
+class MealPlanItem {
+  final String id;
+  final String title;
+  final String imageUrl;
+  final int calories;
+  final int prepTimeMinutes;
+  
+  MealPlanItem({
+    required this.id, 
+    required this.title, 
+    required this.imageUrl, 
+    required this.calories, 
+    required this.prepTimeMinutes
+  });
 }
 
-
-class _StepRadialPainter extends CustomPainter {
-  final double progress; // 0.0 to 1.0
-  final Color color;
-  final Color trackColor;
-
-  _StepRadialPainter(
-      {required this.progress,
-      required this.color,
-      required this.trackColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double strokeWidth = 12.0;
-    final Offset center = size.center(Offset.zero);
-    final double radius = (size.width - strokeWidth) / 3;
-
-    // Define the "speedometer" arcs
-    const double startAngle = -math.pi * 0.85; // ~2 o'clock
-    const double totalAngle = math.pi * 1.7; // ~10 o'clock
-
-    // Paint for the background track
-    final Paint trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    // Paint for the progress arc
-    final Paint progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    // Draw the track
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      totalAngle,
-      false,
-      trackPaint,
-    );
-
-    // Draw the progress
-    final double progressAngle = progress * totalAngle;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      progressAngle,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+class TodayMealPlan {
+  final List<MealPlanItem> breakfast;
+  final List<MealPlanItem> lunch;
+  final List<MealPlanItem> dinner;
+  final List<MealPlanItem> snacks;
+  
+  TodayMealPlan({
+    this.breakfast = const [], 
+    this.lunch = const [], 
+    this.dinner = const [], 
+    this.snacks = const []
+  });
 }
