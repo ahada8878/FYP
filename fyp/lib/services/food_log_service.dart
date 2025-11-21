@@ -9,6 +9,9 @@ import 'package:fyp/models/food_log.dart'; // Import the FoodLog model
 
 class FoodLogService {
   final AuthService _authService = AuthService();
+  
+  // ✅ Define required meal types for validation
+  static const List<String> requiredMealTypes = ['Breakfast', 'Lunch', 'Dinner'];
 
   Future<bool> logFood({
     required String mealType,
@@ -153,6 +156,84 @@ class FoodLogService {
     } catch (e) {
       print('Error in getFoodLogsForDate: $e');
       throw Exception('Error fetching food logs: $e');
+    }
+  }
+
+  // ✅ --- NEW: Fetch last 7 days of logs efficiently ---
+  Future<Map<DateTime, List<FoodLog>>> fetchLastSevenDaysLogs() async {
+    Map<DateTime, List<FoodLog>> logData = {};
+    List<DateTime> daysToFetch = [];
+    final now = DateTime.now();
+
+    for (int i = 0; i < 7; i++) {
+      // Clear time components
+      final date = now.subtract(Duration(days: i));
+      daysToFetch.add(DateTime(date.year, date.month, date.day));
+    }
+
+    try {
+      // Fetch all days in parallel
+      List<Future<List<FoodLog>>> fetchFutures = daysToFetch
+          .map((date) => getFoodLogsForDate(date))
+          .toList();
+          
+      final List<List<FoodLog>> results = await Future.wait(fetchFutures);
+      
+      for (int i = 0; i < daysToFetch.length; i++) {
+        logData[daysToFetch[i]] = results[i];
+      }
+      return logData;
+    } catch (e) {
+      throw Exception('Failed to load weekly logs: $e');
+    }
+  }
+
+  // ✅ --- NEW: Check if weekly logs are complete ---
+  bool isWeeklyLogComplete(Map<DateTime, List<FoodLog>> weeklyLogs) {
+    // Iterate through each day in the map (which represents the last 7 days)
+    for (var date in weeklyLogs.keys) {
+      final logs = weeklyLogs[date] ?? [];
+      final loggedMealTypes = logs.map((l) => l.mealType).toSet();
+      
+      // Check if all required types exist for this day
+      for (var type in requiredMealTypes) {
+        if (!loggedMealTypes.contains(type)) {
+          // Found a missing meal
+          return false;
+        }
+      }
+    }
+    return true; // All days have all meals
+  }
+  /// Calls the backend to generate the AI report
+  Future<Map<String, dynamic>> fetchWeeklyReport() async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception('No authentication token found.');
+
+    final url = Uri.parse('$baseURL/api/foodlog/generate-report');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        // Ensure we return the data object which matches our Schema
+        if (body['data'] != null) {
+          return body['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception("Report data is missing");
+        }
+      } else {
+        throw Exception('Failed to generate report: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Error calling AI service: $e');
     }
   }
 }

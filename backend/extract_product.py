@@ -11,34 +11,26 @@ from PIL import Image
 from pyzbar.pyzbar import decode
 import pytesseract
 
-# --- IMPORTANT SETUP NOTE ---
-# 1. You must install the required Python libraries:
-#    pip install requests Pillow pyzbar pytesseract aiohttp
-# 2. You must install the Tesseract OCR engine on your system.
-# ----------------------------
-
-# --- Centralized Configuration ---
+# --- CONFIGURATION ---
 CONFIG = {
-    "NODE_API_BASE_URL": "https://nutriwisebckend-production.up.railway.app:8080",  # Deployment URL (No longer used, but kept for context)
     "OFF_API_BASE_URL": "https://world.openfoodfacts.org",
-    "REQUEST_TIMEOUT": 90,  # Timeout in seconds for individual API calls
-    "MAX_ALTERNATIVES": 15,
-    "MAX_SEARCH_RESULTS_PER_CATEGORY": 10,
-    "MAX_CATEGORIES_TO_SEARCH": 4,
+    "REQUEST_TIMEOUT": 25, 
+    "MAX_ALTERNATIVES_TO_RETURN": 15, # Increased to ensure UI is filled
+    "FETCH_LIMIT_PER_CATEGORY": 40, 
+    "MAX_CATEGORIES_TO_SEARCH": 2, 
 }
 
-
 # ----------------------------------------------------------------------
-# ASYNCHRONOUS API CLIENT for OpenFoodFacts (for performance)
+# ASYNCHRONOUS API CLIENT
 # ----------------------------------------------------------------------
 
 class AsyncOpenFoodFactsClient:
-    """An asynchronous client to interact with the OpenFoodFacts API concurrently."""
-
     def __init__(self, base_url: str, timeout: int):
         self._base_url = base_url
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._session: Optional[aiohttp.ClientSession] = None
+        # We need categories_tags to find alternatives
+        self._fields = "code,product_name,brands,image_url,nutriments,ingredients_text,categories_tags"
 
     async def __aenter__(self):
         self._session = aiohttp.ClientSession(timeout=self._timeout)
@@ -48,326 +40,283 @@ class AsyncOpenFoodFactsClient:
         if self._session:
             await self._session.close()
 
-    async def _get(self, url: str, params: Optional[Dict] = None) -> Optional[Dict]:
-        """Helper for making GET requests."""
-        if not self._session:
-            raise RuntimeError("Session not started. Use 'async with' context.")
+    async def _get(self, url: str, params: Dict) -> Optional[Dict]:
+        if not self._session: raise RuntimeError("Session not started.")
         try:
-            # Set User-Agent for better API citizenship
-            headers = {'User-Agent': 'NutriwiseScanner - PythonScript - v1.0'}
+            params['fields'] = self._fields
+            headers = {'User-Agent': 'NutriwiseScanner/3.0 (Fix)'}
+            
             async with self._session.get(url, params=params, headers=headers) as response:
-                response.raise_for_status()
-                return await response.json()
-        except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
-            sys.stderr.write(f"OFF API Error for URL {url}: {e}\n")
+                if response.status == 200:
+                    return await response.json()
+                return None
+        except Exception:
             return None
 
     async def fetch_by_barcode(self, barcode: str) -> Optional[Dict]:
-        url = f"{self._base_url}/api/v0/product/{barcode}.json"
-        data = await self._get(url)
-        return data.get("product") if data and data.get("status") == 1 else None
+        url = f"{self._base_url}/api/v2/product/{barcode}"
+        data = await self._get(url, {})
+        return data.get("product") if data else None
 
-    async def search_by_name(self, name: str, page_size: int = 1) -> Optional[List[Dict]]:
+    async def search_by_name(self, name: str, page_size: int = 20) -> Optional[List[Dict]]:
         url = f"{self._base_url}/cgi/search.pl"
         params = {
             "search_terms": name, "search_simple": 1, "action": "process",
-            "json": 1, "page_size": page_size
+            "json": 1, "page_size": page_size, "sort_by": "popularity"
         }
-        data = await self._get(url, params=params)
-        return data.get("products", []) if data else None
+        data = await self._get(url, params)
+        return data.get("products", []) if data else []
 
-    async def fetch_by_category(self, category: str, page_size: int) -> List[Dict]:
+    async def fetch_by_category(self, category_tag: str, page_size: int) -> List[Dict]:
         url = f"{self._base_url}/cgi/search.pl"
         params = {
-            "tagtype_0": "categories", "tag_contains_0": "contains", "tag_0": category,
-            "action": "process", "json": 1, "page_size": page_size
+            "tagtype_0": "categories", 
+            "tag_contains_0": "contains", 
+            "tag_0": category_tag,
+            "action": "process", 
+            "json": 1, 
+            "page_size": page_size,
+            "sort_by": "popularity" 
         }
-        data = await self._get(url, params=params)
+        data = await self._get(url, params)
         return data.get("products", []) if data else []
     
     async def fetch_alternatives_concurrently(self, categories: List[str], page_size: int) -> List[Dict]:
-        """
-        Core optimization: Fetches products for multiple categories in parallel.
-        """
         tasks = [self.fetch_by_category(cat, page_size) for cat in categories]
         results_lists = await asyncio.gather(*tasks)
-        
-        # Flatten the list of lists into a single list of products
-        all_products = [product for sublist in results_lists for product in sublist]
-        return all_products
+        return [p for sublist in results_lists for p in sublist]
 
 
 # ----------------------------------------------------------------------
-# SYNCHRONOUS HELPER FUNCTIONS (No I/O)
+# HELPER FUNCTIONS
 # ----------------------------------------------------------------------
 
-def decode_barcode(image_path: str) -> Optional[str]:
+def optimize_image(image_path: str) -> Optional[Image.Image]:
     try:
-        if not os.path.exists(image_path):
-             sys.stderr.write(f"Barcode decoding failed: Image file not found at {image_path}\n")
-             return None
-        barcodes = decode(Image.open(image_path))
-        return barcodes[0].data.decode("utf-8") if barcodes else None
-    except Exception as e:
-        sys.stderr.write(f"Barcode decoding failed: {e}\n")
+        if not os.path.exists(image_path): return None
+        img = Image.open(image_path)
+        img.thumbnail((1000, 1000)) 
+        return img
+    except:
         return None
 
-def extract_text(image_path: str) -> str:
+def decode_barcode(img: Image.Image) -> Optional[str]:
     try:
-        if not os.path.exists(image_path):
-             sys.stderr.write(f"OCR failed: Image file not found at {image_path}\n")
-             return ""
-        # Adding a try-except block for Tesseract itself can be helpful
-        return pytesseract.image_to_string(Image.open(image_path), lang='eng').strip()
-    except Exception as e:
-        sys.stderr.write(f"OCR extraction failed (Check Tesseract install): {e}\n")
+        barcodes = decode(img)
+        if barcodes: return barcodes[0].data.decode("utf-8")
+        return None
+    except:
+        return None
+
+def extract_text(img: Image.Image) -> str:
+    try:
+        return pytesseract.image_to_string(img, lang='eng').strip()
+    except:
         return ""
 
-def get_best_category(categories_string: Optional[str]) -> List[str]:
-    if not categories_string: return []
-    categories = [c.strip() for c in categories_string.split(",")]
-    categories.reverse()
-    EXCLUDED = {"groceries", "food", "beverages", "meals", "sauces", "dairies"}
-    filtered = [cat for cat in categories if cat.lower() not in EXCLUDED]
-    return filtered[:CONFIG['MAX_CATEGORIES_TO_SEARCH']] if filtered else categories[:1]
+def get_best_category_tags(categories_tags: List[str]) -> List[str]:
+    if not categories_tags: return []
+    IGNORED = ["en:plant-based", "en:foods", "en:beverages", "en:groceries", "en:non-alcoholic-beverages"]
+    filtered = [c for c in categories_tags if c not in IGNORED and "plant" not in c]
+    return filtered[-CONFIG['MAX_CATEGORIES_TO_SEARCH']:] if filtered else categories_tags[-1:]
 
 def extract_main_nutrients(nutriments: Dict) -> Dict:
-    """Extracts and cleans up key nutritional data."""
     if not nutriments: return {}
+    def f(val):
+        if val is None: return None
+        try: return float(val)
+        except: return None
+
+    energy = f(nutriments.get("energy-kcal_100g")) or f(nutriments.get("energy-kcal"))
+    if energy is None:
+        kj = f(nutriments.get("energy-kj_100g"))
+        if kj: energy = round(kj / 4.184)
+
     return {
-        "calories_kcal_100g": nutriments.get("energy-kcal_100g"),
-        "fat_100g": nutriments.get("fat_100g"),
-        "saturated_fat_100g": nutriments.get("saturated-fat_100g"),
-        "carbohydrates_100g": nutriments.get("carbohydrates_100g"),
-        "sugars_100g": nutriments.get("sugars_100g"),
-        "salt_100g": nutriments.get("salt_100g"),
+        "energy_kcal": energy, 
+        "fat_100g": f(nutriments.get("fat_100g")),
+        "saturated_fat_100g": f(nutriments.get("saturated-fat_100g")),
+        "carbohydrates_100g": f(nutriments.get("carbohydrates_100g")),
+        "sugars_100g": f(nutriments.get("sugars_100g")),
+        "salt_100g": f(nutriments.get("salt_100g")),
+        "proteins_100g": f(nutriments.get("proteins_100g"))
     }
 
-# --- MODIFIED FUNCTION ---
-def get_product_safety_statuses(product: Dict, conditions: Dict, preferences: Dict) -> tuple[List[Dict], int]:
-    """
-    Checks product against user's health conditions and dietary preferences.
-    
-    Returns:
-        A tuple: (list of detailed status objects including 'is_safe', total count of failed checks)
-    """
-    
-    def n(key: str) -> Optional[float]:
-        v = nutrients.get(key)
-        try: return float(v) if v is not None else None
-        except (ValueError, TypeError): return None
-
+def analyze_risk(product: Dict, conditions: Dict, preferences: Dict) -> tuple[List[Dict], int]:
     nutrients = extract_main_nutrients(product.get("nutriments", {}))
-    statuses, failed_count = [], 0
-    ingredients = product.get("ingredients_text", "").lower()
+    statuses = []
+    failed_count = 0
     
-    # --- Health Condition Checks (Thresholds per 100g) ---
-    
-    # Check 1: Hypertension (High Salt)
-    if conditions.get("Hypertension"):
-        salt = n("salt_100g")
-        is_safe = salt is None or salt <= 1.5
-        if not is_safe: failed_count += 1
-        statuses.append({
-            "name": "Hypertension (Salt)", 
-            "is_safe": is_safe,
-            "status_detail": "High Salt" if not is_safe else "OK",
-            "value": f"{salt}g" if salt is not None else "N/A"
-        })
-    
-    # Check 2: Diabetes (High Sugar)
-    if conditions.get("Diabetes"):
-        sugar = n("sugars_100g")
-        is_safe = sugar is None or sugar <= 22.5
-        if not is_safe: failed_count += 1
-        statuses.append({
-            "name": "Diabetes (Sugar)",
-            "is_safe": is_safe,
-            "status_detail": "High Sugar" if not is_safe else "OK",
-            "value": f"{sugar}g" if sugar is not None else "N/A"
-        })
-        
-    # Check 3: High Cholesterol/Heart Disease (Saturated Fat)
-    if conditions.get("High Cholesterol") or conditions.get("Heart Disease"):
-        sat_fat = n("saturated_fat_100g")
-        is_safe = sat_fat is None or sat_fat <= 5
-        if not is_safe: failed_count += 1
-        statuses.append({
-            "name": "Heart Risk (Sat. Fat)",
-            "is_safe": is_safe,
-            "status_detail": "High Saturated Fat" if not is_safe else "OK",
-            "value": f"{sat_fat}g" if sat_fat is not None else "N/A"
-        })
-        
-    # Check 4: Obesity/Weight Management (High Calories)
-    if conditions.get("Obesity"):
-        calories = n("calories_kcal_100g")
-        is_safe = calories is None or calories <= 500
-        if not is_safe: failed_count += 1
-        statuses.append({
-            "name": "Obesity (Calories)",
-            "is_safe": is_safe,
-            "status_detail": "High Calories" if not is_safe else "OK",
-            "value": f"{calories}kcal" if calories is not None else "N/A"
-        })
+    checks = [
+        ("salt_100g", 1.5, "Hypertension", "High Salt"),
+        ("sugars_100g", 22.5, "Diabetes", "High Sugar"),
+        ("saturated_fat_100g", 5.0, "High Cholesterol", "High Sat. Fat"),
+        ("energy_kcal", 450, "Obesity", "High Calorie"),
+    ]
 
-    # --- Dietary Preference Checks ---
-    
-    # Check A: Lactose Free
-    if preferences.get("Lactose Free"):
-        is_safe = not any(term in ingredients for term in ["lactose", "milk", "whey", "casein"])
-        if not is_safe: failed_count += 1
-        statuses.append({
-            "name": "Lactose Free", 
-            "is_safe": is_safe, 
-            "status_detail": "Contains Milk/Lactose" if not is_safe else "OK",
-            "value": "N/A"
-        })
-        
-    # Check B: Vegan/Vegetarian (Simplified)
-    if preferences.get("Vegan"):
-        is_safe = not any(term in ingredients for term in ["meat", "chicken", "beef", "pork", "fish", "gelatin"])
-        if not is_safe: failed_count += 1
-        statuses.append({
-            "name": "Vegan", 
-            "is_safe": is_safe, 
-            "status_detail": "Contains Animal Products" if not is_safe else "OK",
-            "value": "N/A"
-        })
-        
-    
-    # If no active checks were performed (no conditions/preferences active)
+    for n_key, limit, cond_key, msg in checks:
+        if conditions.get(cond_key):
+            val = nutrients.get(n_key)
+            is_safe = val is None or val <= limit
+            if not is_safe: failed_count += 1
+            statuses.append({"name": cond_key, "is_safe": is_safe, "status_detail": msg if not is_safe else "Safe levels"})
+
+    ingredients = str(product.get("ingredients_text", "")).lower()
+    pref_checks = [
+        ("Lactose Free", ["milk", "lactose", "cheese", "cream", "butter", "whey"], "Contains Dairy"),
+        ("Vegan", ["milk", "egg", "meat", "fish", "gelatin", "honey"], "Animal Content"),
+        ("Gluten Free", ["wheat", "barley", "rye", "gluten", "malt"], "Contains Gluten"),
+        ("Nut Free", ["nut", "almond", "cashew", "hazelnut", "pecan"], "Contains Nuts"),
+    ]
+
+    for pref_key, keywords, msg in pref_checks:
+        if preferences.get(pref_key):
+            is_safe = not any(k in ingredients for k in keywords)
+            if not is_safe: failed_count += 1
+            statuses.append({"name": pref_key, "is_safe": is_safe, "status_detail": msg if not is_safe else "Safe"})
+
     if not statuses:
-        statuses.append({"name": "No Active Checks", "is_safe": True, "status_detail": "No profile restrictions found."})
+        statuses.append({"name": "General", "is_safe": True, "status_detail": "No specific risks"})
 
     return statuses, failed_count
-# --- END MODIFIED FUNCTION ---
-
 
 # ----------------------------------------------------------------------
-# MAIN EXECUTION LOGIC
+# MAIN LOGIC
 # ----------------------------------------------------------------------
 
 async def main():
     if len(sys.argv) != 2:
-        print(json.dumps({"error": "Missing input JSON file path argument."}))
+        print(json.dumps({"error": "Missing input file argument"}))
         return
 
-    input_json_path = sys.argv[1]
-    
-    # 1. Read input data from the JSON file
     try:
-        with open(input_json_path, 'r') as f:
+        with open(sys.argv[1], 'r') as f:
             input_data = json.load(f)
-            image_path = input_data.get("image_path")
-            user_id = input_data.get("user_id")
-            # The conditions and preferences dictionaries are now directly available
-            target_conditions = input_data.get("conditions", {}) 
-            target_preferences = input_data.get("restrictions", {}) # Renamed from preferences in old file
-            
-            if not image_path:
-                raise ValueError("Missing 'image_path' in input JSON.")
-    
-    except Exception as e:
-        sys.stderr.write(f"ERROR: Failed to read or parse input JSON file: {e}\n")
-        print(json.dumps({"error": "Invalid input data received from server.", "details": str(e)}))
+    except:
+        print(json.dumps({"error": "Input Read Error"}))
         return
-    
-    # Filter conditions/preferences to only include active ones (True)
-    active_conditions = {k: v for k, v in target_conditions.items() if v}
-    active_preferences = {k: v for k, v in target_preferences.items() if v}
-    
-    sys.stderr.write(f"--- INFO: Scan starting for User {user_id}. Conditions: {list(active_conditions.keys())}. ---\n")
 
+    image_path = input_data.get("image_path")
+    conditions = input_data.get("conditions", {})
+    preferences = input_data.get("restrictions", {})
+
+    pil_image = optimize_image(image_path)
+    if not pil_image:
+        print(json.dumps({"success": False, "error": "Image file invalid"}))
+        return
 
     async with AsyncOpenFoodFactsClient(CONFIG["OFF_API_BASE_URL"], CONFIG["REQUEST_TIMEOUT"]) as client:
-        # 2. Identify Product (Barcode -> OCR)
-        product, method, text = None, None, None
         
-        barcode = decode_barcode(image_path)
+        # 1. IDENTIFY PRODUCT
+        product = None
+        method = "none"
+        
+        barcode = decode_barcode(pil_image)
         if barcode:
-            sys.stderr.write(f"--- INFO: Barcode detected: {barcode} ---\n")
             product = await client.fetch_by_barcode(barcode)
             method = "barcode"
-
-        if not product:
-            text = extract_text(image_path)
-            sys.stderr.write(f"--- INFO: OCR text extracted: {text[:50]}... ---\n")
-            if text:
-                products = await client.search_by_name(text)
-                product = products[0] if products else None
-                method = "ocr"
         
         if not product:
-            print(json.dumps({"success": False, "error": "Product not found.", "extracted_text": text or "N/A"}))
+            text = extract_text(pil_image)
+            if len(text) > 2:
+                search_query = text.split('\n')[0].strip()[:30]
+                if search_query:
+                    products = await client.search_by_name(search_query, page_size=1)
+                    if products:
+                        product = products[0]
+                        method = "ocr"
+
+        if not product:
+            print(json.dumps({"success": False, "error": "Product not identified"}))
             return
 
-        # 3. Process Scanned Product
-        main_statuses, main_failure_count = get_product_safety_statuses(product, active_conditions, active_preferences)
+        main_statuses, main_fails = analyze_risk(product, conditions, preferences)
 
-        # 4. Find Alternatives Concurrently
-        relevant_categories = get_best_category(product.get("categories"))
-        raw_alternatives = []
-        if relevant_categories:
-            raw_alternatives = await client.fetch_alternatives_concurrently(
-                relevant_categories, 
-                CONFIG["MAX_SEARCH_RESULTS_PER_CATEGORY"]
+        # 2. FIND ALTERNATIVES (Strategy: Category -> Fallback to Keyword)
+        cat_tags = product.get("categories_tags", [])
+        search_tags = get_best_category_tags(cat_tags)
+        
+        raw_candidates = []
+        
+        # Strategy A: Search by Category (Specific)
+        if search_tags:
+            raw_candidates = await client.fetch_alternatives_concurrently(
+                search_tags, 
+                CONFIG["FETCH_LIMIT_PER_CATEGORY"]
             )
-        sys.stderr.write(f"--- INFO: Found {len(raw_alternatives)} raw alternatives from {len(relevant_categories)} categories. ---\n")
+        
+        # Strategy B: Fallback to Keyword Search if categories returned nothing
+        if not raw_candidates:
+            # Use first 2 words of product name (e.g., "Lay's Classic" -> "Lay's Classic")
+            product_name = product.get("product_name", "")
+            keywords = " ".join(product_name.split()[:2]) 
+            if keywords:
+                 raw_candidates = await client.search_by_name(keywords, page_size=40)
 
+        # 3. SCORE & FILTER
+        valid_alts = []
+        seen_codes = {product.get("code")}
 
-        # 5. Score and Sort Alternatives
-        seen_barcodes = {product.get("code")}
-        scored_alternatives = []
-        for p in raw_alternatives:
-            code = p.get("code")
-            # Skip if no code or if it's the same as the scanned product
-            if not code or code in seen_barcodes: continue 
-            seen_barcodes.add(code)
+        for alt in raw_candidates:
+            code = alt.get("code")
+            if not code or code in seen_codes: continue
+            seen_codes.add(code)
+
+            if not alt.get("product_name") or not alt.get("image_url"): continue
+
+            alt_statuses, alt_fails = analyze_risk(alt, conditions, preferences)
             
-            # Score against user's health profile
-            alt_statuses, alt_failure_count = get_product_safety_statuses(p, active_conditions, active_preferences)
+            # --- LOGIC FIX: Allow Safer OR Equal items ---
+            # 1. Is it Strictly Safer? (Fewer fails)
+            is_better = alt_fails < main_fails
+            # 2. Is it Equal? (Same fails, but maybe user wants variety)
+            is_equal = alt_fails == main_fails
             
-            # Filter criteria: Alternatives must be *better* or *equal* to the main product,
-            # but ideally, we only want those with a low/zero failure count.
-            if alt_failure_count > main_failure_count and main_failure_count > 0:
-                continue # Skip if alternative is strictly worse than the scanned product (and the scanned product failed)
+            no_conditions = (len(conditions) + len(preferences) == 0)
 
-            # Store only products that meet the criteria
-            scored_alternatives.append({
-                "score": alt_failure_count, # Lower score is better
-                "data": {
-                    "name": p.get("product_name"), "brand": p.get("brands"),
-                    "image_url": p.get("image_url"), 
-                    "nutrients": extract_main_nutrients(p.get("nutriments", {})),
-                    # Include the status so the client knows why it's a good alternative
-                    "safety_statuses": alt_statuses 
-                }
-            })
+            if is_better or is_equal or no_conditions:
+                valid_alts.append({
+                    "score": alt_fails, # Lower score is better
+                    "is_better": 1 if is_better else 0, # Priority flag
+                    "has_nutrients": 1 if extract_main_nutrients(alt.get("nutriments")).get("energy_kcal") else 0,
+                    "data": {
+                        "name": alt.get("product_name"),
+                        "brand": alt.get("brands", "Unknown Brand"),
+                        "image_url": alt.get("image_url"),
+                        "nutrients": extract_main_nutrients(alt.get("nutriments", {})),
+                        "safety_statuses": alt_statuses,
+                        "failure_count": alt_fails
+                    }
+                })
 
-        # Sort: Primary key is the score (lowest failure count first), secondary can be name or another factor
-        scored_alternatives.sort(key=lambda x: x['score'])
-        alternatives = [alt["data"] for alt in scored_alternatives][:CONFIG['MAX_ALTERNATIVES']]
+        # Sorting Strategy:
+        # 1. Strictly Better Items first
+        # 2. Then by Failure Score (Lowest first)
+        # 3. Then by Data Completeness
+        valid_alts.sort(key=lambda x: (-x['is_better'], x['score'], -x['has_nutrients']))
+        
+        final_alts = [x["data"] for x in valid_alts[:CONFIG["MAX_ALTERNATIVES_TO_RETURN"]]]
 
-        sys.stderr.write(f"--- INFO: Final number of alternatives sent: {len(alternatives)} ---\n")
-
-        # 6. Final JSON Output
         output = {
-            "success": True, "method": method,
+            "success": True,
+            "method": method,
             "product": {
-                "name": product.get("product_name"), "brand": product.get("brands"),
-                "image_url": product.get("image_url"), "failure_count": main_failure_count,
+                "name": product.get("product_name"),
+                "brand": product.get("brands", "Unknown Brand"),
+                "image_url": product.get("image_url"),
                 "nutrients": extract_main_nutrients(product.get("nutriments", {})),
-                # Include the detailed statuses for the main product
-                "safety_statuses": main_statuses 
+                "safety_statuses": main_statuses,
+                "failure_count": main_fails
             },
-            "alternatives": alternatives
+            "alternatives": final_alts
         }
+        
         print(json.dumps(output, indent=2))
 
 if __name__ == "__main__":
     try:
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         asyncio.run(main())
     except Exception as e:
-        sys.stderr.write(f"FATAL PYTHON CRASH: {e}\n")
-        print(json.dumps({"error": "A critical runtime error occurred.", "details": str(e)}))
+        print(json.dumps({"success": False, "error": "Script Exception", "details": str(e)}))

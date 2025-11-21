@@ -7,7 +7,6 @@ const { exec } = require('child_process');
 const connectDB = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
-const mealRoutes = require('./routes/mealRoutes');
 const userDetailsRoutes = require('./routes/userDetailsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
@@ -19,7 +18,7 @@ const axios = require('axios');
 const PendingUser = require('./models/pendingUser.js');
 const FormData = require('form-data'); 
 require('dotenv').config();
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const User = require('./models/User'); 
 const UserDetails = require('./models/userDetails'); 
@@ -69,7 +68,6 @@ connectDB();
 // --- Application Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/meals', mealRoutes);
 app.use('/api/user-details', userDetailsRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/rewards', rewardRoutes);
@@ -129,87 +127,133 @@ app.post('/api/get_last_7days_steps', async (req, res) => {
 
 
 app.post('/api/generate-ai-content', async (req, res) => {
-//   const userId = req.body.userId;  
-
-  const userData = {
-    averageCalories : 100,
-    averageSugar: 12,           
-    averageFats: 3,             
-    averageCholesterol: 21,     
-    averageCarbs: 25,           
-    averageProtein: 5,          
-    averageCaloriesBurned: 50,  
-    currentHealthCondition: ["Hypertension","Sugar"] 
-  };
-
-  const userPrompt = `
-    Based on the following data, predict possible future health risks:
-    - Average Calories Intake: ${userData.averageCalories} kcal
-    - Average Blood Sugar: ${userData.averageSugar} mg/dL
-    - Average Cholesterol: ${userData.averageCholesterol} mg/dL
-    - Average Fats: ${userData.averageFats} g
-    - Average Carbs: ${userData.averageCarbs} g
-    - Average Protein: ${userData.averageProtein} g
-    - Average Calories Burned Per Day: ${userData.averageCaloriesBurned} kcal
-    - Current Health Condition: ${userData.currentHealthCondition}
-    
-    Only predict the following conditions: 
-    'Hypertension', 'High Cholesterol', 'Obesity', 'Diabetes', 'Heart Disease', 'Arthritis', 'Asthma'.
-    Please provide the likelihood of each condition and actionable recommendations for improving health.
-
-    Please return the following information as a JSON object only:
-    {
-    "profile": {
-        "Health Conditions": 
-        "Average Calories": 
-        "Average Blood Sugar":
-        "Average Cholesterol":
-        "Average Fats":
-        "Average Carbs":
-        "Average Protein":
-        "Average Calories Burned":
-    
-    }
-
-    "health_risks": {
-        "Hypertension": "(low,medium,high,very high)",
-        "Diabetes": "(low,medium,high,very high)",
-        "Obesity": "(low,medium,high,very high)",
-        ...
-        ...
-    },
-    "consumption":{
-        "sugar": (low,medium,high,very high),
-        "fat": (low,medium,high,very high),
-        ...
-        ...
-    
-    }
-    "recommendations": ["recommendation1(within 15 words)", "recommendation2(within 15 words)", "recommendation3(within 15 words); "recommendation4(within 15 words); "recommendation5(within 15 words)"]
-    }
-  `;
-
-  console.log("Prompt:", userPrompt); // Debugging to check the prompt
-
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const bodyData = req.body || {};
+    
+    const userData = {
+      averageCalories: bodyData.averageCalories ?? 100,
+      averageSugar: bodyData.averageSugar ?? 12,
+      averageFats: bodyData.averageFats ?? 3,
+      averageCholesterol: bodyData.averageCholesterol ?? 21,
+      averageCarbs: bodyData.averageCarbs ?? 25,
+      averageProtein: bodyData.averageProtein ?? 5,
+      averageCaloriesBurned: bodyData.averageCaloriesBurned ?? 50,
+      currentHealthCondition: bodyData.currentHealthCondition || ["Hypertension", "Sugar"]
+    };
+
+    // 2. Define Schema using the imported SchemaType
+    const analysisSchema = {
+      description: "Health risk assessment and recommendations based on nutrition data.",
+      type: SchemaType.OBJECT,
+      properties: {
+        profile: {
+          type: SchemaType.OBJECT,
+          properties: {
+            "Health Conditions": { type: SchemaType.STRING },
+            "Average Calories": { type: SchemaType.NUMBER },
+            "Average Blood Sugar": { type: SchemaType.NUMBER },
+            "Average Cholesterol": { type: SchemaType.NUMBER },
+            "Average Fats": { type: SchemaType.NUMBER },
+            "Average Carbs": { type: SchemaType.NUMBER },
+            "Average Protein": { type: SchemaType.NUMBER },
+            "Average Calories Burned": { type: SchemaType.NUMBER },
+          },
+          required: [
+            "Health Conditions", 
+            "Average Calories", 
+            "Average Blood Sugar", 
+            "Average Cholesterol", 
+            "Average Fats", 
+            "Average Carbs", 
+            "Average Protein", 
+            "Average Calories Burned"
+          ]
+        },
+        health_risks: {
+          type: SchemaType.OBJECT,
+          properties: {
+            "Hypertension": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "High Cholesterol": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "Obesity": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "Diabetes": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "Heart Disease": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "Arthritis": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "Asthma": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] }
+          },
+          required: [
+            "Hypertension", 
+            "High Cholesterol", 
+            "Obesity", 
+            "Diabetes", 
+            "Heart Disease", 
+            "Arthritis", 
+            "Asthma"
+          ]
+        },
+        consumption: {
+          type: SchemaType.OBJECT,
+          properties: {
+            "sugar": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "fat": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "protein": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] },
+            "carbs": { type: SchemaType.STRING, enum: ["low", "medium", "high", "very high"] }
+          },
+          required: ["sugar", "fat", "protein", "carbs"]
+        },
+        recommendations: {
+          type: SchemaType.ARRAY,
+          items: { type: SchemaType.STRING },
+          description: "List of 5 actionable health recommendations, max 15 words each."
+        }
+      },
+      required: ["profile", "health_risks", "consumption", "recommendations"]
+    };
+
+    const model = ai.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: analysisSchema,
+      },
+    });
+
+    const userPrompt = `
+      Analyze the health data below and populate the schema completely.
+      
+      User Data:
+      - Calories: ${userData.averageCalories}
+      - Sugar: ${userData.averageSugar}
+      - Fats: ${userData.averageFats}
+      - Cholesterol: ${userData.averageCholesterol}
+      - Carbs: ${userData.averageCarbs}
+      - Protein: ${userData.averageProtein}
+      - Burned: ${userData.averageCaloriesBurned}
+      - Conditions: ${Array.isArray(userData.currentHealthCondition) ? userData.currentHealthCondition.join(", ") : userData.currentHealthCondition}
+
+      Instructions:
+      1. Populate the 'profile' object with the exact numbers provided.
+      2. Evaluate risk levels for ALL specified conditions.
+      3. Evaluate consumption levels for ALL macros.
+      4. Provide exactly 5 short, actionable recommendations.
+    `;
+
+    console.log("Sending Prompt to AI...");
+
     const result = await model.generateContent(userPrompt);
-
     const responseText = result.response.text();
-    console.log("AI Response:", responseText);
+    const jsonResponse = JSON.parse(responseText);
 
-
-
-    res.json(responseText);
+    console.log("AI Success");
+    res.json(jsonResponse);
 
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).send('AI request failed');
+    console.error("AI Generation Error:", error);
+    res.status(500).json({ 
+      error: "Failed to generate health analysis", 
+      details: error.message 
+    });
   }
 });
-
-
-
 
 
 
@@ -512,7 +556,7 @@ app.post('/api/food/products', protect, async (req, res) => {
         const userProfileData = {
             conditions: userDetails?.healthConcerns || {},
             restrictions: userDetails?.restrictions || {},
-            calorie_limit_kcal_100g: userDetails?.options?.maxCalories || 500, 
+            calorie_limit_kcal_100g: userDetails?.options?.maxCalories || 1500, 
             input_name: productName,
         };
 
@@ -652,7 +696,7 @@ app.post('/upload', upload.single('image'), protect, async (req, res) => {
         console.log(`   🐍 Executing Python script: ${command}`);
 
         // 4. Execute Python Script
-        exec(command, { timeout: 90000 },
+        exec(command, { timeout: 150000 },
             (error, stdout, stderr) => {
                 // Cleanup: Delete the image file
                 fs.unlink(imagePath, (err) => {
@@ -691,8 +735,9 @@ app.post('/upload', upload.single('image'), protect, async (req, res) => {
                     if (detectionResult.error) {
                         return res.status(500).json({ success: false, message: `Scanner error: ${detectionResult.error}` });
                     }
-    
-                    console.log('   🎉 Scan successful. Sending results.');
+
+                    console.log(detectionResult);
+                    console.log('   🎉 Scan successful. Sending results.  $detectionResult');
                     res.status(200).json(detectionResult);
     
                 } catch (parseError) {

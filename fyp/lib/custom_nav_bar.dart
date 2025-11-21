@@ -1,10 +1,12 @@
+import 'dart:io'; // Added for File
 import 'package:flutter/material.dart';
-import 'package:fyp/HomePage.dart' hide CameraScreen;
+import 'package:fyp/HomePage.dart';
 import 'package:fyp/screens/camera_screen.dart';
 import 'package:fyp/screens/progress_screen.dart';
 import 'package:fyp/screens/features.dart';
 import 'package:fyp/screens/userMealPlanScreen.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
+import 'package:fyp/screens/ai_scanner_result_page.dart'; // Added import
 
 class CustomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -29,12 +31,12 @@ class CustomNavBar extends StatelessWidget {
       controller: tabController,
       screens: _buildScreens(),
       items: _navBarsItems(context),
-      backgroundColor: Colors.grey[50]!, // Non-null assertion
+      backgroundColor: Colors.grey[50]!, 
       navBarStyle: NavBarStyle.style12,
       navBarHeight: 70,
       margin: EdgeInsets.zero,
       decoration: NavBarDecoration(
-        colorBehindNavBar: colorScheme.surface, // Correct parameter name
+        colorBehindNavBar: colorScheme.surface, 
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -44,29 +46,44 @@ class CustomNavBar extends StatelessWidget {
           ),
         ],
       ),
-      onItemSelected: (index) {
+      onItemSelected: (index) async {
         if (index == 2) {
-          onCameraPressed();
+          // --- MODIFIED: Open Camera Directly instead of calling overlay callback ---
+          final imagePath = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CameraScreen()),
+          );
+
+          // If an image was captured, navigate to the Result Page
+          if (imagePath != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AiScannerResultPage(
+                  imageFile: File(imagePath),
+                  fromCamera: true,
+                ),
+              ),
+            );
+          }
+          
+          // Keep the tab index unchanged
           tabController.index = tabController.index;
         } else {
           onItemSelected(index);
-          
         }
       },
     );
   }
 
-  // The list of screens that corresponds to the nav bar items.
-  // CameraScreen is at index 2.
   List<Widget> _buildScreens() => [
         const MealTrackingPage(),
         const Features(),
-        const MealTrackingPage(),
+        const MealTrackingPage(), // Placeholder for center
         const UserMealPlanScreen(),
         const MyProgressScreen(),
       ];
 
-  // The list of navigation bar items.
   List<PersistentBottomNavBarItem> _navBarsItems(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -124,7 +141,6 @@ class CustomNavBar extends StatelessWidget {
     ];
   }
 
-  // Helper method to build a standard navigation item.
   PersistentBottomNavBarItem _buildNavItem({
     required bool active,
     required IconData icon,

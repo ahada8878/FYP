@@ -26,6 +26,97 @@ const getMealPlanByUserId = async (req, res) => {
   }
 };
 
+
+
+
+const getMealPlanByUserIdToday = async (req, res) => {
+  try {
+    // 1. Get userId from request parameters
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    // 2. Find the latest meal plan
+    // CRITICAL FIX: We must select 'detailedRecipes' to get the ingredients/nutrition
+    const mealPlan = await MealPlan.findOne({ userId })
+      .select('meals detailedRecipes') 
+      .sort({ weekStart: -1 })
+      .lean(); 
+
+    if (!mealPlan || !mealPlan.meals) { 
+      return res
+        .status(404)
+        .json({ message: "No complete meal plan found for this user" });
+    }
+
+    // 3. Prepare today's normalized date for comparison
+    const today = new Date();
+    const todayNormalizedString = today.toISOString().substring(0, 10); 
+
+    let todayMealsEntry = null;
+
+    // 4. Iterate through day1 to day7 to find a date match
+    for (let i = 1; i <= 7; i++) {
+      const dayKey = `day${i}`; 
+      const dayEntry = mealPlan.meals[dayKey]; 
+      
+      if (dayEntry && dayEntry.date) {
+        const planDate = new Date(dayEntry.date);
+        const planDateNormalizedString = planDate.toISOString().substring(0, 10);
+        
+        if (planDateNormalizedString === todayNormalizedString) {
+          todayMealsEntry = dayEntry;
+          break;
+        }
+      }
+    }
+    
+    // 5. Check if meals were found
+    if (!todayMealsEntry) {
+      return res.status(404).json({ 
+        message: "Meal plan found, but no entry matched today's date." 
+      });
+    }
+
+    // 6. ✅ ENRICHMENT STEP: Merge schedule info with detailed recipe info
+    // Create a lookup map for O(1) access
+    const detailsMap = {};
+    if (mealPlan.detailedRecipes && Array.isArray(mealPlan.detailedRecipes)) {
+      mealPlan.detailedRecipes.forEach(recipe => {
+        if (recipe && recipe.id) {
+          detailsMap[recipe.id] = recipe;
+        }
+      });
+    }
+
+    // Merge the details into the meal objects
+    if (todayMealsEntry.meals && Array.isArray(todayMealsEntry.meals)) {
+      todayMealsEntry.meals = todayMealsEntry.meals.map(simpleMeal => {
+        const detailedInfo = detailsMap[simpleMeal.id];
+        if (detailedInfo) {
+          // Return a new object merging both (details take precedence for overlapping keys)
+          return { ...simpleMeal, ...detailedInfo };
+        }
+        return simpleMeal;
+      });
+    }
+
+    // 7. Return the enriched day entry
+    res.status(200).json(todayMealsEntry);
+
+  } catch (error) {
+    console.error("❌ Error fetching today's meals:", error);
+    res.status(500).json({ message: "Server error fetching today's meals" });
+  }
+};
+
+
+
+
+
+
 // Log a specific meal within a user's meal plan
 // ✅ Log a specific meal within a user's meal plan
 const logMeal = async (req, res) => {
@@ -89,6 +180,7 @@ const logMeal = async (req, res) => {
 
 module.exports = {
   getMealPlanByUserId,
+  getMealPlanByUserIdToday,
   logMeal,
 };
 
