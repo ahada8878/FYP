@@ -26,29 +26,6 @@ class MealService {
     }
   }
 
-
-
-
-
-  static Future<Map<String, dynamic>> fetchUserMealPlanToday() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('user_id');
-
-    if (userId == null) {
-      throw Exception("User ID not found. Please log in again.");
-    }
-
-    final response = await http.get(Uri.parse('$baseUrl/$userId/today'));
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else if (response.statusCode == 404) {
-      throw Exception("No meal plan found for this user.");
-    } else {
-      throw Exception("Failed to fetch meal plan: ${response.body}");
-    }
-  }
-
   // --- ✅ NEW SERVICE METHOD ---
   /// Log a meal as consumed by sending a PATCH request
   static Future<Map<String, dynamic>> logMeal(int mealId) async {
@@ -77,6 +54,34 @@ class MealService {
       // If the server returns an error, throw an exception.
       final errorBody = jsonDecode(response.body);
       throw Exception(errorBody['message'] ?? 'Failed to log meal');
+    }
+  }
+
+  // --- ✅ UPDATED SERVICE METHOD ---
+  static Future<Map<String, List<String>>> generateShoppingList() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+
+    if (userId == null) throw Exception("User ID not found.");
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/shopping-list'), // Ensure this path matches your routes
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: jsonEncode({'userId': userId}),
+    );
+
+    if (response.statusCode == 200) {
+      // Parse the JSON response into a strongly typed Map
+      Map<String, dynamic> rawData = jsonDecode(response.body);
+      Map<String, List<String>> finalMap = {};
+
+      rawData.forEach((key, value) {
+        finalMap[key] = List<String>.from(value);
+      });
+
+      return finalMap;
+    } else {
+      throw Exception("Failed to generate list: ${response.body}");
     }
   }
 }

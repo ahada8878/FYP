@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:fyp/services/meal_service.dart';
 import 'package:fyp/screens/user_meal_details_screen.dart';
+import 'package:fyp/widgets/shopping_list_sheet.dart';
 
 // --- ROBUST DATA MODELS (Unchanged) ---
 class NutrientSummary {
@@ -118,6 +119,7 @@ class UserMealPlanScreen extends StatefulWidget {
 class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
   List<DayPlan>? dayPlans;
   bool isLoading = true;
+  bool _isGeneratingList = false;
   String errorMessage = '';
   final ScrollController _scrollController = ScrollController();
 
@@ -158,6 +160,42 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
           errorMessage = "Failed to load meal plan.";
           isLoading = false;
         });
+      }
+    }
+  }
+  // --- ✅ NEW: Generate Shopping List Logic ---
+  Future<void> _generateShoppingList() async {
+    setState(() => _isGeneratingList = true);
+    try {
+      final shoppingList = await MealService.generateShoppingList();
+      
+      if (!mounted) return;
+      setState(() => _isGeneratingList = false);
+      
+      // Show the Bottom Sheet (matching weekly report style)
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: ShoppingListSheet(shoppingList: shoppingList, scrollController: controller),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isGeneratingList = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -218,11 +256,46 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
                     errorMessage.isEmpty &&
                     dayPlans != null &&
                     dayPlans!.isNotEmpty)
-                  ..._buildMealPlanSlivers(),
+                  ...[
+                     // ✅ ADDED BUTTON AS A SLIVER
+                     SliverToBoxAdapter(child: _buildShoppingListButton(context)),
+                     ..._buildMealPlanSlivers(),
+                   ]
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+  Widget _buildShoppingListButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: StaggeredAnimation(
+        index: 0,
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isGeneratingList ? null : _generateShoppingList,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange, // Text and icon color
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.orange.withOpacity(0.5), width: 1),
+              ),
+            ),
+            icon: _isGeneratingList 
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
+              : const Icon(Icons.shopping_bag_outlined),
+            label: Text(
+              _isGeneratingList ? "Generating List..." : "Get Shopping List",
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
       ),
     );
   }
