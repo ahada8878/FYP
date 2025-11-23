@@ -29,7 +29,6 @@ const complaintRoutes = require('./routes/complaintRoutes'); // Complaints Route
 const { protect } = require("./middleware/authMiddleware.js");
 
 // Initialize AI
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const app = express();
 
