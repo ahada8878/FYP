@@ -167,4 +167,32 @@ class ProgressData {
     
 
   }
+
+  // Add this method inside the ProgressData class
+  ProgressData copyWith({
+    double? currentWeight,
+    double? startWeight,
+    double? targetWeight,
+    int? steps,
+    int? stepGoal,
+    double? height,
+    List<Achievement>? achievements,
+    double? userHeightInMeters,
+    List<double>? weeklyWeightData,
+    List<int>? weeklyStepsData,
+  }) {
+    return ProgressData(
+      currentWeight: currentWeight ?? this.currentWeight,
+      startWeight: startWeight ?? this.startWeight,
+      targetWeight: targetWeight ?? this.targetWeight,
+      steps: steps ?? this.steps,
+      stepGoal: stepGoal ?? this.stepGoal,
+      height: height ?? this.height,
+      achievements: achievements ?? this.achievements,
+      userHeightInMeters: userHeightInMeters ?? this.userHeightInMeters,
+      weeklyWeightData: weeklyWeightData ?? this.weeklyWeightData,
+      weeklyStepsData: weeklyStepsData ?? this.weeklyStepsData,
+    );
+  }
+
 }
