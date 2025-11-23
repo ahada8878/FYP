@@ -31,9 +31,6 @@ const WaterLog = require("./models/waterLog"); // Add this
 const { protect } = require("./middleware/authMiddleware.js");
 
 
-const { protect } = require('./middleware/authMiddleware.js');
-
-
 const app = express();
 
 // --- Multer Configuration for File Uploads ---
