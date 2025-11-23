@@ -28,8 +28,6 @@ const complaintRoutes = require('./routes/complaintRoutes'); // Complaints Route
 
 const { protect } = require("./middleware/authMiddleware.js");
 
-// Initialize AI
-
 const app = express();
 
 // --- Multer Configuration ---
