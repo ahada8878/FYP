@@ -24,6 +24,9 @@ const User = require('./models/User');
 const UserDetails = require('./models/userDetails'); 
 const mealPlanRoutes = require("./routes/mealPlanRoutes.js");
 const calorieGoal = require('./models/userDetails');
+const webRoutes = require('./routes/webRoutes'); // 1. Import the new file
+const complaintRoutes = require('./routes/complaintRoutes'); // 1. Import the new file
+
 
 const { protect } = require('./middleware/authMiddleware.js');
 
@@ -74,6 +77,9 @@ app.use('/api/rewards', rewardRoutes);
 app.use("/api/mealplan", mealPlanRoutes);
 app.use("/api/progress", progressRoutes);
 app.use('/api/foodlog', foodLogRoutes); 
+app.use('/api/web', webRoutes);
+app.use('/api/complaints', complaintRoutes); 
+
 
 
 const nutritionSchema = {
