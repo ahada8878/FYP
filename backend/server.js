@@ -48,6 +48,9 @@ const calorieGoal = require('./models/userDetails');
 const webRoutes = require('./routes/webRoutes'); // 1. Import the new file
 const complaintRoutes = require('./routes/complaintRoutes'); // 1. Import the new file
 
+const WaterLog = require("./models/waterLog"); // Add this
+const { protect } = require("./middleware/authMiddleware.js");
+
 
 const { protect } = require('./middleware/authMiddleware.js');
 
