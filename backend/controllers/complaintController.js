@@ -1,23 +1,53 @@
 const Complaint = require('../models/Complaint');
+const nodemailer = require('nodemailer');
 
-// 1. Create Complaint (For Flutter App)
+// --- Helper: Send Resolution Email ---
+const sendResolutionEmail = async (email, subject) => {
+  console.log(`📧 [Email Service] Sending resolution email to: ${email}`);
+
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error(`❌ Missing EMAIL credentials in .env`);
+    return;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    await transporter.sendMail({
+      from: `"NutriWise Support" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: '✅ Complaint Resolved - NutriWise',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2 style="color: #10B981;">Complaint Resolved</h2>
+          <p>Hello,</p>
+          <p>We are writing to inform you that your complaint regarding <strong>"${subject}"</strong> has been reviewed and resolved.</p>
+          <p>Thank you for your patience.</p>
+          <br>
+          <p style="color: #6B7280; font-size: 12px;">NutriWise Support Team</p>
+        </div>
+      `
+    });
+    console.log(`✅ Email sent successfully.`);
+  } catch (error) {
+    console.error("❌ Failed to send email:", error);
+  }
+};
+
+// 1. Create Complaint
 const createComplaint = async (req, res) => {
   try {
     const { email, subject, message } = req.body;
-    
-    // Extract User ID from the Token (set by auth middleware)
-    // We check both req.userId and req.user._id to handle different middleware styles
     const userId = req.userId || (req.user && req.user._id);
 
-    if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated.' });
-    }
-
-    if (!email || !subject || !message) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide email, subject, and message.' 
-      });
+    if (!userId || !email || !subject || !message) {
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
     const newComplaint = new Complaint({
@@ -29,19 +59,13 @@ const createComplaint = async (req, res) => {
     });
 
     await newComplaint.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Complaint registered successfully.'
-    });
-
+    res.status(201).json({ success: true, message: 'Complaint submitted.' });
   } catch (error) {
-    console.error("Error creating complaint:", error);
-    res.status(500).json({ success: false, message: 'Server error.' });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// 2. Get All Complaints (For Admin Panel)
+// 2. Get All Complaints
 const getAllComplaints = async (req, res) => {
   try {
     const complaints = await Complaint.find()
@@ -53,7 +77,7 @@ const getAllComplaints = async (req, res) => {
   }
 };
 
-// 3. Update Status (For Admin Panel)
+// 3. Update Status
 const updateComplaintStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -65,8 +89,11 @@ const updateComplaintStatus = async (req, res) => {
       { new: true }
     );
 
-    if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+    if (!complaint) return res.status(404).json({ message: 'Complaint not found' });
+
+    // Trigger email only on Resolve
+    if (status === 'RESOLVED') {
+      sendResolutionEmail(complaint.email, complaint.subject);
     }
 
     res.json({ success: true, complaint });
