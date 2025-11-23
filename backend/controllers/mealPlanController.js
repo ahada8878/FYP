@@ -1,5 +1,10 @@
 // controllers/mealPlanController.js
 const MealPlan = require("../models/MealPlan.js");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+require("dotenv").config();
+
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ✅ Fetch meal plan for a specific user
 const getMealPlanByUserId = async (req, res) => {
@@ -25,8 +30,6 @@ const getMealPlanByUserId = async (req, res) => {
     res.status(500).json({ message: "Server error fetching meal plan" });
   }
 };
-
-
 
 
 const getMealPlanByUserIdToday = async (req, res) => {
@@ -113,10 +116,6 @@ const getMealPlanByUserIdToday = async (req, res) => {
 };
 
 
-
-
-
-
 // Log a specific meal within a user's meal plan
 // ✅ Log a specific meal within a user's meal plan
 const logMeal = async (req, res) => {
@@ -178,9 +177,68 @@ const logMeal = async (req, res) => {
 };
 
 
+// ✅ Updated Function: Return JSON Shopping List
+const generateShoppingList = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) return res.status(400).json({ message: "User ID is required" });
+
+    const mealPlan = await MealPlan.findOne({ userId }).sort({ weekStart: -1 });
+    if (!mealPlan) return res.status(404).json({ message: "Meal plan not found" });
+
+    let allIngredients = [];
+    if (mealPlan.detailedRecipes) {
+      mealPlan.detailedRecipes.forEach((recipe) => {
+        if (recipe.ingredients) {
+          recipe.ingredients.forEach((ing) => {
+            allIngredients.push(`${ing.amount} ${ing.unit} ${ing.name}`);
+          });
+        }
+      });
+    }
+
+    if (allIngredients.length === 0) {
+      return res.status(200).json({}); // Return empty object if no ingredients
+    }
+
+    // ✅ Prompt specifically asking for JSON
+    const prompt = `
+      You are a kitchen assistant. Convert this list of ingredients into a consolidated shopping list in JSON format.
+      Ingredients: ${allIngredients.join(", ")}
+
+      Rules:
+      1. Consolidate duplicates (e.g. "2 onions" + "1 onion" = "3 onions").
+      2. Group by category (Produce, Meat, Dairy, Pantry, etc.).
+      3. Return ONLY valid JSON. Do not wrap in markdown code blocks (no \`\`\`json).
+      4. Format: { "Category Name": ["Item 1", "Item 2"] }
+    `;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
+
+    // ✅ Cleanup: Remove any accidental markdown formatting from AI
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    const jsonResponse = JSON.parse(text);
+
+    // Send JSON directly to frontend
+    res.status(200).json(jsonResponse);
+
+  } catch (error) {
+    console.error("❌ Error generating list:", error);
+    res.status(500).json({ message: "Failed to generate list" });
+  }
+};
+
+
+
 module.exports = {
   getMealPlanByUserId,
   getMealPlanByUserIdToday,
   logMeal,
+  generateShoppingList,
 };
 

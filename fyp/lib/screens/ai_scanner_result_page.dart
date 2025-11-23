@@ -383,7 +383,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           ),
         );
         // Navigate back to the main screen (pop all the way)
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

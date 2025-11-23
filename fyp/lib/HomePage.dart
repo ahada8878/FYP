@@ -2519,8 +2519,9 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
                     const Divider(height: 24, indent: 58),
                     ...widget.meal.loggedFoods.map((food) => ListTile(
                         dense: true,
-                        leading: Text(food.icon,
-                            style: const TextStyle(fontSize: 20)),
+                        leading: Text('•',
+                            style: TextStyle(
+                                color: Colors.grey[800], fontSize: 20)),
                         title: Text(food.name),
                         trailing: Text('${food.calories} kcal',
                             style: TextStyle(color: Colors.grey[800])))),
@@ -2669,56 +2670,78 @@ class _CreativeTimelineHydrationItemState
     super.dispose();
   }
 
-  void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Remove
+void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Remove
     HapticFeedback.lightImpact();
     
-    // Determine the actual mL amount and action
-    final logAmount = changeType > 0 ? _servingSizeMl : -_servingSizeMl;
-    final newAmount = (_currentWaterMl + logAmount).clamp(0, _goalWaterMl);
+    // 1. Calculate the amount to add/remove (Delta)
+    // _servingSizeMl is dynamically calculated in initState (usually around 250ml)
+    final int logAmount = changeType > 0 ? _servingSizeMl : -_servingSizeMl;
+    
+    // 2. Calculate the new visual total immediately for the user (Optimistic UI)
+    final int oldAmount = _currentWaterMl;
+    // Allow going slightly over goal visually or clamp, usually clamping to 0 at bottom is key
+    final int newAmount = (_currentWaterMl + logAmount).clamp(0, 10000); // Cap at reasonable max
 
-    if (newAmount != _currentWaterMl) {
-        
-        // 1. OPTIMISTIC UI UPDATE
-        setState(() {
-            _currentWaterMl = newAmount;
-            LocalDB.setWaterConsumed(_currentWaterMl);
+    // 3. Update UI immediately
+    setState(() {
+      _currentWaterMl = newAmount;
+      LocalDB.setWaterConsumed(_currentWaterMl);
 
-            if (_currentWaterMl == _goalWaterMl) {
-                _confettiController.play();
-            }
-            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
-        });
-        
+      // Play confetti if we just hit the goal
+      if (oldAmount < _goalWaterMl && newAmount >= _goalWaterMl) {
+        _confettiController.play();
+      }
+      _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+    });
 
-        
-        // 3. SEND API REQUEST
-        final token = await AuthService().getToken();
-        if (token != null) {
-            final body = json.encode({
-                'newAmount': LocalDB.getWaterConsumed(),
+    // 4. Send to Backend
+    final token = await AuthService().getToken();
+    if (token != null) {
+      try {
+        final response = await http.post(
+          Uri.parse('$baseURL/api/progress/log-water'), // ✅ Correct Endpoint
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode({
+            'amount': logAmount, // ✅ Send the delta (+250 or -250)
+          }),
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Optional: You can parse the server response to ensure exact sync
+          // final data = json.decode(response.body);
+          // if (mounted) setState(() { _currentWaterMl = data['todayTotal']; });
+          print("Water logged successfully");
+        } else {
+          // Revert on server failure
+          debugPrint('Water update failed: ${response.statusCode}');
+          if (mounted) {
+            setState(() {
+              _currentWaterMl = oldAmount;
+              LocalDB.setWaterConsumed(_currentWaterMl);
+              _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
             });
-            
-            try {
-                final response = await http.post(
-                    Uri.parse('$baseURL/api/user-details/my-profile/updateWaterConsumption'),
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer $token',
-                    },
-                    body: body,
-                );
-
-                if (response.statusCode == 200) {
-                } else {
-                    debugPrint('Water update failed on server: ${response.statusCode}');
-                }
-            } catch (e) {
-                debugPrint('Network error during water update: $e');
-            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to save water log')),
+            );
+          }
         }
+      } catch (e) {
+        // Revert on network error
+        debugPrint('Network error: $e');
+        if (mounted) {
+          setState(() {
+            _currentWaterMl = oldAmount;
+            LocalDB.setWaterConsumed(_currentWaterMl);
+            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+          });
+        }
+      }
     }
   }
-
+  
   double get _progress => _goalWaterMl > 0 ? _currentWaterMl / _goalWaterMl : 0.0;
   bool get _isComplete => _progress >= 1.0;
   
@@ -3070,7 +3093,7 @@ class _DropletProgressIndicator extends StatelessWidget {
               return Column(children: [
                 Icon(Icons.water_drop_rounded,
                     color: color.withOpacity(0.2 + fillOpacity * 0.8),
-                    size: 32),
+                    size: 31),
                 
                 // FIX: Only show label for 4th and 8th segment (if 8 droplets)
                 if (showLabel)
