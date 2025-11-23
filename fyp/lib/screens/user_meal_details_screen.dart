@@ -7,25 +7,30 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 
-// --- SERVICE IMPORT ---
-// Removed the mock service and imported the real one.
-// Ensure this path is correct for your project structure.
-import 'package:fyp/services/meal_service.dart';
-
+// --- SERVICE IMPORTS ---
+import 'package:fyp/services/food_log_service.dart'; // For nutrient logging
+import 'package:fyp/services/meal_service.dart';     // For updating meal plan status
 
 // --- FINAL THEMED DESIGN SCREEN ---
 
 class MealDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> meal;
   final DateTime date;
+  final String mealType; 
 
-  const MealDetailsScreen({super.key, required this.meal, required this.date});
+  const MealDetailsScreen({
+    super.key,
+    required this.meal,
+    required this.date,
+    required this.mealType,
+  });
 
   @override
   State<MealDetailsScreen> createState() => _MealDetailsScreenState();
 }
 
-class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProviderStateMixin {
+class _MealDetailsScreenState extends State<MealDetailsScreen>
+    with TickerProviderStateMixin {
   late AnimationController _macroAnimationController;
   late ConfettiController _confettiController;
   final ScrollController _scrollController = ScrollController();
@@ -36,9 +41,11 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProvid
   @override
   void initState() {
     super.initState();
-    _macroAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+    _macroAnimationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
       ..forward();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 1));
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 1));
   }
 
   @override
@@ -52,7 +59,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProvid
   bool isSameDate(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
-  
+
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
@@ -60,7 +67,9 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProvid
 
   void _onMacroSelected(String? macro) {
     HapticFeedback.lightImpact();
-    setState(() { _selectedMacro = (_selectedMacro == macro) ? null : macro; });
+    setState(() {
+      _selectedMacro = (_selectedMacro == macro) ? null : macro;
+    });
   }
 
   void _onIngredientToggled(int index) {
@@ -76,10 +85,15 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = widget.meal['image'] ?? "https://spoonacular.com/recipeImages/${widget.meal['id']}-636x393.jpg";
+    final imageUrl = widget.meal['image'] ??
+        "https://spoonacular.com/recipeImages/${widget.meal['id']}-636x393.jpg";
     final nutrients = widget.meal['nutrients'] as Map<String, dynamic>? ?? {};
     final rawIngredients = widget.meal['ingredients'] as List<dynamic>? ?? [];
-    final instructionsList = (widget.meal['instructions'] as String? ?? '').split(RegExp(r'\.\s+')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final instructionsList = (widget.meal['instructions'] as String? ?? '')
+        .split(RegExp(r'\.\s+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     final mealTitle = widget.meal['title'] ?? 'Meal Details';
 
     return Scaffold(
@@ -95,44 +109,66 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProvid
                 mealTitle: mealTitle,
                 nutrients: nutrients,
                 servings: widget.meal['servings']?.toString() ?? '-',
-                readyInMinutes: widget.meal['readyInMinutes']?.toString() ?? '-',
+                readyInMinutes:
+                    widget.meal['readyInMinutes']?.toString() ?? '-',
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _buildCreativeSectionHeader(context, title: 'Nutrition Profile', icon: Icons.pie_chart_rounded),
-                    _InteractiveMacroCard(nutrients: nutrients, animationController: _macroAnimationController, selectedMacro: _selectedMacro, onMacroSelected: _onMacroSelected),
+                    _buildCreativeSectionHeader(context,
+                        title: 'Nutrition Profile',
+                        icon: Icons.pie_chart_rounded),
+                    _InteractiveMacroCard(
+                        nutrients: nutrients,
+                        animationController: _macroAnimationController,
+                        selectedMacro: _selectedMacro,
+                        onMacroSelected: _onMacroSelected),
                     const SizedBox(height: 24),
-                    _buildCreativeSectionHeader(context, title: 'Ingredients', icon: Icons.shopping_basket_rounded),
+                    _buildCreativeSectionHeader(context,
+                        title: 'Ingredients',
+                        icon: Icons.shopping_basket_rounded),
                     _buildIngredientsSection(rawIngredients),
                     const SizedBox(height: 24),
-                    _buildCreativeSectionHeader(context, title: 'Instructions', icon: Icons.local_dining_rounded),
+                    _buildCreativeSectionHeader(context,
+                        title: 'Instructions', icon: Icons.local_dining_rounded),
                     _buildInstructionsSection(instructionsList),
                   ]),
                 ),
               ),
             ],
           ),
-           if (isSameDate(widget.date, DateTime.now()))
-            _AnimatedLogButton(meal: widget.meal, confettiController: _confettiController),
+          // Only show log button if it's the current date
+          if (isSameDate(widget.date, DateTime.now()))
+            _AnimatedLogButton(
+              meal: widget.meal,
+              confettiController: _confettiController,
+              mealType: widget.mealType,
+            ),
           Align(
             alignment: Alignment.topCenter,
-            child: ConfettiWidget(confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive, emissionFrequency: 0.05, numberOfParticles: 25),
+            child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                emissionFrequency: 0.05,
+                numberOfParticles: 25),
           ),
         ],
       ),
     );
   }
-  
-  Widget _buildCreativeSectionHeader(BuildContext context, {required String title, required IconData icon}) {
+
+  Widget _buildCreativeSectionHeader(BuildContext context,
+      {required String title, required IconData icon}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, top: 8),
       child: Row(
         children: [
           Icon(icon, color: Colors.grey[600]),
           const SizedBox(width: 12),
-          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey[800])),
+          Text(title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold, color: Colors.grey[800])),
         ],
       ),
     );
@@ -156,12 +192,20 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> with TickerProvid
     );
   }
 
-   Widget _buildInstructionsSection(List<String> instructions) {
-    final displayInstructions = instructions.isNotEmpty ? instructions : ['No instructions available.'];
+  Widget _buildInstructionsSection(List<String> instructions) {
+    final displayInstructions =
+        instructions.isNotEmpty ? instructions : ['No instructions available.'];
     return _InteractiveCard(
       padding: const EdgeInsets.all(20.0),
       child: Column(
-        children: displayInstructions.asMap().entries.map((entry) => _InstructionStep(index: entry.key, instruction: entry.value, isLast: entry.key == displayInstructions.length - 1)).toList(),
+        children: displayInstructions
+            .asMap()
+            .entries
+            .map((entry) => _InstructionStep(
+                index: entry.key,
+                instruction: entry.value,
+                isLast: entry.key == displayInstructions.length - 1))
+            .toList(),
       ),
     );
   }
@@ -171,13 +215,22 @@ class _CreativeMagazineHeaderDelegate extends SliverPersistentHeader {
   final String imageUrl, mealTitle, servings, readyInMinutes;
   final Map<String, dynamic> nutrients;
   _CreativeMagazineHeaderDelegate({
-    required this.imageUrl, required this.mealTitle, required this.nutrients,
-    required this.servings, required this.readyInMinutes,
-  }) : super(pinned: true, delegate: _HeaderDelegate(
-    imageUrl: imageUrl, mealTitle: mealTitle, nutrients: nutrients,
-    servings: servings, readyInMinutes: readyInMinutes,
-    minExtent: kToolbarHeight + 40, maxExtent: 400,
-  ));
+    required this.imageUrl,
+    required this.mealTitle,
+    required this.nutrients,
+    required this.servings,
+    required this.readyInMinutes,
+  }) : super(
+            pinned: true,
+            delegate: _HeaderDelegate(
+              imageUrl: imageUrl,
+              mealTitle: mealTitle,
+              nutrients: nutrients,
+              servings: servings,
+              readyInMinutes: readyInMinutes,
+              minExtent: kToolbarHeight + 40,
+              maxExtent: 400,
+            ));
 }
 
 class _HeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -188,16 +241,21 @@ class _HeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   final double maxExtent;
   _HeaderDelegate({
-    required this.imageUrl, required this.mealTitle, required this.nutrients,
-    required this.servings, required this.readyInMinutes,
-    required this.minExtent, required this.maxExtent,
+    required this.imageUrl,
+    required this.mealTitle,
+    required this.nutrients,
+    required this.servings,
+    required this.readyInMinutes,
+    required this.minExtent,
+    required this.maxExtent,
   });
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     final progress = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
+
     final blurredImageOpacity = 1.0 - progress * 2;
     final titleCardTop = lerpDouble(200, 0, progress)!;
     final titleCardHorizontalPadding = lerpDouble(24, 60, progress)!;
@@ -208,24 +266,92 @@ class _HeaderDelegate extends SliverPersistentHeaderDelegate {
     final collapsedTitleOpacity = (progress - 0.5) * 2;
 
     return Stack(fit: StackFit.expand, children: [
-      Opacity(opacity: blurredImageOpacity.clamp(0.0, 1.0), child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)),
-      ClipRRect(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: Container(color: Colors.black.withOpacity(0.2)))),
-      Positioned(top: mainImageTop, left: 0, right: 0, child: Transform.scale(scale: mainImageScale, child: Container(height: 200, margin: const EdgeInsets.symmetric(horizontal: 60), decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, spreadRadius: 5)], image: DecorationImage(image: CachedNetworkImageProvider(imageUrl), fit: BoxFit.cover))))),
-      Positioned(top: titleCardTop, left: 0, right: 0, child: Padding(padding: EdgeInsets.symmetric(horizontal: titleCardHorizontalPadding), child: Column(children: [
-        _GlassCard(child: Text(mealTitle, textAlign: TextAlign.center, style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.w900, color: Colors.white, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis)),
-        const SizedBox(height: 16),
-        Opacity(opacity: statsOpacity, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _StatChip(icon: Icons.local_fire_department_rounded, label: '${nutrients['calories'] ?? '-'} kcal'),
-          _StatChip(icon: Icons.access_time_filled_rounded, label: '$readyInMinutes min'),
-          _StatChip(icon: Icons.groups_2_rounded, label: '$servings serv'),
-        ]))
-      ]))),
-      Container(height: minExtent, color: primaryColor.withOpacity(progress), child: SafeArea(child: Opacity(opacity: collapsedTitleOpacity.clamp(0.0, 1.0), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: Align(alignment: Alignment.center, child: Text(mealTitle, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)))))),
+      Opacity(
+          opacity: blurredImageOpacity.clamp(0.0, 1.0),
+          child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)),
+      ClipRRect(
+          child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(color: Colors.black.withOpacity(0.2)))),
+      Positioned(
+          top: mainImageTop,
+          left: 0,
+          right: 0,
+          child: Transform.scale(
+              scale: mainImageScale,
+              child: Container(
+                  height: 200,
+                  margin: const EdgeInsets.symmetric(horizontal: 60),
+                  decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 5)
+                      ],
+                      image: DecorationImage(
+                          image: CachedNetworkImageProvider(imageUrl),
+                          fit: BoxFit.cover))))),
+      Positioned(
+          top: titleCardTop,
+          left: 0,
+          right: 0,
+          child: Padding(
+              padding:
+                  EdgeInsets.symmetric(horizontal: titleCardHorizontalPadding),
+              child: Column(children: [
+                _GlassCard(
+                    child: Text(mealTitle,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1.2),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis)),
+                const SizedBox(height: 16),
+                Opacity(
+                    opacity: statsOpacity,
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _StatChip(
+                              icon: Icons.local_fire_department_rounded,
+                              label:
+                                  '${nutrients['calories'] ?? '-'} kcal'),
+                          _StatChip(
+                              icon: Icons.access_time_filled_rounded,
+                              label: '$readyInMinutes min'),
+                          _StatChip(
+                              icon: Icons.groups_2_rounded,
+                              label: '$servings serv'),
+                        ]))
+              ]))),
+      Container(
+          height: minExtent,
+          color: primaryColor.withOpacity(progress),
+          child: SafeArea(
+              child: Opacity(
+                  opacity: collapsedTitleOpacity.clamp(0.0, 1.0),
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Align(
+                          alignment: Alignment.center,
+                          child: Text(mealTitle,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis)))))),
     ]);
   }
 
   @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => true;
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
+      true;
 }
 
 class _InteractiveIngredientTile extends StatefulWidget {
@@ -243,10 +369,12 @@ class _InteractiveIngredientTile extends StatefulWidget {
   });
 
   @override
-  State<_InteractiveIngredientTile> createState() => _InteractiveIngredientTileState();
+  State<_InteractiveIngredientTile> createState() =>
+      _InteractiveIngredientTileState();
 }
 
-class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> {
+class _InteractiveIngredientTileState
+    extends State<_InteractiveIngredientTile> {
   bool _isExpanded = false;
 
   @override
@@ -254,7 +382,8 @@ class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> 
     final String name = widget.ingredientData['name'] ?? '';
     final String amount = (widget.ingredientData['amount'] ?? '').toString();
     final String unit = widget.ingredientData['unit'] ?? '';
-    final String imageUrl = 'https://spoonacular.com/cdn/ingredients_500x500/${name.replaceAll(' ', '-')}';
+    final String imageUrl =
+        'https://spoonacular.com/cdn/ingredients_500x500/${name.replaceAll(' ', '-')}';
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Padding(
@@ -264,16 +393,22 @@ class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> 
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
-            setState(() { _isExpanded = !_isExpanded; });
+            setState(() {
+              _isExpanded = !_isExpanded;
+            });
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeInOut,
             height: _isExpanded ? 120 : 60,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))]
-            ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
+                ]),
             child: Stack(fit: StackFit.expand, children: [
               // Frosted Glass background (visible when collapsed)
               AnimatedOpacity(
@@ -284,7 +419,8 @@ class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> 
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.65),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      border:
+                          Border.all(color: Colors.white.withOpacity(0.2)),
                     ),
                   ),
                 ),
@@ -293,13 +429,19 @@ class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> 
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 500),
                 opacity: _isExpanded ? 1.0 : 0.0,
-                child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover, errorWidget: (context, url, error) => Container(color: Colors.grey.shade200)),
+                child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) =>
+                        Container(color: Colors.grey.shade200)),
               ),
               // Color overlay (visible when expanded)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
                 decoration: BoxDecoration(
-                  color: _isExpanded ? primaryColor.withOpacity(0.7) : Colors.white.withOpacity(0.45),
+                  color: _isExpanded
+                      ? primaryColor.withOpacity(0.7)
+                      : Colors.white.withOpacity(0.45),
                 ),
               ),
               // Main Content
@@ -314,12 +456,21 @@ class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> 
                         children: [
                           AnimatedDefaultTextStyle(
                             duration: const Duration(milliseconds: 300),
-                            style: TextStyle(color: _isExpanded ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                                color: _isExpanded
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16),
                             child: Text(widget.capitalize(name)),
                           ),
-                           AnimatedDefaultTextStyle(
+                          AnimatedDefaultTextStyle(
                             duration: const Duration(milliseconds: 300),
-                            style: TextStyle(color: _isExpanded ? Colors.white70 : Colors.grey.shade600, fontSize: 14),
+                            style: TextStyle(
+                                color: _isExpanded
+                                    ? Colors.white70
+                                    : Colors.grey.shade600,
+                                fontSize: 14),
                             child: Text("$amount $unit".trim()),
                           ),
                         ],
@@ -335,10 +486,19 @@ class _InteractiveIngredientTileState extends State<_InteractiveIngredientTile> 
                           height: 30,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: widget.isChecked ? Colors.transparent : Colors.white, width: 2),
-                            color: widget.isChecked ? primaryColor : Colors.transparent,
+                            border: Border.all(
+                                color: widget.isChecked
+                                    ? Colors.transparent
+                                    : Colors.white,
+                                width: 2),
+                            color: widget.isChecked
+                                ? primaryColor
+                                : Colors.transparent,
                           ),
-                          child: widget.isChecked ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+                          child: widget.isChecked
+                              ? const Icon(Icons.check,
+                                  color: Colors.white, size: 18)
+                              : null,
                         ),
                       ),
                     ),
@@ -391,12 +551,15 @@ class _StatChip extends StatelessWidget {
         children: [
           Icon(icon, color: Colors.white, size: 16),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 }
+
 class _InteractiveMacroCard extends StatelessWidget {
   final Map<String, dynamic> nutrients;
   final AnimationController animationController;
@@ -420,9 +583,12 @@ class _InteractiveMacroCard extends StatelessWidget {
     final double proteinPercent = total == 0 ? 0 : protein / total;
     final double fatPercent = total == 0 ? 0 : fat / total;
     String centerText = 'Macros';
-    if (selectedMacro == 'Carbs') centerText = '${(carbsPercent * 100).toInt()}%';
-    if (selectedMacro == 'Protein') centerText = '${(proteinPercent * 100).toInt()}%';
-    if (selectedMacro == 'Fat') centerText = '${(fatPercent * 100).toInt()}%';
+    if (selectedMacro == 'Carbs')
+      centerText = '${(carbsPercent * 100).toInt()}%';
+    if (selectedMacro == 'Protein')
+      centerText = '${(proteinPercent * 100).toInt()}%';
+    if (selectedMacro == 'Fat')
+      centerText = '${(fatPercent * 100).toInt()}%';
 
     return _InteractiveCard(
       padding: const EdgeInsets.all(16.0),
@@ -434,12 +600,23 @@ class _InteractiveMacroCard extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onMacroSelected(null),
               child: CustomPaint(
-                painter: _MacroRingsPainter(animation: animationController, carbsPercent: carbsPercent, proteinPercent: proteinPercent, fatPercent: fatPercent, selectedMacro: selectedMacro),
+                painter: _MacroRingsPainter(
+                    animation: animationController,
+                    carbsPercent: carbsPercent,
+                    proteinPercent: proteinPercent,
+                    fatPercent: fatPercent,
+                    selectedMacro: selectedMacro),
                 child: Center(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-                    child: Text(centerText, key: ValueKey<String>(centerText), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF333333))),
+                    transitionBuilder: (child, animation) =>
+                        FadeTransition(opacity: animation, child: child),
+                    child: Text(centerText,
+                        key: ValueKey<String>(centerText),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color(0xFF333333))),
                   ),
                 ),
               ),
@@ -450,11 +627,29 @@ class _InteractiveMacroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MacroLegend(label: 'Carbs', grams: carbs, percent: carbsPercent, isSelected: selectedMacro == 'Carbs', color: Colors.orange, onTap: () => onMacroSelected('Carbs')),
+                _MacroLegend(
+                    label: 'Carbs',
+                    grams: carbs,
+                    percent: carbsPercent,
+                    isSelected: selectedMacro == 'Carbs',
+                    color: Colors.orange,
+                    onTap: () => onMacroSelected('Carbs')),
                 const SizedBox(height: 12),
-                _MacroLegend(label: 'Protein', grams: protein, percent: proteinPercent, isSelected: selectedMacro == 'Protein', color: Colors.lightBlue, onTap: () => onMacroSelected('Protein')),
+                _MacroLegend(
+                    label: 'Protein',
+                    grams: protein,
+                    percent: proteinPercent,
+                    isSelected: selectedMacro == 'Protein',
+                    color: Colors.lightBlue,
+                    onTap: () => onMacroSelected('Protein')),
                 const SizedBox(height: 12),
-                _MacroLegend(label: 'Fat', grams: fat, percent: fatPercent, isSelected: selectedMacro == 'Fat', color: Colors.purple, onTap: () => onMacroSelected('Fat')),
+                _MacroLegend(
+                    label: 'Fat',
+                    grams: fat,
+                    percent: fatPercent,
+                    isSelected: selectedMacro == 'Fat',
+                    color: Colors.purple,
+                    onTap: () => onMacroSelected('Fat')),
               ],
             ),
           ),
@@ -467,43 +662,76 @@ class _InteractiveMacroCard extends StatelessWidget {
 class _AnimatedLogButton extends StatefulWidget {
   final Map<String, dynamic> meal;
   final ConfettiController confettiController;
+  final String mealType;
 
-  const _AnimatedLogButton({required this.meal, required this.confettiController});
+  const _AnimatedLogButton({
+    required this.meal,
+    required this.confettiController,
+    required this.mealType,
+  });
 
   @override
   State<_AnimatedLogButton> createState() => _AnimatedLogButtonState();
 }
 
 class _AnimatedLogButtonState extends State<_AnimatedLogButton> {
-  int _buttonState = 0;
-  bool isLogged = false;
+  int _buttonState = 0; // 0: Idle, 1: Loading, 2: Success
+  bool _isAlreadyLogged = false;
+  final FoodLogService _foodLogService = FoodLogService();
 
   @override
   void initState() {
     super.initState();
-    isLogged = widget.meal['loggedAt'] != null;
-    if (isLogged) _buttonState = 2;
+    _isAlreadyLogged = widget.meal['loggedAt'] != null;
   }
 
-  // --- MODIFIED: This function now calls the real MealService ---
+  // --- UPDATED: Logs to BOTH Food Log AND Meal Plan Backend ---
   Future<void> _handleLog() async {
-    if (_buttonState != 0) return;
+    if (_buttonState != 0 || _isAlreadyLogged) return;
+
     HapticFeedback.lightImpact();
     setState(() => _buttonState = 1);
+
     try {
-      // Call the real service, ensuring the meal ID is an integer.
+      // 1. Log to Food Log (Nutrients & Diary)
+      final nutrients = widget.meal['nutrients'] as Map<String, dynamic>? ?? {};
+      final imageUrl = widget.meal['image'] ??
+          "https://spoonacular.com/recipeImages/${widget.meal['id']}-636x393.jpg";
+      final title = widget.meal['title'] ?? 'Meal';
+
+      final backendNutrients = {
+        'calories': nutrients['calories'] ?? 0,
+        'protein': nutrients['protein'] ?? 0,
+        'fat': nutrients['fat'] ?? 0,
+        'carbohydrates': nutrients['carbs'] ?? 0,
+      };
+
+      final bool foodLogSuccess = await _foodLogService.logFood(
+        mealType: widget.mealType,
+        productName: title,
+        nutrients: backendNutrients,
+        imageUrl: imageUrl,
+        date: DateTime.now(),
+      );
+
+      if (!foodLogSuccess) {
+        throw Exception('Failed to add to food log');
+      }
+
+      // 2. Update Meal Plan Status in Backend (Set loggedAt)
+      // This matches the previous implementation using MealService
       await MealService.logMeal(widget.meal['id'] as int);
+
+      // Success
       widget.confettiController.play();
       setState(() => _buttonState = 2);
       await Future.delayed(const Duration(milliseconds: 1500));
-      // Pop the screen and return 'true' to signal success.
       if (mounted) Navigator.pop(context, true);
+
     } catch (e) {
       if (mounted) {
-        // Show an error message if something goes wrong.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         setState(() => _buttonState = 0);
       }
     }
@@ -515,13 +743,46 @@ class _AnimatedLogButtonState extends State<_AnimatedLogButton> {
     final screenWidth = MediaQuery.of(context).size.width;
     final double buttonWidth = _buttonState == 1 ? 56 : screenWidth - 48;
 
+    // --- DISABLED BUTTON STATE (If already logged) ---
+    if (_isAlreadyLogged) {
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Container(
+            width: screenWidth - 48,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade400,
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            child: Center(
+              child: Text(
+                'Log as ${widget.mealType}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // --- ACTIVE BUTTON STATE ---
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [const Color(0xFFF0F2F5).withOpacity(0.0), const Color(0xFFF0F2F5).withOpacity(0.9), const Color(0xFFF0F2F5)],
+            colors: [
+              const Color(0xFFF0F2F5).withOpacity(0.0),
+              const Color(0xFFF0F2F5).withOpacity(0.9),
+              const Color(0xFFF0F2F5)
+            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.4, 1.0],
@@ -536,13 +797,22 @@ class _AnimatedLogButtonState extends State<_AnimatedLogButton> {
             height: 56,
             decoration: BoxDecoration(
               color: _buttonState == 2 ? Colors.green : primaryColor,
-              borderRadius: BorderRadius.circular(_buttonState == 1 ? 28.0 : 16.0),
-              boxShadow: [BoxShadow(color: (_buttonState == 2 ? Colors.green : primaryColor).withOpacity(0.4), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 4))],
+              borderRadius:
+                  BorderRadius.circular(_buttonState == 1 ? 28.0 : 16.0),
+              boxShadow: [
+                BoxShadow(
+                    color: (_buttonState == 2 ? Colors.green : primaryColor)
+                        .withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 4))
+              ],
             ),
             child: Center(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
                 child: _buildButtonChild(),
               ),
             ),
@@ -553,9 +823,19 @@ class _AnimatedLogButtonState extends State<_AnimatedLogButton> {
   }
 
   Widget _buildButtonChild() {
-    if (_buttonState == 0) return const Text('Log This Meal', key: ValueKey('text'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white));
-    if (_buttonState == 1) return const SizedBox(key: ValueKey('spinner'), height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white));
-    return const Icon(Icons.check_circle_rounded, key: ValueKey('icon'), color: Colors.white, size: 28);
+    if (_buttonState == 0)
+      return Text('Log as ${widget.mealType}',
+          key: const ValueKey('text'),
+          style: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white));
+    if (_buttonState == 1)
+      return const SizedBox(
+          key: ValueKey('spinner'),
+          height: 24,
+          width: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white));
+    return const Icon(Icons.check_circle_rounded,
+        key: ValueKey('icon'), color: Colors.white, size: 28);
   }
 }
 
@@ -564,7 +844,8 @@ class _InstructionStep extends StatelessWidget {
   final String instruction;
   final bool isLast;
 
-  const _InstructionStep({required this.index, required this.instruction, this.isLast = false});
+  const _InstructionStep(
+      {required this.index, required this.instruction, this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
@@ -574,12 +855,26 @@ class _InstructionStep extends StatelessWidget {
         children: [
           Column(
             children: [
-              CircleAvatar(radius: 14, backgroundColor: Colors.orange.withOpacity(0.2), child: Text('${index + 1}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade800))),
-              if (!isLast) Expanded(child: Container(width: 2, color: Colors.orange.withOpacity(0.2))),
+              CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Colors.orange.withOpacity(0.2),
+                  child: Text('${index + 1}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800))),
+              if (!isLast)
+                Expanded(
+                    child:
+                        Container(width: 2, color: Colors.orange.withOpacity(0.2))),
             ],
           ),
           const SizedBox(width: 16),
-          Expanded(child: Padding(padding: EdgeInsets.only(bottom: isLast ? 0 : 24), child: Text(instruction, style: TextStyle(color: Colors.grey[800], fontSize: 15, height: 1.5)))),
+          Expanded(
+              child: Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 24),
+                  child: Text(instruction,
+                      style: TextStyle(
+                          color: Colors.grey[800], fontSize: 15, height: 1.5)))),
         ],
       ),
     );
@@ -591,7 +886,13 @@ class _MacroRingsPainter extends CustomPainter {
   final double carbsPercent, proteinPercent, fatPercent;
   final String? selectedMacro;
 
-  _MacroRingsPainter({required this.animation, required this.carbsPercent, required this.proteinPercent, required this.fatPercent, this.selectedMacro}) : super(repaint: animation);
+  _MacroRingsPainter(
+      {required this.animation,
+      required this.carbsPercent,
+      required this.proteinPercent,
+      required this.fatPercent,
+      this.selectedMacro})
+      : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -602,15 +903,31 @@ class _MacroRingsPainter extends CustomPainter {
     void drawArc(String label, double percent, Color color, double radius) {
       final bool isSelected = selectedMacro == label;
       final bool isDimmed = selectedMacro != null && !isSelected;
-      final paint = Paint()..color = color.withOpacity(isDimmed ? 0.3 : 1.0)..style = PaintingStyle.stroke..strokeWidth = isSelected ? strokeWidth * 1.2 : strokeWidth..strokeCap = StrokeCap.round;
-      final backgroundPaint = Paint()..color = color.withOpacity(isDimmed ? 0.05 : 0.2)..style = PaintingStyle.stroke..strokeWidth = strokeWidth;
-      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -math.pi / 2, 2 * math.pi, false, backgroundPaint);
-      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -math.pi / 2, 2 * math.pi * percent * progress, false, paint);
+      final paint = Paint()
+        ..color = color.withOpacity(isDimmed ? 0.3 : 1.0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSelected ? strokeWidth * 1.2 : strokeWidth
+        ..strokeCap = StrokeCap.round;
+      final backgroundPaint = Paint()
+        ..color = color.withOpacity(isDimmed ? 0.05 : 0.2)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth;
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
+          -math.pi / 2, 2 * math.pi, false, backgroundPaint);
+      canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          -math.pi / 2,
+          2 * math.pi * percent * progress,
+          false,
+          paint);
     }
 
-    drawArc('Carbs', carbsPercent, Colors.orange, size.width / 2 - strokeWidth * 0.5);
-    drawArc('Protein', proteinPercent, Colors.lightBlue, size.width / 2 - strokeWidth * 1.8);
-    drawArc('Fat', fatPercent, Colors.purple, size.width / 2 - strokeWidth * 3.1);
+    drawArc('Carbs', carbsPercent, Colors.orange,
+        size.width / 2 - strokeWidth * 0.5);
+    drawArc('Protein', proteinPercent, Colors.lightBlue,
+        size.width / 2 - strokeWidth * 1.8);
+    drawArc('Fat', fatPercent, Colors.purple,
+        size.width / 2 - strokeWidth * 3.1);
   }
 
   @override
@@ -624,7 +941,13 @@ class _MacroLegend extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _MacroLegend({required this.label, required this.color, required this.grams, required this.percent, required this.isSelected, required this.onTap});
+  const _MacroLegend(
+      {required this.label,
+      required this.color,
+      required this.grams,
+      required this.percent,
+      required this.isSelected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -635,15 +958,25 @@ class _MacroLegend extends StatelessWidget {
         opacity: isSelected ? 1.0 : 0.8,
         child: Row(
           children: [
-            Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+            Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: Color(0xFF333333))),
             const Spacer(),
-            Text('${grams.toStringAsFixed(1)}g', style: TextStyle(color: Colors.grey[800])),
+            Text('${grams.toStringAsFixed(1)}g',
+                style: TextStyle(color: Colors.grey[800])),
             const SizedBox(width: 8),
             SizedBox(
               width: 45,
-              child: Text('${(percent * 100).toInt()}%', textAlign: TextAlign.right, style: TextStyle(fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, color: color)),
+              child: Text('${(percent * 100).toInt()}%',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
+                      color: color)),
             ),
           ],
         ),
@@ -656,19 +989,23 @@ class _InteractiveCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
-  const _InteractiveCard({required this.child, this.onTap, this.padding = EdgeInsets.zero});
+  const _InteractiveCard(
+      {required this.child, this.onTap, this.padding = EdgeInsets.zero});
   @override
   State<_InteractiveCard> createState() => _InteractiveCardState();
 }
 
-class _InteractiveCardState extends State<_InteractiveCard> with SingleTickerProviderStateMixin {
+class _InteractiveCardState extends State<_InteractiveCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 200));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -691,15 +1028,23 @@ class _InteractiveCardState extends State<_InteractiveCard> with SingleTickerPro
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 15, spreadRadius: -5, offset: const Offset(0, 5))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.07),
+                  blurRadius: 15,
+                  spreadRadius: -5,
+                  offset: const Offset(0, 5))
+            ],
           ),
           child: ClipRRect(
-             borderRadius: BorderRadius.circular(24.0),
+            borderRadius: BorderRadius.circular(24.0),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
                 padding: widget.padding,
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.65), border: Border.all(color: Colors.white.withOpacity(0.3))),
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.65),
+                    border: Border.all(color: Colors.white.withOpacity(0.3))),
                 child: widget.child,
               ),
             ),

@@ -357,20 +357,19 @@ const updateWaterConsumption = async (req, res) => {
     console.log("Request is recievedddddddddddddddddddddd!!!!!!1")
     console.log(req.body.newAmount);
 
-
-
     // Update the username from request body
     if (req.body.waterConsumption) {
       userDetails.waterConsumption = req.body.newAmount;
-    
     }
 
     // Save the updated user
     await userDetails.save();
+    
+    console.log("Hehehehe!!!!!!1")
 
     res.json({ message: "Username updated successfully.", user: userDetails });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Cant" + error.message });
   }
 };
 

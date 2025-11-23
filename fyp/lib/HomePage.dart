@@ -14,8 +14,8 @@ import 'package:fyp/screens/userMealPlanScreen.dart';
 import 'package:fyp/screens/describe_meal_screen.dart';
 import 'package:fyp/screens/ai_scanner_result_page.dart';
 import 'package:fyp/screens/camera_screen.dart';
-import 'package:fyp/screens/user_meal_details_screen.dart';
 import 'package:fyp/services/config_service.dart';
+import 'package:fyp/services/meal_service.dart';
 import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:intl/intl.dart';
@@ -29,6 +29,7 @@ import 'package:provider/provider.dart';
 import 'camera_overlay_controller.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:fyp/services/food_log_service.dart';
+import 'package:fyp/models/food_log.dart'; 
 
 // --- Service to handle fetching the auth token ---
 class AuthService {
@@ -61,14 +62,8 @@ class ScanMealScreen extends StatelessWidget {
   }
 }
 
-// Assuming LoggedFood is defined elsewhere in your app, 
-// if not, you can remove references to it if you only strictly need backend logging.
-// import 'package:fyp/models/logged_food.dart'; 
-
 class ManualLogFoodSheet extends StatefulWidget {
-  // Keeping onLog to update local state if your parent widget needs it
   final Function(dynamic) onLog; 
-
   const ManualLogFoodSheet({Key? key, required this.onLog}) : super(key: key);
 
   @override
@@ -82,8 +77,6 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   final _carbsController = TextEditingController();
   final _proteinController = TextEditingController();
   final _fatController = TextEditingController();
-
-  // Service instance
   final FoodLogService _foodLogService = FoodLogService();
 
   @override
@@ -96,39 +89,31 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
     super.dispose();
   }
 
-  // 1. UPDATED SUBMIT: Validates form, then asks for Meal Type
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      // Form is valid, now show the popup to select Meal Type
       _showMealTypeDialog();
     }
   }
 
-  // 2. NEW: Pop-up to select Meal Type
   void _showMealTypeDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return _MealTypeSelectorDialog(
           onMealSelected: (String selectedMealType) {
-            // 3. When confirmed, Log to Backend
             _logToBackend(selectedMealType);
-            Navigator.pop(context); // Close the dialog
+            Navigator.pop(context);
           },
         );
       },
     );
   }
 
-  // 4. NEW: Send data to Backend
   Future<void> _logToBackend(String mealType) async {
-    // Show loading indicator
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saving to food log...')),
     );
-
     try {
-      // Prepare nutrients map
       final nutrients = {
         'calories': int.tryParse(_caloriesController.text) ?? 0,
         'carbohydrates': double.tryParse(_carbsController.text) ?? 0.0,
@@ -136,25 +121,21 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
         'fat': double.tryParse(_fatController.text) ?? 0.0,
       };
 
-      // Call the service
       final success = await _foodLogService.logFood(
         mealType: mealType,
         productName: _nameController.text.trim(),
         nutrients: nutrients,
         date: DateTime.now(),
-        imageUrl: null, // No image for manual entry
+        imageUrl: null, 
       );
 
       if (success) {
         if (mounted) {
-          // Optional: construct a local object if you need to update the UI immediately
-          // final newFood = LoggedFood(...); 
-          // widget.onLog(newFood); 
-
-          Navigator.of(context).pop(); // Close the Bottom Sheet
+          widget.onLog(true);
+          Navigator.of(context).pop(); 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Food logged successfully! 🎉'),
+              content: Text('Food logged successfully! 脂'),
               backgroundColor: Colors.green,
             ),
           );
@@ -180,7 +161,6 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Helper function for consistent input field styling
     InputDecoration inputDecoration(String label, IconData icon) {
       return InputDecoration(
         prefixIcon: Icon(icon, color: Colors.grey[600]),
@@ -196,10 +176,8 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
     }
 
     return Padding(
-      // Adjust padding to avoid the keyboard
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      // Use SingleChildScrollView to prevent overflow when keyboard is visible
       child: SingleChildScrollView(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -210,7 +188,6 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle for the sheet
               Container(
                 width: 40,
                 height: 5,
@@ -312,10 +289,8 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
   }
 }
 
-// --- HELPER WIDGET FOR THE POPUP ---
 class _MealTypeSelectorDialog extends StatefulWidget {
   final Function(String) onMealSelected;
-
   const _MealTypeSelectorDialog({Key? key, required this.onMealSelected})
       : super(key: key);
 
@@ -382,12 +357,6 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog> {
     );
   }
 }
-// class CameraScreen extends StatelessWidget {
-//   const CameraScreen({super.key});
-//   @override
-//   Widget build(BuildContext context) => Scaffold(
-//       appBar: AppBar(), body: const Center(child: Text("Camera Screen")));
-// }
 
 // --- Data Models ---
 class DailySummary {
@@ -447,29 +416,6 @@ class LoggedFood {
   LoggedFood({required this.name, required this.icon, required this.calories});
 }
 
-class MealPlanItem {
-  final int id;
-  final String title;
-  final String imageUrl;
-  final Map<String, dynamic> rawData; // Stores full data for details screen
-
-  MealPlanItem({
-    required this.id,
-    required this.title,
-    required this.imageUrl,
-    required this.rawData,
-  });
-}
-
-class TodayMealPlan {
-  final String date;
-  final List<MealPlanItem> meals;
-
-  TodayMealPlan({required this.date, required this.meals});
-}
-
-
-
 // --- Main Page Widget ---
 class MealTrackingPage extends StatefulWidget {
   const MealTrackingPage({super.key});
@@ -480,53 +426,32 @@ class MealTrackingPage extends StatefulWidget {
 class _MealTrackingPageState extends State<MealTrackingPage>
     with TickerProviderStateMixin {
   late Future<Map<String, dynamic>> _userDataFuture;
+  // FIX 1: Added the missing Future variable for TodayMealPlan
   late Future<TodayMealPlan> _todayMealsFuture;
+  
   late AnimationController _headerAnimController;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   final ScrollController _scrollController = ScrollController();
   late final ScrollController _recipeScrollController;
   final AuthService _authService = AuthService();
+  final FoodLogService _foodLogService = FoodLogService();
 
-  late List<Meal> _meals;
+  List<Meal> _meals = [];
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _userDataFuture = _fetchUserData();
+    
+    // FIX 2: Initialize the missing Future
     _todayMealsFuture = _fetchTodayMealPlan();
-
-    // Initialize default meals timeline
-    _meals = [
-      Meal(
-          name: 'Breakfast',
-          icon: Icons.breakfast_dining_rounded,
-          goal: 600,
-          loggedFoods: [
-            LoggedFood(name: 'Oatmeal', icon: '🥣', calories: 350),
-            LoggedFood(name: 'Banana', icon: '🍌', calories: 105),
-            LoggedFood(name: 'Almonds', icon: '🥜', calories: 150),
-          ]),
-      Meal(
-          name: 'Lunch',
-          icon: Icons.lunch_dining_rounded,
-          goal: 800,
-          loggedFoods: [
-            LoggedFood(name: 'Chicken Salad', icon: '🥗', calories: 450),
-            LoggedFood(name: 'Apple', icon: '🍎', calories: 150),
-          ]),
-      Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800),
-      Meal(name: 'Snacks', icon: Icons.cookie_outlined, goal: 300),
-    ];
 
     _headerAnimController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1200))
       ..forward();
-    
     _recipeScrollController = ScrollController();
-    
-    // Animate recipe scroll position after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_recipeScrollController.hasClients && mounted) {
         const double cardWidth = 160;
@@ -543,117 +468,174 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     });
   }
 
-  // --- UPDATED: Robust Fetch Method with Crash Protection ---
-  Future<TodayMealPlan> _fetchTodayMealPlan() async {
-    const String apiUrl = '$baseURL/api/mealplan'; 
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('user_id');
-    final token = await _authService.getToken();
-
-    if (userId == null) {
-      return TodayMealPlan(date: '', meals: []);
-    }
-
+  // FIX 3: Added the missing fetch method for TodayMealPlan
+Future<TodayMealPlan> _fetchTodayMealPlan() async {
     try {
-      final response = await http.get(
-        Uri.parse('$apiUrl/$userId/today'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
+      // 1. Fetch data from your existing service
+      final Map<String, dynamic> data = await MealService.fetchUserMealPlanToday();
+      
+      // 2. Extract the list of meals safely
+      final List<dynamic> mealsData = data['meals'] as List<dynamic>? ?? [];
 
-      if (response.statusCode == 200) {
-        // 1. Decode as dynamic first
-        final dynamic decodedBody = json.decode(response.body);
-
-        // 2. Check if decoded data is null or not a Map (fixes the "Null is not subtype" error)
-        if (decodedBody == null || decodedBody is! Map<String, dynamic>) {
-          return TodayMealPlan(date: '', meals: []);
+      // 3. Helper function to map raw JSON to your MealPlanItem model
+      MealPlanItem mapToItem(Map<String, dynamic> json) {
+        // Safely extract calories (handling potential double/int differences)
+        int calories = 0;
+        if (json['nutrients'] != null && json['nutrients']['calories'] != null) {
+          calories = (json['nutrients']['calories'] as num).toInt();
+        } else if (json['calories'] != null) {
+           calories = (json['calories'] as num).toInt();
         }
 
-        final Map<String, dynamic> data = decodedBody;
-        final List<dynamic> mealsJson = data['meals'] ?? [];
+        // Construct image URL (using fallback logic similar to your other screens if image is missing)
+        String imageUrl = json['image'] ?? 
+            "https://spoonacular.com/recipeImages/${json['id']}-556x370.${json['imageType'] ?? 'jpg'}";
 
-        // 3. Map safely, filtering out any invalid items
-        final meals = mealsJson.map((mealJson) {
-          if (mealJson == null || mealJson is! Map<String, dynamic>) {
-            return null;
-          }
-          return MealPlanItem(
-            id: mealJson['id'] as int? ?? 0,
-            title: mealJson['title'] as String? ?? 'Unnamed Meal',
-            imageUrl: "https://spoonacular.com/recipeImages/${mealJson['id']}-556x370.${mealJson['imageType'] ?? 'jpg'}",
-            rawData: mealJson, // Store full data for the details screen
-          );
-        }).whereType<MealPlanItem>().toList(); // Removes nulls
-
-        return TodayMealPlan(
-          date: data['date'] as String? ?? DateTime.now().toIso8601String(),
-          meals: meals,
+        return MealPlanItem(
+          id: json['id'].toString(),
+          title: json['title'] ?? 'Unknown Meal',
+          calories: calories,
+          imageUrl: imageUrl,
+          // 'readyInMinutes' is a standard Spoonacular field for prep time
+          prepTimeMinutes: json['readyInMinutes'] ?? 15, 
         );
-      } else {
-        return TodayMealPlan(date: '', meals: []);
       }
+
+      // 4. Distribute meals into categories based on their index
+      // Index 0 = Breakfast, Index 1 = Lunch, Index 2 = Dinner
+      List<MealPlanItem> breakfast = [];
+      List<MealPlanItem> lunch = [];
+      List<MealPlanItem> dinner = [];
+
+      if (mealsData.isNotEmpty) breakfast.add(mapToItem(mealsData[0]));
+      if (mealsData.length > 1) lunch.add(mapToItem(mealsData[1]));
+      if (mealsData.length > 2) dinner.add(mapToItem(mealsData[2]));
+
+      // 5. Return the populated TodayMealPlan
+      return TodayMealPlan(
+        breakfast: breakfast,
+        lunch: lunch,
+        dinner: dinner,
+      );
+
     } catch (e) {
-      debugPrint("Error fetching today's meal plan: $e");
-      return TodayMealPlan(date: '', meals: []);
+      print("Error fetching today's meal plan: $e");
+      // Return empty plan or handle error appropriately
+      return TodayMealPlan(breakfast: [], lunch: [], dinner: []);
     }
+  }
+  
+  // FIX 4: Added the missing navigation method
+  void _navigateToMealDetails(MealPlanItem item) {
+    // Replace with your actual detail screen or a dialog
+    showDialog(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        title: Text(item.title),
+        content: Text("Calories: ${item.calories}\nPrep time: ${item.prepTimeMinutes} mins"),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK"))],
+      )
+    );
   }
 
   Future<Map<String, dynamic>> _fetchUserData() async {
-    const String apiUrl = '$baseURL/api/user/profile-summary';
     final token = await _authService.getToken();
-
+    
     if (token == null || token.isEmpty) {
+      debugPrint('No token found. Using local data.');
       return _getLocalFallbackData();
     }
 
     try {
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final results = await Future.wait([
+        http.get(
+          Uri.parse('$baseURL/api/user/profile-summary'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        _foodLogService.getFoodLogsForDate(DateTime.now())
+      ]);
 
-      if (response.statusCode == 200) {
-        final dynamic decodedBody = json.decode(response.body);
-        
-        // Safety check for user data response
-        if (decodedBody == null || decodedBody is! Map<String, dynamic>) {
-             return _getLocalFallbackData();
-        }
-        
-        final data = decodedBody;
-        if (data['success'] == true) {
-          LocalDB.setCarbs(data['carbs']);
-          LocalDB.setProtein(data['protein']);
-          LocalDB.setFats(data['fat']);
-          LocalDB.setUserName(data['userName']);
-          LocalDB.setConsumedCalories(data['caloriesConsumed']);
-          LocalDB.setGoalCalories(data['caloriesGoal']);
-          LocalDB.setWaterGoal(data['waterGoal']);
-          LocalDB.setWaterConsumed(data['waterConsumed']);
+      final profileResponse = results[0] as http.Response;
+      final foodLogs = results[1] as List<FoodLog>;
+
+      if (profileResponse.statusCode == 200) {
+        final profileData = json.decode(profileResponse.body);
+        if (profileData['success'] == true) {
+          
+          LocalDB.setCarbs(profileData['carbs']);
+          LocalDB.setProtein(profileData['protein']);
+          LocalDB.setFats(profileData['fat']);
+          LocalDB.setUserName(profileData['userName']);
+          LocalDB.setGoalCalories(profileData['caloriesGoal']);
+          LocalDB.setWaterGoal(profileData['waterGoal']);
+          LocalDB.setWaterConsumed(profileData['waterConsumed']);
+
+          List<Meal> processedMeals = [
+            Meal(name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600, loggedFoods: []),
+            Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800, loggedFoods: []),
+            Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800, loggedFoods: []),
+            Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300, loggedFoods: []), 
+          ];
+
+          int totalCaloriesConsumed = 0;
+          double totalCarbs = 0;
+          double totalProtein = 0;
+          double totalFat = 0;
+
+          for (var log in foodLogs) {
+            totalCaloriesConsumed += log.nutrients.calories.toInt();
+            totalCarbs += log.nutrients.carbohydrates;
+            totalProtein += log.nutrients.protein;
+            totalFat += log.nutrients.fat;
+
+            final loggedFood = LoggedFood(
+              name: log.productName, 
+              icon: '･｣', 
+              calories: log.nutrients.calories.toInt()
+            );
+
+            String targetMeal = log.mealType;
+            if (targetMeal == 'Snack') targetMeal = 'Snack'; 
+            
+            final mealIndex = processedMeals.indexWhere((m) => m.name == targetMeal);
+            if (mealIndex != -1) {
+               List<LoggedFood> newFoods = List.from(processedMeals[mealIndex].loggedFoods);
+               newFoods.add(loggedFood);
+               
+               processedMeals[mealIndex] = Meal(
+                 name: processedMeals[mealIndex].name, 
+                 icon: processedMeals[mealIndex].icon, 
+                 goal: processedMeals[mealIndex].goal, 
+                 loggedFoods: newFoods
+               );
+            }
+          }
+          
+          LocalDB.setConsumedCalories(totalCaloriesConsumed);
 
           return {
-            'userName': data['userName'] as String? ?? 'User',
-            'caloriesGoal': data['caloriesGoal'] as int? ?? 2000,
-            'carbs': data['carbs'] as int? ?? 150,
-            'protein': data['protein'] as int? ?? 80,
-            'fat': data['fat'] as int? ?? 45,
-            'caloriesConsumed': data['caloriesConsumed'] as int? ?? 0,
-            'waterGoal': data['waterGoal'] as int? ?? 2000,
-            'waterConsumed': data['waterConsumed'] as int? ?? 0,
+            'userName': profileData['userName'] as String? ?? 'User',
+            'caloriesGoal': profileData['caloriesGoal'] as int? ?? 2000,
+            'caloriesConsumed': totalCaloriesConsumed,
+            'carbsConsumed': totalCarbs,
+            'proteinConsumed': totalProtein,
+            'fatConsumed': totalFat,
+            'carbsGoal': profileData['carbs'] as int? ?? 150,
+            'proteinGoal': profileData['protein'] as int? ?? 80,
+            'fatGoal': profileData['fat'] as int? ?? 45,
+            'waterGoal': profileData['waterGoal'] as int? ?? 2000,
+            'waterConsumed': profileData['waterConsumed'] as int? ?? 0,
+            'processedMeals': processedMeals
           };
-        } else {
-          return _getLocalFallbackData();
         }
-      } else {
-        return _getLocalFallbackData();
       }
+      return _getLocalFallbackData();
+      
     } catch (e) {
+      debugPrint("Error fetching user data: $e");
       return _getLocalFallbackData();
     }
   }
@@ -662,12 +644,19 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     return {
       'userName': LocalDB.getUserName() as String? ?? 'User',
       'caloriesGoal': LocalDB.getGoalCalories(),
-      'carbs': LocalDB.getCarbs(),
-      'protein': LocalDB.getProtein(),
-      'fat': LocalDB.getFats(),
       'caloriesConsumed': LocalDB.getConsumedCalories(),
-      'waterGoal': LocalDB.getWaterGoal(),
-      'waterConsumed': LocalDB.getWaterConsumed(),
+      'carbsConsumed': 0.0,
+      'proteinConsumed': 0.0,
+      'fatConsumed': 0.0,
+      'carbsGoal': LocalDB.getCarbs(),
+      'proteinGoal': LocalDB.getProtein(),
+      'fatGoal': LocalDB.getFats(),
+      'processedMeals': [
+          Meal(name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600),
+          Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800),
+          Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800),
+          Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300),
+      ]
     };
   }
 
@@ -690,24 +679,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
         curve: Curves.easeInOut,
       ),
     );
-  }
-
-  // --- NEW: Navigate to Meal Details ---
-  void _navigateToMealDetails(BuildContext context, MealPlanItem meal) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MealDetailsScreen(
-          meal: meal.rawData, // Pass the full raw JSON
-          date: DateTime.now(), // Since this is "Today's" plan
-        ),
-      ),
-    );
-
-    // If result is true, it means the user logged the meal
-    if (result == true) {
-      _refreshData(); // Refresh timeline and stats
-    }
   }
 
   Future<void> _openCameraScreen() async {
@@ -751,21 +722,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     return 'Good Evening,';
   }
 
-  void _handleLogFood(Meal meal, LoggedFood newFood) {
-    setState(() {
-      final mealIndex = _meals.indexWhere((m) => m.name == meal.name);
-      if (mealIndex != -1) {
-        final updatedFoods =
-            List<LoggedFood>.from(_meals[mealIndex].loggedFoods)..add(newFood);
-
-        _meals[mealIndex] = Meal(
-          name: _meals[mealIndex].name,
-          icon: _meals[mealIndex].icon,
-          goal: _meals[mealIndex].goal,
-          loggedFoods: updatedFoods,
-        );
-      }
-    });
+  void _handleLogFood(dynamic result) {
+     _refreshData();
   }
 
   void _showManualLogSheet(BuildContext context, Meal meal) {
@@ -774,8 +732,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => ManualLogFoodSheet(
-        onLog: (newFood) {
-          _handleLogFood(meal, newFood);
+        onLog: (result) {
+          _handleLogFood(result);
         },
       ),
     );
@@ -792,7 +750,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 leading: const Icon(Icons.edit_note_rounded),
                 title: const Text('Log Manually'),
                 onTap: () {
-                  Navigator.pop(ctx);
+                  Navigator.pop(ctx); 
                   _showManualLogSheet(context, meal);
                 },
               ),
@@ -800,7 +758,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 leading: const Icon(Icons.qr_code_scanner_rounded),
                 title: const Text('Scan Meal'),
                 onTap: () {
-                  Navigator.pop(ctx);
+                  Navigator.pop(ctx); 
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -818,10 +776,12 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   @override
   Widget build(BuildContext context) {
     final overlayController = Provider.of<CameraOverlayController>(context);
+    
     return Scaffold(
       body: Stack(
         children: [
           const _LivingAnimatedBackground(),
+          
           FutureBuilder<Map<String, dynamic>>(
             future: _userDataFuture,
             builder: (context, snapshot) {
@@ -846,12 +806,9 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          snapshot.error
-                              .toString()
-                              .replaceFirst("Exception: ", ""),
+                          snapshot.error.toString().replaceFirst("Exception: ", ""),
                           textAlign: TextAlign.center,
-                          style:
-                              TextStyle(color: Colors.grey[700], fontSize: 16),
+                          style: TextStyle(color: Colors.grey[700], fontSize: 16),
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
@@ -870,107 +827,99 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                 final String userName = fetchedData['userName']!;
                 final int caloriesGoal = fetchedData['caloriesGoal']!;
 
+                _meals = fetchedData['processedMeals'] as List<Meal>;
+
                 final summary = DailySummary(
-                    caloriesGoal: caloriesGoal,
-                    caloriesConsumed:
-                        (fetchedData['caloriesConsumed'] as int? ?? 100),
-                    carbsConsumed: (fetchedData['carbs'] as int).toDouble(),
-                    proteinConsumed: (fetchedData['protein'] as int).toDouble(),
-                    fatConsumed: (fetchedData['fat'] as int).toDouble());
+                  caloriesGoal: caloriesGoal,
+                  caloriesConsumed: (fetchedData['caloriesConsumed'] as int),
+                  carbsConsumed: (fetchedData['carbsConsumed'] as num).toDouble(),
+                  proteinConsumed: (fetchedData['proteinConsumed'] as num).toDouble(),
+                  fatConsumed: (fetchedData['fatConsumed'] as num).toDouble(),
+                  carbsGoal: (fetchedData['carbsGoal'] as num).toDouble(),
+                  proteinGoal: (fetchedData['proteinGoal'] as num).toDouble(),
+                  fatGoal: (fetchedData['fatGoal'] as num).toDouble(),
+                );
 
                 return RefreshIndicator(
                   onRefresh: _refreshData,
-                  child: Stack(
-                    children: [
-                      CustomScrollView(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics()),
-                        slivers: [
-                          _buildHeader(context, summary, userName),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
-                            sliver: SliverList(
-                              delegate: SliverChildListDelegate([
-                                _buildSectionHeader(
-                                    context, "Today's Timeline"),
-                                _buildMealTimeline(fetchedData),
-                                const SizedBox(height: 30),
-                                const DailyStepsChartCard(),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'For You'),
-                                
-                                // --- Today's Meal Plan Section ---
-                                _buildTodayMealPlanSection(context),
-                                
-                                const SizedBox(height: 24),
-                                const _DailyInsightCard(),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'Daily Breakdown'),
-                                _MacroBreakdownCard(summary: summary),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(
-                                    context, 'See Your Meal Plan'),
-                                const _MealPlanCard(),
-                                const SizedBox(height: 24),
-                                _buildSectionHeader(context, 'Quick Actions'),
-                                _buildQuickActions(),
-                              ]),
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics()),
+                    slivers: [
+                      _buildHeader(context, summary, userName),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            _buildSectionHeader(context, "Today's Timeline"),
+                            _buildMealTimeline(fetchedData),
+                            
+                            const SizedBox(height: 30),
+                            
+                            const DailyStepsChartCard(),
+                            
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'Today\'s Meals'),
+                            FutureBuilder<TodayMealPlan>(
+                              future: _todayMealsFuture,
+                              builder: (context, mealSnapshot) {
+                                if (mealSnapshot.connectionState == ConnectionState.waiting) {
+                                  return const SizedBox(
+                                    height: 260,
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+                                if (mealSnapshot.hasError || !mealSnapshot.hasData) {
+                                  return const SizedBox(
+                                    height: 260,
+                                    child: Center(child: Text('Failed to load meal plan')),
+                                  );
+                                }
+                                final todayMealPlan = mealSnapshot.data!;
+                                final List<MealPlanItem> allMeals = [
+                                  ...todayMealPlan.breakfast,
+                                  ...todayMealPlan.lunch,
+                                  ...todayMealPlan.dinner,
+                                  ...todayMealPlan.snacks,
+                                ];
+                                return _buildRecipeSection(
+                                  scrollController: _recipeScrollController,
+                                  meals: allMeals,
+                                );
+                              },
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 24),
+                            const _DailyInsightCard(),
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'Daily Breakdown'),
+                            _MacroBreakdownCard(summary: summary),
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'See Your Meal Plan'),
+                            const _MealPlanCard(),
+                            const SizedBox(height: 24),
+                            _buildSectionHeader(context, 'Quick Actions'),
+                            _buildQuickActions(),
+                          ]),
+                        ),
                       ),
                     ],
                   ),
                 );
               }
 
-              return const Center(
-                  child: Text("No data found for your profile."));
+              return const Center(child: Text("No data found for your profile."));
             },
           ),
+          
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
         ],
       ),
     );
   }
 
-  Widget _buildTodayMealPlanSection(BuildContext context) {
-    return FutureBuilder<TodayMealPlan>(
-      future: _todayMealsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+// ... (The rest of your helper widgets like _buildHeader, _buildMealTimeline etc. remain here)
 
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.meals.isEmpty) {
-          final String message = snapshot.hasError
-              ? 'Could not load personalized meals.'
-              : 'No meal suggestions available for today.';
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                message,
-                style: TextStyle(
-                  color: snapshot.hasError ? Colors.red.shade400 : Colors.grey,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
-        }
-
-        return _buildRecipeSection(
-          scrollController: _recipeScrollController,
-          meals: snapshot.data!.meals,
-        );
-      },
-    );
-  }
-
-  // --- UPDATED: Recipe Section with OnTap Handler ---
   Widget _buildRecipeSection({
     required ScrollController scrollController,
     required List<MealPlanItem> meals,
@@ -993,8 +942,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             child: Padding(
               padding: const EdgeInsets.only(right: spacing),
               child: _TiltableRecipeCard(
-                // Pass the tap handler specifically for this meal
-                onTap: () => _navigateToMealDetails(context, meal),
+                onTap: () => _navigateToMealDetails(meal),
                 child: SizedBox(
                   width: cardWidth,
                   child: Stack(fit: StackFit.expand, children: [
@@ -1038,6 +986,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  // --- Kept but effectively unused if you bypass the overlay controller ---
   Widget _buildCameraPageOverlay() {
     final overlayController = Provider.of<CameraOverlayController>(context);
     final colorScheme = Theme.of(context).colorScheme;
@@ -1201,7 +1150,6 @@ class _MealTrackingPageState extends State<MealTrackingPage>
                           builder: (context) => const ActivityLogSheet(),
                         ).then((selectedActivity) {
                           if (selectedActivity != null) {
-                            // ignore: avoid_print
                             print('Logged activity: ${selectedActivity.name}');
                           }
                         });
@@ -1244,6 +1192,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     );
   }
 
+  // ... (Keeping _buildHeader, _buildSectionHeader, _buildMealTimeline, _buildQuickActions, and other widgets as they were)
+  
   SliverAppBar _buildHeader(
       BuildContext context, DailySummary summary, String userName) {
     final String currentDate =
@@ -1431,7 +1381,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       },
     );
   }
-}
+
+} // End of _MealTrackingPageState
 
 // --- ALL HELPER WIDGETS ---
 // (Included from previous context for a complete file)
@@ -1454,7 +1405,6 @@ class StepAnalysis {
     );
   }
 }
-
 
 class DailyStepsChartCard extends StatefulWidget {
   const DailyStepsChartCard({super.key});
@@ -1853,7 +1803,6 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
   }
 }
 
-
 class _StepRadialPainter extends CustomPainter {
   final double progress; // 0.0 to 1.0
   final Color color;
@@ -1914,7 +1863,6 @@ class _StepRadialPainter extends CustomPainter {
     oldDelegate.color != color ||
     oldDelegate.trackColor != trackColor;
 }
-
 
 class AnimatedScannerButton extends StatefulWidget {
   final IconData icon;
@@ -3135,6 +3083,7 @@ class _DropletProgressIndicator extends StatelessWidget {
             }));
       });
 }
+
 class _LogActionButton extends StatelessWidget {
   final int servingSize;
   final VoidCallback onTap;
@@ -3491,6 +3440,7 @@ class _MacroLegend extends StatelessWidget {
         // Removed the percentage display SizedBox completely
       ]);
 }
+
 class _DailyInsightCard extends StatefulWidget {
   const _DailyInsightCard();
   @override
@@ -3582,6 +3532,7 @@ class _TiltableRecipeCardState extends State<_TiltableRecipeCard> {
                 child: widget.child,
               ))));
 }
+
 class _CalorieRingPainter extends CustomPainter {
   final double progress;
   final Color color;
@@ -3698,6 +3649,38 @@ class _QuickActionButton extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.grey[800]))
           ]));
+}
+
+// --- FIX 5: Add these missing Data Models at the end of the file ---
+
+class MealPlanItem {
+  final String id;
+  final String title;
+  final String imageUrl;
+  final int calories;
+  final int prepTimeMinutes;
+  
+  MealPlanItem({
+    required this.id, 
+    required this.title, 
+    required this.imageUrl, 
+    required this.calories, 
+    required this.prepTimeMinutes
+  });
+}
+
+class TodayMealPlan {
+  final List<MealPlanItem> breakfast;
+  final List<MealPlanItem> lunch;
+  final List<MealPlanItem> dinner;
+  final List<MealPlanItem> snacks;
+  
+  TodayMealPlan({
+    this.breakfast = const [], 
+    this.lunch = const [], 
+    this.dinner = const [], 
+    this.snacks = const []
+  });
 }
 
 

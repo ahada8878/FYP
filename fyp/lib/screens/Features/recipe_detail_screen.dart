@@ -10,7 +10,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 
 // --- CONFIGURATION CONSTANT ---
-const String _spoonacularApiKey = '3ae6af7175864f2b96f71cf261f1e16a';
+const String _spoonacularApiKey = 'c6a3e3582f49410cb652ae8ffbac8ac7';
 
 // --- DATA MODELS ---
 class RecipeDetail {
