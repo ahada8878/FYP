@@ -16,6 +16,7 @@ import 'package:fyp/screens/ai_scanner_result_page.dart';
 import 'package:fyp/screens/camera_screen.dart';
 import 'package:fyp/services/config_service.dart';
 import 'package:fyp/services/meal_service.dart';
+import 'package:fyp/services/health_service.dart';
 import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:intl/intl.dart';
@@ -1563,7 +1564,7 @@ class DailyStepsChartCard extends StatefulWidget {
 
 class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
   late Future<StepAnalysis> _stepAnalysisFuture;
-  final AuthService _authService = AuthService();
+  final HealthService _healthService = HealthService();
 
   // Color palette for the new dark card
   final Color darkYellow =
@@ -1584,41 +1585,69 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
     _stepAnalysisFuture = _fetchStepAnalysis();
   }
 
-  // UNCHANGED: Fetch logic for step data
   Future<StepAnalysis> _fetchStepAnalysis() async {
-    final String apiUrl = '$baseURL/api/get_last_7days_steps';
-    final token = await _authService.getToken();
-
-    if (token == null || token.isEmpty) {
-      throw Exception('Authentication required for step data.');
-    }
-
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+      // Fetch steps with callbacks for user confirmation
+      final List<int> realSteps = await _healthService.fetchWeeklySteps(
+        
+        // 1. Ask before Installing Health Connect (Android)
+        onAppInstallConfirmation: () async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Install Google Health Connect?"),
+              content: const Text("To sync your steps, we need to install the Health Connect app. Would you like to proceed?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false), // User said No
+                  child: const Text("No"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true), // User said Yes
+                  child: const Text("Install"),
+                ),
+              ],
+            ),
+          ) ?? false; // Default to false if dismissed
+        },
+
+        // 2. Ask before Requesting Permissions
+        onUserPermissionConfirmation: () async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Sync Step Data?"),
+              content: const Text("We can sync your steps from your phone to make your report more accurate. Allow access?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text("Allow"),
+                ),
+              ],
+            ),
+          ) ?? false;
         },
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonBody = json.decode(response.body);
-        return StepAnalysis.fromJson(jsonBody);
-      } else {
-        // Fallback for failed API, keeping the existing structure
-        print(
-            'Step API failed with status ${response.statusCode}. Falling back to mock data.');
-        final mockData = {
+      // Process the data
+      if (realSteps.isNotEmpty && realSteps.any((s) => s > 0)) {
+        return StepAnalysis.fromJson({
           'OkData': true,
-          'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
-        };
-        return StepAnalysis.fromJson(mockData);
+          'steps': realSteps, 
+        });
+      } else {
+        // If we got [0,0,0...] (either permission denied or new install), show dummy data
+        throw Exception("No real data returned"); 
       }
+
     } catch (e) {
-      // Fallback for network error
-      print(
-          'Network error for step data: ${e.toString()}. Falling back to mock data.');
+      print('Step fetch skipped or failed: $e. Using mock data.');
+      
+      // Fallback Mock Data
       final mockData = {
         'OkData': true,
         'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
@@ -1626,7 +1655,6 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
       return StepAnalysis.fromJson(mockData);
     }
   }
-
   // --- NEW WIDGETS FOR CREATIVE UI ---
 
   // 1. The main dark container for all states (loading, error, success)

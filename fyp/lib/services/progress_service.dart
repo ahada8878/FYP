@@ -5,6 +5,7 @@ import 'package:fyp/LocalDB.dart';
 import 'package:fyp/services/config_service.dart'; 
 import 'package:fyp/models/progress_data.dart'; 
 import 'package:fyp/services/auth_service.dart'; 
+import 'package:fyp/services/health_service.dart';
 
 
 // ⚡️ Assume MyConfigService has a static property named baseURL
@@ -13,6 +14,7 @@ import 'package:fyp/services/auth_service.dart';
 
 class RealProgressService {
   final AuthService _authService = AuthService();
+  final HealthService _healthService = HealthService(); // 2. Initialize
   
   // NOTE: If MyConfigService.baseURL was an instance property, 
   // you would need to initialize MyConfigService here.
@@ -30,6 +32,15 @@ class RealProgressService {
   
   /// Fetches all data for the progress hub screen using the single GET route: /api/user/profile-summary
   Future<ProgressData> fetchData() async {
+    // 3. Fetch Real Steps immediately
+    int realSteps = 0;
+    List<int> realWeeklySteps = [];
+    try {
+      realSteps = await _healthService.fetchTodaySteps();
+      realWeeklySteps = await _healthService.fetchWeeklySteps();
+    } catch (e) {
+      print("Health Service Error: $e");
+    }
     try {
       final authToken = await _authService.getToken();
       if (authToken == null) throw Exception('Auth token not found');
@@ -53,22 +64,27 @@ class RealProgressService {
         if (data['success'] == true) {
             // Success: Save data and return it
             await ProgressData.saveToLocalDB(data);
-            return ProgressData.fromJson(data);
+            ProgressData progress = ProgressData.fromJson(data);
+            // 4. OVERRIDE with Real Steps using copyWith
+            return progress.copyWith(
+              steps: realSteps,
+              weeklyStepsData: realWeeklySteps.isNotEmpty ? realWeeklySteps : null
+            );
         } else {
             // Server responded 200 but with an error message (success: false)
             print('Server success: false. Status: 200. Falling back to LocalDB.');
-            return await ProgressData.fromLocalDB();
+            return (await ProgressData.fromLocalDB()).copyWith(steps: realSteps);
         }
       } else {
         // Server returned non-200 status (e.g., 401, 500)
         print('Server status code ${fetchResponse.statusCode}. Falling back to LocalDB.');
-        return await ProgressData.fromLocalDB();
+        return (await ProgressData.fromLocalDB()).copyWith(steps: realSteps);
       }
     } catch (e) {
       // 4. 🚨 CRITICAL: Network/Auth error occurred, NOW use the fallback
       print('Network/Auth Error: $e. Attempting LocalDB fallback.');
       try {
-        return await ProgressData.fromLocalDB();
+        return (await ProgressData.fromLocalDB()).copyWith(steps: realSteps);
       } catch (localE) {
         print('LocalDB fallback failed: $localE');
         throw Exception('Failed to load progress data from server and local cache. Check your connection.');
