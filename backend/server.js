@@ -37,6 +37,10 @@ const foodLogRoutes = require('./routes/foodLogRoutes');
 
 const progressRoutes = require('./routes/progressRoutes.js');
 
+const webRoutes = require('./routes/webRoutes.js');
+
+const complaintRoutes = require('./routes/complaintRoutes.js');
+
 
 const fs = require('fs');
 
@@ -134,6 +138,10 @@ app.use("/api/foodlog", foodLogRoutes);
 app.use("/api/rewards", rewardRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/activities", activityRoutes);
+app.use("/api/web", webRoutes);
+app.use("/api/complaints", complaintRoutes);
+
+
 
 const nutritionSchema = {
 
