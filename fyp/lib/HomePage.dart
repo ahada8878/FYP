@@ -608,7 +608,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
 Future<TodayMealPlan> _fetchTodayMealPlan() async {
     try {
       // 1. Fetch data from your existing service
-      final Map<String, dynamic> data = await MealService.fetchUserMealPlanToday();
+      final Map<String, dynamic> data = await MealService.fetchUserMealPlan();
       
       // 2. Extract the list of meals safely
       final List<dynamic> mealsData = data['meals'] as List<dynamic>? ?? [];

@@ -19,8 +19,6 @@ const multer = require('multer');
 
 const path = require('path');
 
-const { exec } = require('child_process');
-
 const connectDB = require('./config/db');
 
 const userRoutes = require('./routes/userRoutes');
@@ -67,7 +65,7 @@ const calorieGoal = require("./models/userDetails");
 const WaterLog = require("./models/waterLog"); // Add this
 const { protect } = require("./middleware/authMiddleware.js");
 
-
+const { exec, spawn } = require('child_process');
 
 
 
@@ -313,6 +311,20 @@ app.post('/api/generate-ai-content', async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 app.post("/api/get-nutrition-data", async (req, res) => {
 
   const { name, description } = req.body;
@@ -430,36 +442,48 @@ app.get("/api/user/profile-summary", protect, async (req, res) => {
   }
 });
 
+
+// --- MODIFIED PREDICT ROUTE ---
 app.post("/api/predict", upload.single("image"), (req, res) => {
   if (!req.file) {
+    return res
+      .status(400)
+      .json({ success: false, message: "No image uploaded" });
     return res
       .status(400)
       .json({ success: false, message: "No image uploaded" });
   }
 
   const imagePath = path.resolve(req.file.path);
+  const scriptPath = path.join(__dirname, "predict.py");
 
-  // This part still calls your original 'predict.py' or can be modified as needed
-  console.log(`python ${path.join(__dirname, "predict.py")} ${imagePath}`);
-  exec(
-    `python ${path.join(__dirname, "predict.py")} ${imagePath}`,
-    (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Prediction error: ${error.message}`);
-        return res.status(500).json({
-          success: false,
-          message: "Prediction failed",
-          error: error.message,
-        });
-      }
-      if (stderr) {
-        console.error(`Prediction stderr: ${stderr}`);
-      }
+  console.log(`🚀 Spawning python: ${scriptPath} ${imagePath}`);
 
-      res.send(stdout.trim().replace(/^"|"$/g, ""));
-      console.log(`Prediction result: ${stdout.trim()}`);
-    }
-  );
+  // Use spawn instead of exec for streaming
+  const pythonProcess = spawn('python', [scriptPath, imagePath]);
+
+  // Set headers for chunked transfer
+  res.setHeader('Content-Type', 'application/x-ndjson'); // Newline Delimited JSON
+  res.setHeader('Transfer-Encoding', 'chunked');
+
+  pythonProcess.stdout.on('data', (data) => {
+    // Pass data directly to the client as it arrives
+    console.log(`📤 Stream chunk: ${data}`);
+    res.write(data);
+  });
+
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`⚠️ Python stderr: ${data}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    console.log(`🏁 Python process exited with code ${code}`);
+    // Cleanup file
+    fs.unlink(imagePath, (err) => {
+      if (err) console.error("Error deleting temp file:", err);
+    });
+    res.end();
+  });
 });
 
 // --- NEW INGREDIENT DETECTION ENDPOINT (REMAINS AS THE ONLY RECIPE-RELATED BACKEND LOGIC) ---
