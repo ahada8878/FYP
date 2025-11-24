@@ -121,6 +121,8 @@ class _EmailSupportScreenState extends State<EmailSupportScreen> {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
+      extendBodyBehindAppBar: true, // Allows gradient to show behind AppBar
+      backgroundColor: Colors.transparent, // Make Scaffold transparent
       appBar: AppBar(
         title: const Text('Email Support'),
         centerTitle: true,
@@ -133,116 +135,141 @@ class _EmailSupportScreenState extends State<EmailSupportScreen> {
           fontWeight: FontWeight.bold,
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                "How can we help you?",
-                style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary),
-              ),
-              const SizedBox(height: 10),
-              Center(
-                child: Text(
-                  "Please describe your issue or feedback below. We'll get back to you via email.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
-                  ),
-                ),
-              ),
+      body: Stack(
+        children: [
+          // 1. The Living Background
+          const _LivingAnimatedBackground(),
 
-              const SizedBox(height: 30),
-
-              // Email Field
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Your Email',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty || !value.contains('@')) {
-                    return 'Please enter a valid email address';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Subject Field
-              TextFormField(
-                controller: _subjectController,
-                decoration: InputDecoration(
-                  labelText: 'Subject',
-                  hintText: 'e.g., Bug Report, Feature Request',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.title),
-                ),
-                validator: (value) =>
-                    value!.isEmpty ? 'Please enter a subject' : null,
-              ),
-              const SizedBox(height: 20),
-
-              // Message Field
-              TextFormField(
-                controller: _messageController,
-                maxLines: 6,
-                decoration: InputDecoration(
-                  labelText: 'Message',
-                  hintText: 'Describe your issue in detail...',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) =>
-                    value!.isEmpty ? 'Please enter your message' : null,
-              ),
-              const SizedBox(height: 30),
-
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submitComplaint,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          // 2. The Content
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: _GlassyCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "How can we help you?",
+                          style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor),
+                        ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: Text(
+                            "Please describe your issue or feedback below. We'll get back to you via email.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+            
+                        const SizedBox(height: 30),
+            
+                        // Email Field
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Your Email',
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            prefixIcon: const Icon(Icons.email_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty || !value.contains('@')) {
+                              return 'Please enter a valid email address';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+            
+                        // Subject Field
+                        TextFormField(
+                          controller: _subjectController,
+                          decoration: InputDecoration(
+                            labelText: 'Subject',
+                            hintText: 'e.g., Bug Report, Feature Request',
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            prefixIcon: const Icon(Icons.title),
+                          ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Please enter a subject' : null,
+                        ),
+                        const SizedBox(height: 20),
+            
+                        // Message Field
+                        TextFormField(
+                          controller: _messageController,
+                          maxLines: 6,
+                          decoration: InputDecoration(
+                            labelText: 'Message',
+                            hintText: 'Describe your issue in detail...',
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Please enter your message' : null,
+                        ),
+                        const SizedBox(height: 30),
+            
+                        // Submit Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _submitComplaint,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 5,
+                              shadowColor: primaryColor.withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2),
+                                  )
+                                : const Text(
+                                    'Submit Complaint',
+                                    style: TextStyle(
+                                        fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Text(
-                          'Submit Complaint',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

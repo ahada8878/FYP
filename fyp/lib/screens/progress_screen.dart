@@ -312,7 +312,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       body: FutureBuilder<List<dynamic>>(
@@ -331,7 +331,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           final progressData = snapshot.data![0] as ProgressData;
           final gameData = snapshot.data![1] as GamificationData;
 
-          final double userHeightInMeters = progressData.height * 0.3048; 
+          final double userHeightInMeters = progressData.height * 0.3048;
           final double bmi = progressData.currentWeight / (userHeightInMeters * userHeightInMeters);
 
           return Stack(
@@ -351,18 +351,28 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   slivers: [
-                    _buildHeaderSliver(progressData, gameData),
+                    _buildHeaderSliver(progressData), // ✅ Removed gameData from here
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          _buildReportButton(context), 
+                          // ✅ NEW: Gamification Stats moved here
+                          _GamificationStatsCard(
+                            level: gameData.level,
+                            xp: gameData.xp,
+                            coins: gameData.coins,
+                            showRewardHint: _showGamificationHint,
+                          ),
                           const SizedBox(height: 16),
-                          
+
+                          // Existing Weekly Report Button
+                          _buildReportButton(context),
+                          const SizedBox(height: 16),
+
                           _buildSectionHeader(context, "Your Story So Far"),
                           _buildTimelineSection(progressData),
                           const SizedBox(height: 24),
-                          
+
                           _buildSectionHeader(context, "Health Overview"),
                           _HealthSnapshotSection(
                             bmi: bmi,
@@ -372,26 +382,23 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                             startWeight: progressData.startWeight,
                             animation: _headerAnimController,
                           ),
-                          
+
                           const SizedBox(height: 12),
-                          
+
                           _LogActivityCard(
                             animationIndex: 6,
                             onTap: _openActivityDialog,
                           ),
-                          
-                          // ... 
+
                           const SizedBox(height: 24),
                           _buildSectionHeader(context, "Weekly Snapshots"),
-                          
-                          // ✅ Updated: Only shows Steps Graph now
+
                           _CombinedTrendCard(
                             weightData: progressData.weeklyWeightData,
                             stepsData: progressData.weeklyStepsData,
                             stepGoal: progressData.stepGoal,
                           ),
 
-                          // ✅ NEW: Activity History Button
                           const SizedBox(height: 24),
                           _ActivityHistoryCallToAction(
                             onTap: () {
@@ -401,8 +408,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                               );
                             },
                           ),
-                          const SizedBox(height: 40), 
-
+                          const SizedBox(height: 40),
                         ]),
                       ),
                     ),
@@ -424,26 +430,26 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
         },
       ),
       floatingActionButton: FutureBuilder<List<dynamic>>(
-        future: _combinedFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const SizedBox.shrink();
-          final data = snapshot.data![0] as ProgressData;
-          return FloatingActionButton.extended(
-            onPressed: () => _showLogWeightSheet(context, data.currentWeight),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text("Log Weight"),
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-          );
-        }
+          future: _combinedFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox.shrink();
+            final data = snapshot.data![0] as ProgressData;
+            return FloatingActionButton.extended(
+              onPressed: () => _showLogWeightSheet(context, data.currentWeight),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text("Log Weight"),
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            );
+          }
       ),
     );
   }
 
-  // ... (Existing Helpers like _buildReportButton, _buildHeaderSliver, _buildSectionHeader, etc.) ...
-  SliverAppBar _buildHeaderSliver(ProgressData data, GamificationData gameData) {
+  // ✅ Updated: Removed gameData arguments
+  SliverAppBar _buildHeaderSliver(ProgressData data) {
     return SliverAppBar(
-      expandedHeight: 340, 
+      expandedHeight: 280, // Reduced height since elements were removed
       pinned: true,
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -460,14 +466,14 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           currentWeight: data.currentWeight,
           targetWeight: data.targetWeight,
           animation: _headerAnimController,
-          level: gameData.level,
-          xp: gameData.xp,
-          coins: gameData.coins,
-          showRewardHint: _showGamificationHint, // ⭐️ Pass the hint state
+          // Removed level, xp, coins, hint
         ),
       ),
     );
   }
+
+
+
 
   // ... (Keep _buildReportButton, _buildSectionHeader, _buildTimelineSection logic unchanged) ...
   Widget _buildReportButton(BuildContext context) {
@@ -478,7 +484,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
         child: ElevatedButton.icon(
           onPressed: _isGeneratingReport ? null : _generateWeeklyReport,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.white.withOpacity(0.9), // This is the specific color,
             foregroundColor: Colors.orange,
             elevation: 2,
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -538,6 +544,136 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
   }
 }
 
+
+
+class _GamificationStatsCard extends StatelessWidget {
+  final int level;
+  final int xp;
+  final int coins;
+  final bool showRewardHint;
+
+  const _GamificationStatsCard({
+    required this.level,
+    required this.xp,
+    required this.coins,
+    required this.showRewardHint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StaggeredAnimation(
+      index: 0,
+      child: GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(color: Colors.orange.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, 5)),
+            ],
+            border: Border.all(color: Colors.orange.withOpacity(0.2)),
+          ),
+          child: Column(
+            children: [
+              // Top Row: Level & Coins
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Level with Hint Stack
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [Colors.amber, Colors.orangeAccent]),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 4)]
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 4),
+                            Text("Lvl $level", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                      // The Hint Bubble
+                      Positioned(
+                        top: -32,
+                        left: 0,
+                        child: AnimatedOpacity(
+                          opacity: showRewardHint ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: Colors.black87, // Changed to dark for visibility on white
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
+                            ),
+                            child: const Row(
+                              children: [
+                                Text("Check Rewards! ", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                                Icon(Icons.arrow_downward_rounded, size: 10, color: Colors.white)
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Coins
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.shade200)
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.emoji_events, color: Colors.orange, size: 18),
+                        const SizedBox(width: 6),
+                        Text("$coins Coins", style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.bold, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // XP Bar
+              Row(
+                children: [
+                  Text("XP $xp", style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (xp % 1000) / 1000,
+                        backgroundColor: Colors.grey.shade100,
+                        valueColor: const AlwaysStoppedAnimation(Colors.amber),
+                        minHeight: 6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text("Next Level", style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ... (Keep existing _LogActivityCard, _ActivitySelectionDialog, _DurationSelectionDialog, etc.) ...
 // ✅ --- UPDATED HEADER WITH "CHECK REWARDS" HINT ---
 class _PremiumProgressHeader extends StatelessWidget {
@@ -545,20 +681,13 @@ class _PremiumProgressHeader extends StatelessWidget {
   final double currentWeight;
   final double targetWeight;
   final Animation<double> animation;
-  final int xp;
-  final int coins;
-  final int level;
-  final bool showRewardHint; // ⭐️ New Parameter
+  // ✅ Removed: xp, coins, level, showRewardHint
 
   const _PremiumProgressHeader({
     required this.startWeight,
     required this.currentWeight,
     required this.targetWeight,
     required this.animation,
-    required this.xp,
-    required this.coins,
-    required this.level,
-    this.showRewardHint = false,
   });
 
   @override
@@ -571,148 +700,59 @@ class _PremiumProgressHeader extends StatelessWidget {
     final double weightRemainingToGoal = isWeightGainGoal ? math.max(0.0, targetWeight - currentWeight) : math.max(0.0, currentWeight - targetWeight);
 
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const _BlurredImageBackground(imageUrl: 'https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=2940'),
-          BackdropFilter(filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0), child: Container(color: Colors.black.withOpacity(0.2))),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ⭐️ REWARDS ROW WITH HINT
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const RewardsScreen()));
-                    },
-                    child: Row(
-                      children: [
-                        // ⭐️ WRAP BADGE IN STACK FOR HINT
-                        Stack(
-                          clipBehavior: Clip.none,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+        child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const _BlurredImageBackground(imageUrl: 'https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=2940'),
+              BackdropFilter(filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0), child: Container(color: Colors.black.withOpacity(0.2))),
+              SafeArea(
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [Colors.amber, Colors.orangeAccent]),
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 8)]
-                              ),
-                              child: Row(
+                            // ✅ Removed Rewards Row
+
+                            // Main Journey Text
+                            AnimatedBuilder(
+                                animation: animation,
+                                builder: (context, child) => Opacity(
+                                    opacity: CurvedAnimation(parent: animation, curve: Curves.easeIn).value,
+                                    child: Text("Your Journey Progress", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold))
+                                )
+                            ),
+                            
+                            // ✅ Removed XP Row
+
+                            const SizedBox(height: 32),
+                            AnimatedBuilder(
+                                animation: animation,
+                                builder: (context, child) {
+                                  final animValue = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic).value;
+                                  return _SleekProgressBar(progress: progress * animValue, startValue: startWeight, currentValue: currentWeight, targetValue: targetWeight);
+                                }
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Icon(Icons.star_rounded, color: Colors.white, size: 18),
-                                  const SizedBox(width: 4),
-                                  Text("Lvl $level", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                                ],
-                              ),
-                            ),
-                            // ⭐️ THE HINT BUBBLE
-                            Positioned(
-                              top: -32, 
-                              left: 0,
-                              child: AnimatedOpacity(
-                                opacity: showRewardHint ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 500),
-                                curve: Curves.easeInOut,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))]
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Text("Check Rewards! ", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
-                                      Icon(Icons.arrow_downward_rounded, size: 10, color: Colors.orange)
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const Spacer(),
-                        // Coins Display
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.3))
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.emoji_events, color: Colors.yellowAccent, size: 18),
-                              const SizedBox(width: 6),
-                              Text("$coins Coins", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  // ... Rest of Header
-                  AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) => Opacity(
-                      opacity: CurvedAnimation(parent: animation, curve: Curves.easeIn).value,
-                      child: Text("Your Journey Progress", style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold))
-                    )
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text("XP $xp", style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: (xp % 1000) / 1000, 
-                            backgroundColor: Colors.white24,
-                            valueColor: const AlwaysStoppedAnimation(Colors.amber),
-                            minHeight: 4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text("Next Level", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10)),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) {
-                      final animValue = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic).value;
-                      return _SleekProgressBar(progress: progress * animValue, startValue: startWeight, currentValue: currentWeight, targetValue: targetWeight);
-                    }
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildStatColumn("Start", "${startWeight.toStringAsFixed(1)} kg"),
-                      _buildStatColumn("Current", "${currentWeight.toStringAsFixed(1)} kg"),
-                      _buildStatColumn(isWeightGainGoal ? "Gained" : "Lost", "${changeSoFar.abs().toStringAsFixed(1)} kg"),
-                      _buildStatColumn("To Go", "${weightRemainingToGoal.toStringAsFixed(1)} kg")
-                    ]
+                                  _buildStatColumn("Start", "${startWeight.toStringAsFixed(1)} kg"),
+                                  _buildStatColumn("Current", "${currentWeight.toStringAsFixed(1)} kg"),
+                                  _buildStatColumn(isWeightGainGoal ? "Gained" : "Lost", "${changeSoFar.abs().toStringAsFixed(1)} kg"),
+                                  _buildStatColumn("To Go", "${weightRemainingToGoal.toStringAsFixed(1)} kg")
+                                ]
+                            )
+                          ]
+                      )
                   )
-                ]
               )
-            )
-          )
-        ]
-      )
+            ]
+        )
     );
   }
+  
   Widget _buildStatColumn(String label, String value) { return Expanded(child: Column(children: [Text(label, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)), const SizedBox(height: 4), Text(value, style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))])); }
 }
 
@@ -1141,35 +1181,134 @@ class _CircularGoalIndicator extends StatelessWidget {
 }
 
 class _StepsBarChart extends StatelessWidget {
-  final List<int> data; final int goal;
+  final List<int> data;
+  final int goal;
+
   const _StepsBarChart({required this.data, required this.goal});
+
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder(tween: Tween<double>(begin: 0, end: 1), duration: const Duration(milliseconds: 800), curve: Curves.easeOutCubic, builder: (context, value, child) => CustomPaint(size: Size.infinite, painter: _StepsBarPainter(data: data, goal: goal, animationProgress: value, primaryColor: Colors.orange)));
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => CustomPaint(
+        size: Size.infinite,
+        painter: _StepsBarPainter(
+          data: data,
+          goal: goal,
+          animationProgress: value,
+          primaryColor: Colors.orange,
+        ),
+      ),
+    );
   }
 }
 
 class _StepsBarPainter extends CustomPainter {
-  final List<int> data; final int goal; final double animationProgress; final Color primaryColor;
-  _StepsBarPainter({required this.data, required this.goal, required this.animationProgress, required this.primaryColor});
+  final List<int> data;
+  final int goal;
+  final double animationProgress;
+  final Color primaryColor;
+
+  _StepsBarPainter({
+    required this.data,
+    required this.goal,
+    required this.animationProgress,
+    required this.primaryColor,
+  });
+
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-    const double labelHeight = 20; final double chartHeight = size.height - labelHeight;
-    final double maxVal = (data.isNotEmpty ? (data.reduce(math.max) > goal ? data.reduce(math.max) : goal) : goal) * 1.2;
-    if (maxVal == 0) return;
-    final double barWidth = size.width / (data.length * 2 - 1);
-    for (int i = 0; i < data.length; i++) {
-      final barHeight = (data[i] / maxVal * chartHeight) * animationProgress;
-      final left = i * barWidth * 2;
-      final rect = Rect.fromLTWH(left, chartHeight - barHeight, barWidth, barHeight);
-      final didMeetGoal = data[i] >= goal;
-      final paint = Paint()..shader = LinearGradient(colors: didMeetGoal ? [primaryColor, primaryColor.withOpacity(0.7)] : [Colors.grey.shade300, Colors.grey.shade400], begin: Alignment.bottomCenter, end: Alignment.topCenter).createShader(rect);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), paint);
+    // 1. Setup dimensions for a fixed 7-day week
+    const int daysToShow = 7;
+    const double labelHeight = 24.0; // Reserved space for text
+    final double chartHeight = size.height - labelHeight;
+    final double slotWidth = size.width / daysToShow;
+    final double barWidth = slotWidth * 0.45; // Bars take up 45% of the slot
+    final double cornerRadius = barWidth / 2;
+
+    // 2. Determine scaling factor (Max value)
+    double maxVal = goal.toDouble();
+    if (data.isNotEmpty) {
+      final int dataMax = data.reduce(math.max);
+      if (dataMax > maxVal) maxVal = dataMax.toDouble();
+    }
+    // Prevent division by zero and add top padding
+    maxVal = (maxVal == 0 ? 1 : maxVal) * 1.15;
+
+    // 3. Paints
+    final Paint trackPaint = Paint()
+      ..color = Colors.grey.shade200
+      ..style = PaintingStyle.fill;
+
+    // Labels for the week
+    final List<String> weekLabels = ["M", "T", "W", "T", "F", "S", "S"];
+
+    for (int i = 0; i < daysToShow; i++) {
+      final double centerX = i * slotWidth + (slotWidth / 2);
+      final double left = centerX - (barWidth / 2);
+
+      // --- Draw Background Track (Placeholder for empty days) ---
+      final Rect trackRect = Rect.fromLTWH(left, 0, barWidth, chartHeight);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(trackRect, Radius.circular(cornerRadius)),
+        trackPaint,
+      );
+
+      // --- Draw Data Bar (Only if data exists for this day) ---
+      if (i < data.length) {
+        final double value = data[i].toDouble();
+        if (value > 0) {
+          final double barHeight = (value / maxVal * chartHeight) * animationProgress;
+          final double top = chartHeight - barHeight;
+
+          final Rect barRect = Rect.fromLTWH(left, top, barWidth, barHeight);
+          final bool didMeetGoal = value >= goal;
+
+          final Paint barPaint = Paint()
+            ..shader = LinearGradient(
+              colors: didMeetGoal
+                  ? [primaryColor, primaryColor.withOpacity(0.8)]
+                  : [Colors.grey.shade400, Colors.grey.shade500],
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+            ).createShader(barRect);
+
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(barRect, Radius.circular(cornerRadius)),
+            barPaint,
+          );
+        }
+      }
+
+      // --- Draw Day Label ---
+      final TextSpan span = TextSpan(
+        text: weekLabels[i % 7],
+        style: TextStyle(
+          color: Colors.grey.shade500,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+
+      final TextPainter tp = TextPainter(
+        text: span,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      );
+
+      tp.layout();
+      tp.paint(canvas, Offset(centerX - (tp.width / 2), chartHeight + 6));
     }
   }
+
   @override
-  bool shouldRepaint(covariant _StepsBarPainter oldDelegate) => oldDelegate.animationProgress != animationProgress;
+  bool shouldRepaint(covariant _StepsBarPainter oldDelegate) {
+    return oldDelegate.animationProgress != animationProgress ||
+        oldDelegate.data != data ||
+        oldDelegate.goal != goal;
+  }
 }
 
 // ... (Other animations and classes like _TimelineEventCard, _HealthSnapshotSection, etc. remain unchanged) ...
