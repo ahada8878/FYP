@@ -6,9 +6,7 @@ import 'package:fyp/calorie_tracker_controller.dart';
 import 'package:fyp/camera_overlay_controller.dart';
 import 'package:fyp/water_tracker_controller.dart';
 import 'package:provider/provider.dart';
-
-// // Notifications
-// import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:fyp/services/notification_service.dart'; // Import the notification service
 
 import 'package:fyp/Loginpage.dart';
 
@@ -17,6 +15,16 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDB.init();
+
+  // --- START NOTIFICATION SETUP ---
+  final notificationService = NotificationService();
+  // Initialize the plugin
+  await notificationService.init();
+  // Request permissions (especially for Android 13+)
+  await notificationService.requestPermissions();
+  // Schedule the daily 10:00 PM logic
+  await notificationService.scheduleDailyReminders();
+  // --- END NOTIFICATION SETUP ---
 
   runApp(
     MultiProvider(
@@ -48,35 +56,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-
-    // --- 1. Initialize Notification System ---
-    // AwesomeNotifications().initialize(
-    //   null,
-    //   [
-    //     NotificationChannel(
-    //       channelKey: 'routine_reminders_channel',
-    //       channelName: 'Routine Reminders',
-    //       channelDescription: 'Notifications for water intake and weekly weight logging.',
-    //       importance: NotificationImportance.High,
-    //       defaultColor: Colors.deepPurple,
-    //       ledColor: Colors.white,
-    //     ),
-    //   ],
-    //   debug: true,
-    // );
-
-    // // --- 2. Request permission after UI loads ---
-    // AwesomeNotifications().isNotificationAllowed().then((isAllowed) {
-    //   if (!isAllowed) {
-    //     AwesomeNotifications().requestPermissionToSendNotifications();
-    //   }
-    // });
-
-    // --- 3. Schedule notifications AFTER first frame ---
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   scheduleWaterReminder();
-    //   scheduleWeightReminder();
-    // });
 
     // Splash delay
     Timer(const Duration(seconds: 2), () {
@@ -126,7 +105,7 @@ class _SplashScreenContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xf4f1e6),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -140,43 +119,3 @@ class _SplashScreenContent extends StatelessWidget {
     );
   }
 }
-
-// ---------------- NOTIFICATION LOGIC ----------------
-
-// void scheduleWaterReminder() {
-//   AwesomeNotifications().cancel(1001);
-
-//   AwesomeNotifications().createNotification(
-//     content: NotificationContent(
-//       id: 1001,
-//       channelKey: 'routine_reminders_channel',
-//       title: '💧 Water Reminder Test',
-//       body: 'This notification repeats every 60 seconds.',
-//     ),
-//     schedule: NotificationInterval(
-// interval: Duration(seconds: 60),
-//       repeats: true,
-//     ),
-//   );
-// }
-
-
-// void scheduleWeightReminder() {
-//   AwesomeNotifications().cancel(1002);
-
-//   AwesomeNotifications().createNotification(
-//     content: NotificationContent(
-//       id: 1002,
-//       channelKey: 'routine_reminders_channel',
-//       title: '⚖️ Weekly Check-In!',
-//       body: 'Remember to log your weekly weight.',
-//     ),
-//     schedule: NotificationCalendar(
-//       weekday: DateTime.monday,
-//       hour: 9,
-//       minute: 0,
-//       repeats: true,
-//     ),
-  // );
-// }
-
