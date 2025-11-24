@@ -30,26 +30,34 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F7FA), // Very light grey/blue background
+      backgroundColor: const Color(0xFFF8F9FD), // Clean, airy background
       appBar: AppBar(
-        title: const Text('Achievements',
-            style:
-                TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Achievements',
+          style: TextStyle(
+            color: primaryColor,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(color: primaryColor),
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
+        color: primaryColor,
         child: FutureBuilder<GamificationData>(
           future: _rewardsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                  child: CircularProgressIndicator(color: Colors.orange));
+              return Center(
+                  child: CircularProgressIndicator(color: primaryColor));
             }
             if (snapshot.hasError) {
               return Center(
@@ -72,15 +80,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
             return ListView(
               physics: const BouncingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics()),
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
               children: [
-                _buildBalanceCard(gameData),
+                _buildPremiumStatsCard(gameData, primaryColor),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // ⭐️ NEW: Shop Button
+                // ⭐️ Updated Shop Button
                 SizedBox(
                   width: double.infinity,
+                  height: 56,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.push(
@@ -91,16 +100,14 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           (_) => _refresh()); // Refresh coins when coming back
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.deepPurple,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 2,
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 4,
+                      shadowColor: primaryColor.withOpacity(0.4),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
-                      side: const BorderSide(
-                          color: Colors.deepPurpleAccent, width: 1),
                     ),
-                    icon: const Icon(Icons.shopping_bag_outlined),
+                    icon: const Icon(Icons.storefront_rounded, size: 24),
                     label: const Text("Visit Coin Shop",
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
@@ -110,17 +117,17 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 const SizedBox(height: 32),
 
                 if (dailyRewards.isNotEmpty) ...[
-                  _buildSectionHeader(
-                      'Daily Quests', Icons.calendar_today_rounded),
-                  const SizedBox(height: 16),
+                  _buildCenteredSectionHeader(
+                      'Daily Quests', Icons.bolt_rounded, primaryColor),
+                  const SizedBox(height: 20),
                   _buildRewardGrid(dailyRewards),
                   const SizedBox(height: 32),
                 ],
 
                 if (weeklyRewards.isNotEmpty) ...[
-                  _buildSectionHeader(
-                      'Weekly Challenges', Icons.emoji_events_rounded),
-                  const SizedBox(height: 16),
+                  _buildCenteredSectionHeader('Weekly Challenges',
+                      Icons.emoji_events_rounded, primaryColor),
+                  const SizedBox(height: 20),
                   _buildRewardGrid(weeklyRewards),
                 ],
               ],
@@ -131,84 +138,175 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Widget _buildBalanceCard(GamificationData data) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF2C3E50),
-            Color(0xFF4CA1AF)
-          ], // Sleek Blue-Grey Gradient
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 8)),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Text("CURRENT LEVEL",
-              style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  letterSpacing: 1.5,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text("${data.level}",
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 48,
-                  fontWeight: FontWeight.w900)),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+  Widget _buildPremiumStatsCard(GamificationData data, Color primaryColor) {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              colors: [
+                primaryColor,
+                primaryColor.withOpacity(0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.monetization_on_rounded,
-                    color: Colors.amberAccent, size: 28),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // Decorative Circles
+              Positioned(
+                top: -50,
+                right: -50,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: -30,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
                   children: [
-                    const Text("Total Coins",
-                        style: TextStyle(color: Colors.white70, fontSize: 10)),
-                    Text("${data.coins}",
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Level Section
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                "CURRENT LEVEL",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "${data.level}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 42,
+                                height: 1.0,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Divider
+                        Container(
+                          height: 50,
+                          width: 1,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        // Coins Section
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text(
+                              "Total Balance",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.monetization_on_rounded,
+                                    color: Colors.amberAccent, size: 24),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "${data.coins}",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildCenteredSectionHeader(
+      String title, IconData icon, Color color) {
     return Row(
       children: [
-        Icon(icon, color: Colors.orange, size: 20),
+        Expanded(
+          child: Divider(
+            color: Colors.grey.withOpacity(0.3),
+            thickness: 1,
+            endIndent: 10,
+          ),
+        ),
+        Icon(icon, color: color, size: 20),
         const SizedBox(width: 8),
         Text(
-          title,
-          style: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+            color: Colors.grey[800],
+          ),
+        ),
+        Expanded(
+          child: Divider(
+            color: Colors.grey.withOpacity(0.3),
+            thickness: 1,
+            indent: 10,
+          ),
         ),
       ],
     );
@@ -222,7 +320,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.8, // Taller cards
+        childAspectRatio: 0.75, // Slightly taller to allow breathing room
       ),
       itemCount: rewards.length,
       itemBuilder: (context, index) {

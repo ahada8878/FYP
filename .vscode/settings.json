@@ -1,4 +1,5 @@
 {
     "java.configuration.updateBuildConfiguration": "automatic",
-    "postman.settings.dotenv-detection-notification-visibility": false
+    "postman.settings.dotenv-detection-notification-visibility": false,
+    "cmake.sourceDirectory": "C:/Uni/FYP/Main/FYP/FYP/fyp/linux"
 }

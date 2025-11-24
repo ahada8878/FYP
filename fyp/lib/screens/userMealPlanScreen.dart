@@ -279,7 +279,7 @@ class _UserMealPlanScreenState extends State<UserMealPlanScreen> {
           child: ElevatedButton.icon(
             onPressed: _isGeneratingList ? null : _generateShoppingList,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.white.withOpacity(0.9), // This is the specific color,
               foregroundColor: Colors.orange, // Text and icon color
               elevation: 2,
               padding: const EdgeInsets.symmetric(vertical: 16),
