@@ -8,7 +8,7 @@ final Map<String, Reward> allRewardDefinitions = {
   
   'daily_login': const Reward(
     title: 'Early Bird',
-    description: 'Open the app to start your day right',
+    description: 'Open the app to start your day',
     icon: Icons.wb_sunny_rounded, 
     category: RewardCategory.daily,
   ),
@@ -24,16 +24,22 @@ final Map<String, Reward> allRewardDefinitions = {
     icon: Icons.egg_alt_rounded,
     category: RewardCategory.daily,
   ),
+  'daily_3_meals': const Reward( // ⭐️ NEW
+    title: 'Fuel Up',
+    description: 'Log Breakfast, Lunch, & Dinner',
+    icon: Icons.restaurant_rounded,
+    category: RewardCategory.daily,
+  ),
   'daily_steps_6k': const Reward(
     title: 'Step Up',
     description: 'Walk 6,000 steps today',
     icon: Icons.directions_walk_rounded,
     category: RewardCategory.daily,
   ),
-  'daily_no_sugar': const Reward(
-    title: 'Sugar Free',
-    description: 'Keep sugar under 30g today',
-    icon: Icons.block_rounded,
+  'daily_burn_300': const Reward( // ⭐️ NEW
+    title: 'Burn It!',
+    description: 'Burn 300 active calories',
+    icon: Icons.local_fire_department_rounded,
     category: RewardCategory.daily,
   ),
 
@@ -44,7 +50,7 @@ final Map<String, Reward> allRewardDefinitions = {
   'weekly_streak_7': const Reward(
     title: 'On Fire!',
     description: 'Log food for 7 days in a row',
-    icon: Icons.local_fire_department_rounded,
+    icon: Icons.whatshot_rounded,
     category: RewardCategory.weekly,
   ),
   'weekly_steps_50k': const Reward(
@@ -53,22 +59,10 @@ final Map<String, Reward> allRewardDefinitions = {
     icon: Icons.map_rounded,
     category: RewardCategory.weekly,
   ),
-  'weekly_diverse_diet': const Reward(
-    title: 'Variety King',
-    description: 'Eat 10 different ingredients',
-    icon: Icons.restaurant_menu_rounded,
-    category: RewardCategory.weekly,
-  ),
   'weekly_workout_3': const Reward(
     title: 'Gym Beast',
     description: 'Log 3 workouts this week',
     icon: Icons.fitness_center_rounded,
-    category: RewardCategory.weekly,
-  ),
-  'weekly_deficit': const Reward(
-    title: 'On Target',
-    description: 'Hit calorie goal 5 days',
-    icon: Icons.track_changes_rounded,
     category: RewardCategory.weekly,
   ),
 };

@@ -96,13 +96,29 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
       );
 
       if (newRewards.newlyUnlockedIds.isNotEmpty) {
+        // Find the definition to get the readable title
+        // Assuming you import definitions or definitions are in the Reward model returned
+        final count = newRewards.newlyUnlockedIds.length;
+        final firstId = newRewards.newlyUnlockedIds.first;
+        // You might need a quick lookup map if you don't have definitions here
+        // String name = allRewardDefinitions[firstId]?.title ?? "Unknown Reward";
+        
         if (mounted) {
           _confettiController.play();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("🎉 New Goal Achieved! Check your Rewards!"),
+            SnackBar(
+              content: Text(count > 1 
+                  ? "🎉 You unlocked $count new rewards!"
+                  : "🎉 Achievement Unlocked! Check 'Rewards' page!"), // Basic fallback
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'VIEW', 
+                textColor: Colors.white,
+                onPressed: () {
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen()));
+                }
+              ),
             )
           );
         }
