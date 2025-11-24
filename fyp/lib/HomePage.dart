@@ -14,6 +14,7 @@ import 'package:fyp/screens/userMealPlanScreen.dart';
 import 'package:fyp/screens/describe_meal_screen.dart';
 import 'package:fyp/screens/ai_scanner_result_page.dart';
 import 'package:fyp/screens/camera_screen.dart';
+import 'package:fyp/screens/user_meal_details_screen.dart';
 import 'package:fyp/services/config_service.dart';
 import 'package:fyp/services/meal_service.dart';
 import 'package:fyp/services/health_service.dart';
@@ -608,16 +609,13 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   // FIX 3: Added the missing fetch method for TodayMealPlan
   Future<TodayMealPlan> _fetchTodayMealPlan() async {
     try {
-      // 1. Fetch data from your existing service
       final Map<String, dynamic> data =
           await MealService.fetchUserMealPlanToday();
 
-      // 2. Extract the list of meals safely
       final List<dynamic> mealsData = data['meals'] as List<dynamic>? ?? [];
 
-      // 3. Helper function to map raw JSON to your MealPlanItem model
-      MealPlanItem mapToItem(Map<String, dynamic> json) {
-        // Safely extract calories (handling potential double/int differences)
+      // Helper function with index to determine Meal Type
+      MealPlanItem mapToItem(Map<String, dynamic> json, int index) {
         int calories = 0;
         if (json['nutrients'] != null &&
             json['nutrients']['calories'] != null) {
@@ -626,31 +624,37 @@ class _MealTrackingPageState extends State<MealTrackingPage>
           calories = (json['calories'] as num).toInt();
         }
 
-        // Construct image URL (using fallback logic similar to your other screens if image is missing)
         String imageUrl = json['image'] ??
             "https://spoonacular.com/recipeImages/${json['id']}-556x370.${json['imageType'] ?? 'jpg'}";
+
+        // Determine Meal Type based on Spoonacular's standard ordering
+        String type = 'Snack';
+        if (index == 0)
+          type = 'Breakfast';
+        else if (index == 1)
+          type = 'Lunch';
+        else if (index == 2) type = 'Dinner';
 
         return MealPlanItem(
           id: json['id'].toString(),
           title: json['title'] ?? 'Unknown Meal',
           calories: calories,
           imageUrl: imageUrl,
-          // 'readyInMinutes' is a standard Spoonacular field for prep time
           prepTimeMinutes: json['readyInMinutes'] ?? 15,
+          mealType: type, // ✅ Set the type
+          rawData: json, // ✅ Save the full JSON object
         );
       }
 
-      // 4. Distribute meals into categories based on their index
-      // Index 0 = Breakfast, Index 1 = Lunch, Index 2 = Dinner
       List<MealPlanItem> breakfast = [];
       List<MealPlanItem> lunch = [];
       List<MealPlanItem> dinner = [];
 
-      if (mealsData.isNotEmpty) breakfast.add(mapToItem(mealsData[0]));
-      if (mealsData.length > 1) lunch.add(mapToItem(mealsData[1]));
-      if (mealsData.length > 2) dinner.add(mapToItem(mealsData[2]));
+      // Map items with their specific index
+      if (mealsData.isNotEmpty) breakfast.add(mapToItem(mealsData[0], 0));
+      if (mealsData.length > 1) lunch.add(mapToItem(mealsData[1], 1));
+      if (mealsData.length > 2) dinner.add(mapToItem(mealsData[2], 2));
 
-      // 5. Return the populated TodayMealPlan
       return TodayMealPlan(
         breakfast: breakfast,
         lunch: lunch,
@@ -658,26 +662,27 @@ class _MealTrackingPageState extends State<MealTrackingPage>
       );
     } catch (e) {
       print("Error fetching today's meal plan: $e");
-      // Return empty plan or handle error appropriately
       return TodayMealPlan(breakfast: [], lunch: [], dinner: []);
     }
   }
 
-  // FIX 4: Added the missing navigation method
-  void _navigateToMealDetails(MealPlanItem item) {
-    // Replace with your actual detail screen or a dialog
-    showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: Text(item.title),
-              content: Text(
-                  "Calories: ${item.calories}\nPrep time: ${item.prepTimeMinutes} mins"),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text("OK"))
-              ],
-            ));
+  void _navigateToMealDetails(MealPlanItem item) async {
+    // Navigate to the full details screen
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MealDetailsScreen(
+          meal: item.rawData, // Pass the full raw data
+          date: DateTime.now(), // It is today's meal
+          mealType: item.mealType, // Pass the calculated meal type
+        ),
+      ),
+    );
+
+    // If result is true (user logged the meal), refresh Home Page data
+    if (result == true) {
+      _refreshData(); // Updates calories ring, timeline, etc.
+    }
   }
 
   Future<Map<String, dynamic>> _fetchUserData() async {
@@ -3894,13 +3899,19 @@ class MealPlanItem {
   final String imageUrl;
   final int calories;
   final int prepTimeMinutes;
+  final String mealType; // Added to identify Breakfast/Lunch/Dinner
+  final Map<String, dynamic>
+      rawData; // Added to pass full data to details screen
 
-  MealPlanItem(
-      {required this.id,
-      required this.title,
-      required this.imageUrl,
-      required this.calories,
-      required this.prepTimeMinutes});
+  MealPlanItem({
+    required this.id,
+    required this.title,
+    required this.imageUrl,
+    required this.calories,
+    required this.prepTimeMinutes,
+    required this.mealType,
+    required this.rawData,
+  });
 }
 
 class TodayMealPlan {
