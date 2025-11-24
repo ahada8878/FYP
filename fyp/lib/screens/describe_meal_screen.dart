@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:fyp/services/config_service.dart'; // Your config service
-// Import the FoodLogService to log the meal
+import 'package:fyp/services/config_service.dart'; 
 import 'package:fyp/services/food_log_service.dart';
 
-// --- DATA MODEL (MATCHES BACKEND SCHEMA) ---
-// This model is for the AI *response*, so it's OK that it has more
-// fields than the food log database. We will extract what we need.
+// --- DATA MODEL ---
 class NutritionData {
   final bool enoughData;
   final String foodName;
@@ -36,7 +33,6 @@ class NutritionData {
   });
 
   factory NutritionData.fromJson(Map<String, dynamic> json) {
-    // Uses null-aware operators (??) for null safety and new backend keys
     return NutritionData(
       enoughData: (json['enoughData'] as bool?) ?? false,
       foodName: (json['food_name'] as String?) ?? 'Unknown Food',
@@ -122,15 +118,13 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
     }
   }
 
-  // --- ANALYZE MEAL HANDLER (FIXED NAVIGATION LOGIC) ---
+  // --- ANALYZE MEAL HANDLER ---
   void _analyzeMeal() async {
-    // 1. Set analyzing state
     setState(() {
       _isAnalyzing = true;
       _updateAnalyzeState();
     });
 
-    // 2. Show creative loading dialogue (non-blocking overlay)
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -138,28 +132,22 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
     );
 
     try {
-      // 3. Perform API Call
       final results = await fetchNutritionData(
         _foodNameController.text,
         _ingredientsController.text,
       );
 
-      // 4. FIX: Dismiss Loading Dialog before showing results.
       if (mounted) {
-        // Use rootNavigator: true for robust dismissal of top-level dialog
         Navigator.of(context, rootNavigator: true).pop();
       }
 
-      // Add a small delay to prevent navigation conflict
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // 5. Show Results Dialog (user remains on the main page)
       if (mounted) {
         _showResultsDialog(results);
       }
     } catch (e) {
       if (mounted) {
-        // Ensure loading dialog is dismissed on error
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -170,7 +158,6 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
         );
       }
     } finally {
-      // 6. Reset analyzing state
       if (mounted) {
         setState(() {
           _isAnalyzing = false;
@@ -180,68 +167,56 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
     }
   }
 
-  // --- SHOW RESULTS DIALOG (Uses custom styled card) ---
   void _showResultsDialog(NutritionData data) {
     showDialog(
       context: context,
       builder: (context) {
         return NutritionResultsDialog(
           data: data,
-          // NEW: Pass a callback for the log button
           onLogPressed: () {
-            // This runs when 'LOG THIS MEAL' is pressed
-            Navigator.pop(context); // Close the results dialog
-            _showMealTypeDialog(data); // Open the new meal type dialog
+            Navigator.pop(context); 
+            _showMealTypeDialog(data); 
           },
         );
       },
     );
   }
 
-  // --- NEW: SHOW MEAL TYPE SELECTION DIALOG ---
   void _showMealTypeDialog(NutritionData data) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return MealTypeSelectionDialog(
-          // Pass the data to the new dialog
           data: data,
-          // Pass the logging function as a callback
           onLog: (selectedMealType) {
-            // This function logs to the DB and closes the dialog
             _logMealToDatabase(data, selectedMealType);
-            Navigator.pop(dialogContext); // Close the meal type dialog
+            Navigator.pop(dialogContext); 
           },
         );
       },
     );
   }
 
-  // --- NEW: LOGIC TO SAVE MEAL TO DATABASE ---
   void _logMealToDatabase(NutritionData data, String mealType) async {
-    // Show a loading/confirmation snackbar
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Logging "${data.foodName}" as $mealType...'),
-        backgroundColor: const Color(0xFF0D324D), // Dark blue
+        backgroundColor: primaryColor, // Using Theme Primary Color
       ),
     );
 
-    // 1. Instantiate the service
     final FoodLogService foodLogService = FoodLogService();
 
-    // 2. Helper function to parse nutrient strings (e.g., "150 kcal" -> 150.0)
     double parseNutrient(String s) {
       try {
-        // Takes the first part of the string (e.g., "150" from "150 kcal")
-        // and parses it to a double. Returns 0.0 on failure.
         return double.tryParse(s.split(' ')[0]) ?? 0.0;
       } catch (e) {
         return 0.0;
       }
     }
 
-    // 3. Create the nutrient map matching the backend model
     final nutrientsMap = {
       'calories': parseNutrient(data.calories),
       'protein': parseNutrient(data.protein),
@@ -249,18 +224,16 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
       'carbohydrates': parseNutrient(data.carbs),
     };
 
-    // 4. Call the service
     bool success = await foodLogService.logFood(
       mealType: mealType,
       productName: data.foodName,
       nutrients: nutrientsMap,
-      imageUrl: null, // AI analysis doesn't provide an image URL
-      date: DateTime.now(), // Log for the current date and time
+      imageUrl: null, 
+      date: DateTime.now(), 
     );
 
-    // 5. Show final success/failure message
     if (mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar(); // Hide loading
+      ScaffoldMessenger.of(context).hideCurrentSnackBar(); 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success
@@ -269,12 +242,15 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
-      Navigator.pop(context); // Close the meal type dialog
+      Navigator.pop(context); 
     }
   }
 
   @override
-  Widget build(BuildContextVscaffoldContext) {
+  Widget build(BuildContext context) {
+    // Access the primary color from the theme
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -376,16 +352,20 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Analyze Button (uses gradient)
+            // Analyze Button
             SizedBox(
               width: double.infinity,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
+                  // Updated Gradient to use Theme Primary Color
                   gradient: _isAnalyzeEnabled
-                      ? const LinearGradient(
-                          colors: [Color(0xFF7F5A83), Color(0xFF0D324D)],
+                      ? LinearGradient(
+                          colors: [
+                            primaryColor.withOpacity(0.8),
+                            primaryColor,
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         )
@@ -393,7 +373,7 @@ class _DescribeMealScreenState extends State<DescribeMealScreen> {
                   boxShadow: _isAnalyzeEnabled
                       ? [
                           BoxShadow(
-                            color: Colors.purple[100]!,
+                            color: primaryColor.withOpacity(0.3),
                             blurRadius: 10,
                             spreadRadius: 2,
                             offset: const Offset(0, 4),
@@ -439,13 +419,17 @@ class AnalyzingMealDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Access Primary Color
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF7F5A83)),
+          CircularProgressIndicator(
+            // Use Primary Color
+            valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -470,10 +454,9 @@ class AnalyzingMealDialog extends StatelessWidget {
   }
 }
 
-// --- Custom Widget for Results Dialogue (Solid Color Header) ---
+// --- Custom Widget for Results Dialogue ---
 class NutritionResultsDialog extends StatelessWidget {
   final NutritionData data;
-  // NEW: Callback function for the log button
   final VoidCallback onLogPressed;
 
   const NutritionResultsDialog({
@@ -482,266 +465,270 @@ class NutritionResultsDialog extends StatelessWidget {
     required this.onLogPressed,
   });
 
-  // Custom Macro Row Widget for visualization (Chip style)
-  Widget _buildMacroBar(String label, String value, Color color) {
-    final numericValue = double.tryParse(value.split(' ')[0]) ?? 0.0;
-    const maxReference = 80.0;
-    final widthFactor = (numericValue / maxReference).clamp(0.1, 1.0);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Label
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-              // Value Chip
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: color.withOpacity(0.4), width: 0.5),
-                ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
-                    color: color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Visually Enhanced Progress Bar
-          Container(
-            height: 8,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: FractionallySizedBox(
-              widthFactor: widthFactor,
-              alignment: Alignment.centerLeft,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- REFINED WIDGET FOR INSUFFICIENT DATA MESSAGE (APP MESSAGE STYLE) ---
-  Widget _buildInsufficientDataMessage(BuildContext context) {
-    const Color primaryColor = Color(0xFF7F5A83);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 25.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Icon is now a helpful prompt style, not an error style
-          const Icon(
-            Icons.lightbulb_outline,
-            color: primaryColor,
-            size: 55,
-          ),
-          const SizedBox(height: 15),
-          const Text(
-            'Need More Specifics',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'The AI needs more detail to calculate accurate nutrition data.\n\nCould you please revise your meal description and include *specific* quantities (e.g., "1 cup of rice", "100g chicken")?',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Solid primary color used across the dialog for consistency
-    const Color primarySolidColor = Color(0xFF7F5A83);
-    const Color secondarySolidColor = Color.fromARGB(255, 23, 62, 92);
-
-    // Determine if we show the detailed results or the warning message
+    // Using Theme Primary Color
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final bool showDetailedResults = data.enoughData;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header with SOLID Color
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: secondarySolidColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+            // --- 1. Creative Header ---
+            Stack(
+              children: [
+                Container(
+                  height: 140,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    // Gradient using Theme Primary Color
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        primaryColor.withOpacity(1),
+                        primaryColor,
+                      ],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.restaurant_menu_rounded, color: Colors.white70, size: 28),
+                        const SizedBox(height: 8),
+                        Text(
+                          data.foodName,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1.2,
+                          ),
+                        ),
+                        Text(
+                          showDetailedResults ? "AI Analysis Complete" : "More Info Needed",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.8),
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    data.foodName,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 24,
-                      color: Colors.white,
-                    ),
+                // Close Button
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    showDetailedResults
-                        ? 'Your Meal\'s Nutritional Blueprint'
-                        : 'Requires Detailed Input',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
 
-            // Body Content (Conditional Rendering)
-            showDetailedResults
-                ? Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Calories - Big Number Highlight
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEECEF),
-                            borderRadius: BorderRadius.circular(10),
+            // --- 2. Scrollable Body ---
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: showDetailedResults
+                    ? Column(
+                        children: [
+                          // Calories Hero
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.local_fire_department_rounded, 
+                                  color: Colors.deepOrange, size: 32),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      data.calories,
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.deepOrange,
+                                      ),
+                                    ),
+                                    const Text(
+                                      "TOTAL ENERGY",
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Column(
+                          const SizedBox(height: 24),
+
+                          // Macros Grid
+                          Row(
                             children: [
-                              Text(
-                                data.calories,
-                                style: const TextStyle(
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFFC70039),
-                                ),
+                              _MacroCard(
+                                label: "PROTEIN",
+                                value: data.protein,
+                                color: Colors.blue,
+                                icon: Icons.fitness_center,
                               ),
-                              const Text(
-                                'Total Estimated Energy',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFFC70039),
-                                ),
+                              const SizedBox(width: 12),
+                              _MacroCard(
+                                label: "CARBS",
+                                value: data.carbs,
+                                color: Colors.green,
+                                icon: Icons.grain,
+                              ),
+                              const SizedBox(width: 12),
+                              _MacroCard(
+                                label: "FAT",
+                                value: data.fat,
+                                color: Colors.redAccent,
+                                icon: Icons.opacity,
                               ),
                             ],
                           ),
-                        ),
+                          
+                          const SizedBox(height: 24),
+                          const Divider(),
+                          const SizedBox(height: 12),
 
-                        const SizedBox(height: 20),
+                          // Micros List
+                          _MicroRow(label: "Fiber", value: data.fiber),
+                          _MicroRow(label: "Sugar", value: data.sugar),
+                          _MicroRow(label: "Sodium", value: data.sodium),
+                          _MicroRow(label: "Cholesterol", value: data.cholesterol),
+                        ],
+                      )
+                    : _buildInsufficientDataMessage(),
+              ),
+            ),
 
-                        // Macro Breakdown (Chip-Style Bars)
-                        _buildMacroBar(
-                            'Carbohydrates', data.carbs, Colors.blue),
-                        _buildMacroBar('Protein', data.protein, Colors.green),
-                        _buildMacroBar('Fat', data.fat, Colors.orange),
-                      ],
-                    ),
-                  )
-                : _buildInsufficientDataMessage(context), // Show refined app message
-
-            // Action Button (LOG or REVISE)
+            // --- 3. Footer Action ---
             Padding(
-              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
-              child: SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  // MODIFIED: Use the onLogPressed callback
-                  onPressed: showDetailedResults
-                      ? onLogPressed
-                      : () {
-                          // If data is insufficient, close the dialog so the user can edit
-                          Navigator.pop(context);
-                        },
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    // Use the secondary color for logging, softer primary color for revision prompt
-                    backgroundColor: showDetailedResults
-                        ? secondarySolidColor
-                        : primarySolidColor.withOpacity(0.8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(
-                    showDetailedResults ? 'LOG THIS MEAL' : 'REVISE INPUT',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: ElevatedButton(
+                onPressed: showDetailedResults ? onLogPressed : () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  // Use Theme Primary Color
+                  backgroundColor: showDetailedResults ? primaryColor : Colors.grey[400],
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 4,
+                  shadowColor: primaryColor.withOpacity(0.3),
                 ),
+                child: Text(
+                  showDetailedResults ? "LOG MEAL" : "TRY AGAIN",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsufficientDataMessage() {
+    return Column(
+      children: [
+        Icon(Icons.search_off_rounded, size: 60, color: Colors.grey[300]),
+        const SizedBox(height: 16),
+        const Text(
+          "We couldn't analyze that.",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Please try adding specific quantities like '1 cup' or '100g' to help our AI chef.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+}
+
+class _MacroCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const _MacroCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: color.withOpacity(0.8),
               ),
             ),
           ],
@@ -751,11 +738,32 @@ class NutritionResultsDialog extends StatelessWidget {
   }
 }
 
-// --- NEW WIDGET: MEAL TYPE SELECTION DIALOG ---
-// This is a new StatefulWidget to manage the meal type selection
+class _MicroRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _MicroRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == "N/A" || value == "0" || value == "0g") return const SizedBox.shrink();
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+}
+
 class MealTypeSelectionDialog extends StatefulWidget {
   final NutritionData data;
-  final Function(String) onLog; // Callback when a meal type is chosen
+  final Function(String) onLog;
 
   const MealTypeSelectionDialog({
     super.key,
@@ -767,92 +775,167 @@ class MealTypeSelectionDialog extends StatefulWidget {
   State<MealTypeSelectionDialog> createState() => _MealTypeSelectionDialogState();
 }
 
-class _MealTypeSelectionDialogState extends State<MealTypeSelectionDialog> {
-  String? _selectedMealType; // Holds the user's selection
-  final List<String> _mealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+class _MealTypeSelectionDialogState extends State<MealTypeSelectionDialog>
+    with SingleTickerProviderStateMixin {
+  String? _selectedMealType;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  final List<Map<String, dynamic>> _mealOptions = [
+    {'label': 'Breakfast', 'icon': Icons.breakfast_dining_rounded},
+    {'label': 'Lunch', 'icon': Icons.lunch_dining_rounded},
+    {'label': 'Dinner', 'icon': Icons.dinner_dining_rounded},
+    {'label': 'Snack', 'icon': Icons.cookie_outlined},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _controller.forward();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FocusScope.of(context).unfocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF7F5A83);
-    const Color secondaryColor = Color(0xFF0D324D);
+    // Use Theme Primary Color
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Log as...',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: secondaryColor,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Using Wrap to let choice chips flow if needed
-          Wrap(
-            spacing: 8.0,
-            runSpacing: 4.0,
-            alignment: WrapAlignment.center,
-            children: _mealTypes.map((mealType) {
-              final bool isSelected = _selectedMealType == mealType;
-              return ChoiceChip(
-                label: Text(mealType),
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : primaryColor,
-                  fontWeight: FontWeight.w600,
-                ),
-                selected: isSelected,
-                selectedColor: primaryColor,
-                backgroundColor: primaryColor.withOpacity(0.1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: isSelected ? primaryColor : primaryColor.withOpacity(0.3),
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 10,
+        backgroundColor: Colors.white,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Log Meal As...',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
                   ),
                 ),
-                onSelected: (bool selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedMealType = mealType;
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-      actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      actions: [
-        // Cancel Button
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text(
-            'CANCEL',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-        // Log Button (Enabled only when a type is selected)
-        ElevatedButton(
-          onPressed: _selectedMealType == null
-              ? null // Disable button if nothing is selected
-              : () {
-                  // Call the onLog callback with the selected meal type
-                  widget.onLog(_selectedMealType!);
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: secondaryColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 8),
+                Text(
+                  "Select a category for \"${widget.data.foodName}\"",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+                const SizedBox(height: 24),
+                
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.3,
+                  ),
+                  itemCount: _mealOptions.length,
+                  itemBuilder: (context, index) {
+                    final option = _mealOptions[index];
+                    final isSelected = _selectedMealType == option['label'];
+                    return _buildOptionCard(
+                      option['label'],
+                      option['icon'],
+                      primaryColor,
+                      isSelected,
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 24),
+                
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: Text("Cancel", style: TextStyle(color: Colors.grey[600])),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _selectedMealType == null
+                            ? null
+                            : () => widget.onLog(_selectedMealType!),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: _selectedMealType == null ? 0 : 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text("Log It"),
+                      ),
+                    ),
+                  ],
+                )
+              ],
             ),
           ),
-          child: const Text(
-            'LOG MEAL',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildOptionCard(String label, IconData icon, Color primaryColor, bool isSelected) {
+    return GestureDetector(
+      onTap: () => setState(() => _selectedMealType = label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          // Use Primary Color for selected state
+          color: isSelected ? primaryColor : Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : Colors.grey[200]!,
+            width: 2,
+          ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: primaryColor.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))]
+              : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? Colors.white : primaryColor, size: 30),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

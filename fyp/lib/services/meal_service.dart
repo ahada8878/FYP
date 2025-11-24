@@ -25,6 +25,25 @@ class MealService {
       throw Exception("Failed to fetch meal plan: ${response.body}");
     }
   }
+  
+  static Future<Map<String, dynamic>> fetchUserMealPlanToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+
+    if (userId == null) {
+      throw Exception("User ID not found. Please log in again.");
+    }
+
+    final response = await http.get(Uri.parse('$baseUrl/$userId/today'));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 404) {
+      throw Exception("No meal plan found for this user.");
+    } else {
+      throw Exception("Failed to fetch meal plan: ${response.body}");
+    }
+  }
 
   // --- ✅ NEW SERVICE METHOD ---
   /// Log a meal as consumed by sending a PATCH request

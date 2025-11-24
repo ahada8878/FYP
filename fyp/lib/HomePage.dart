@@ -16,6 +16,7 @@ import 'package:fyp/screens/ai_scanner_result_page.dart';
 import 'package:fyp/screens/camera_screen.dart';
 import 'package:fyp/services/config_service.dart';
 import 'package:fyp/services/meal_service.dart';
+import 'package:fyp/services/health_service.dart';
 import 'package:fyp/Widgets/log_water_overlay.dart';
 import 'package:fyp/Widgets/activity_log_sheet.dart';
 import 'package:intl/intl.dart';
@@ -299,61 +300,196 @@ class _MealTypeSelectorDialog extends StatefulWidget {
       _MealTypeSelectorDialogState();
 }
 
-class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog> {
+class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
+    with SingleTickerProviderStateMixin {
   String? _selectedType;
-  final List<String> _options = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+  
+  // Map options to specific icons for a better visual experience
+  final List<Map<String, dynamic>> _mealOptions = [
+    {'label': 'Breakfast', 'icon': Icons.breakfast_dining_rounded},
+    {'label': 'Lunch', 'icon': Icons.lunch_dining_rounded},
+    {'label': 'Dinner', 'icon': Icons.dinner_dining_rounded},
+    {'label': 'Snack', 'icon': Icons.cookie_outlined},
+  ];
+
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        'Log as...',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Wrap(
-            spacing: 8,
-            children: _options.map((type) {
-              final isSelected = _selectedType == type;
-              return ChoiceChip(
-                label: Text(type),
-                selected: isSelected,
-                selectedColor: Theme.of(context).colorScheme.primary,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black,
+    final theme = Theme.of(context);
+    
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Text(
+                'Select Meal Time',
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
                 ),
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedType = selected ? type : null;
-                  });
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'When are you eating this?',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              
+              // Grid of Options
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: _mealOptions.length,
+                itemBuilder: (context, index) {
+                  final option = _mealOptions[index];
+                  final isSelected = _selectedType == option['label'];
+                  
+                  return _buildMealOptionCard(
+                    label: option['label'],
+                    icon: option['icon'],
+                    isSelected: isSelected,
+                    theme: theme,
+                  );
                 },
-              );
-            }).toList(),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _selectedType == null
+                          ? null
+                          : () {
+                              widget.onMealSelected(_selectedType!);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: _selectedType == null ? 0 : 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Log It',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: _selectedType == null
-              ? null
-              : () => widget.onMealSelected(_selectedType!),
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+    );
+  }
+
+  Widget _buildMealOptionCard({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required ThemeData theme,
+  }) {
+    final color = isSelected ? theme.colorScheme.primary : Colors.grey[200]!;
+    final iconColor = isSelected ? Colors.white : Colors.grey[600];
+    final textColor = isSelected ? Colors.white : Colors.grey[800];
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedType = label;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : Colors.grey[300]!,
+            width: 2,
           ),
-          child: const Text('Log'),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : [],
         ),
-      ],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: iconColor, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -763,6 +899,19 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const ScanMealScreen()),
+                  );
+                },
+              ),
+              // --- New Option Added Below ---
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline_rounded),
+                title: const Text('Describe Meal'),
+                onTap: () {
+                  Navigator.pop(ctx); 
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const DescribeMealScreen()),
                   );
                 },
               ),
@@ -1415,7 +1564,7 @@ class DailyStepsChartCard extends StatefulWidget {
 
 class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
   late Future<StepAnalysis> _stepAnalysisFuture;
-  final AuthService _authService = AuthService();
+  final HealthService _healthService = HealthService();
 
   // Color palette for the new dark card
   final Color darkYellow =
@@ -1436,41 +1585,69 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
     _stepAnalysisFuture = _fetchStepAnalysis();
   }
 
-  // UNCHANGED: Fetch logic for step data
   Future<StepAnalysis> _fetchStepAnalysis() async {
-    final String apiUrl = '$baseURL/api/get_last_7days_steps';
-    final token = await _authService.getToken();
-
-    if (token == null || token.isEmpty) {
-      throw Exception('Authentication required for step data.');
-    }
-
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+      // Fetch steps with callbacks for user confirmation
+      final List<int> realSteps = await _healthService.fetchWeeklySteps(
+        
+        // 1. Ask before Installing Health Connect (Android)
+        onAppInstallConfirmation: () async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Install Google Health Connect?"),
+              content: const Text("To sync your steps, we need to install the Health Connect app. Would you like to proceed?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false), // User said No
+                  child: const Text("No"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true), // User said Yes
+                  child: const Text("Install"),
+                ),
+              ],
+            ),
+          ) ?? false; // Default to false if dismissed
+        },
+
+        // 2. Ask before Requesting Permissions
+        onUserPermissionConfirmation: () async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Sync Step Data?"),
+              content: const Text("We can sync your steps from your phone to make your report more accurate. Allow access?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text("Allow"),
+                ),
+              ],
+            ),
+          ) ?? false;
         },
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonBody = json.decode(response.body);
-        return StepAnalysis.fromJson(jsonBody);
-      } else {
-        // Fallback for failed API, keeping the existing structure
-        print(
-            'Step API failed with status ${response.statusCode}. Falling back to mock data.');
-        final mockData = {
+      // Process the data
+      if (realSteps.isNotEmpty && realSteps.any((s) => s > 0)) {
+        return StepAnalysis.fromJson({
           'OkData': true,
-          'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
-        };
-        return StepAnalysis.fromJson(mockData);
+          'steps': realSteps, 
+        });
+      } else {
+        // If we got [0,0,0...] (either permission denied or new install), show dummy data
+        throw Exception("No real data returned"); 
       }
+
     } catch (e) {
-      // Fallback for network error
-      print(
-          'Network error for step data: ${e.toString()}. Falling back to mock data.');
+      print('Step fetch skipped or failed: $e. Using mock data.');
+      
+      // Fallback Mock Data
       final mockData = {
         'OkData': true,
         'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
@@ -1478,7 +1655,6 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
       return StepAnalysis.fromJson(mockData);
     }
   }
-
   // --- NEW WIDGETS FOR CREATIVE UI ---
 
   // 1. The main dark container for all states (loading, error, success)
@@ -2519,8 +2695,9 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
                     const Divider(height: 24, indent: 58),
                     ...widget.meal.loggedFoods.map((food) => ListTile(
                         dense: true,
-                        leading: Text(food.icon,
-                            style: const TextStyle(fontSize: 20)),
+                        leading: Text('•',
+                            style: TextStyle(
+                                color: Colors.grey[800], fontSize: 20)),
                         title: Text(food.name),
                         trailing: Text('${food.calories} kcal',
                             style: TextStyle(color: Colors.grey[800])))),
@@ -2669,56 +2846,78 @@ class _CreativeTimelineHydrationItemState
     super.dispose();
   }
 
-  void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Remove
+void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Remove
     HapticFeedback.lightImpact();
     
-    // Determine the actual mL amount and action
-    final logAmount = changeType > 0 ? _servingSizeMl : -_servingSizeMl;
-    final newAmount = (_currentWaterMl + logAmount).clamp(0, _goalWaterMl);
+    // 1. Calculate the amount to add/remove (Delta)
+    // _servingSizeMl is dynamically calculated in initState (usually around 250ml)
+    final int logAmount = changeType > 0 ? _servingSizeMl : -_servingSizeMl;
+    
+    // 2. Calculate the new visual total immediately for the user (Optimistic UI)
+    final int oldAmount = _currentWaterMl;
+    // Allow going slightly over goal visually or clamp, usually clamping to 0 at bottom is key
+    final int newAmount = (_currentWaterMl + logAmount).clamp(0, 10000); // Cap at reasonable max
 
-    if (newAmount != _currentWaterMl) {
-        
-        // 1. OPTIMISTIC UI UPDATE
-        setState(() {
-            _currentWaterMl = newAmount;
-            LocalDB.setWaterConsumed(_currentWaterMl);
+    // 3. Update UI immediately
+    setState(() {
+      _currentWaterMl = newAmount;
+      LocalDB.setWaterConsumed(_currentWaterMl);
 
-            if (_currentWaterMl == _goalWaterMl) {
-                _confettiController.play();
-            }
-            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
-        });
-        
+      // Play confetti if we just hit the goal
+      if (oldAmount < _goalWaterMl && newAmount >= _goalWaterMl) {
+        _confettiController.play();
+      }
+      _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+    });
 
-        
-        // 3. SEND API REQUEST
-        final token = await AuthService().getToken();
-        if (token != null) {
-            final body = json.encode({
-                'newAmount': LocalDB.getWaterConsumed(),
+    // 4. Send to Backend
+    final token = await AuthService().getToken();
+    if (token != null) {
+      try {
+        final response = await http.post(
+          Uri.parse('$baseURL/api/progress/log-water'), // ✅ Correct Endpoint
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode({
+            'amount': logAmount, // ✅ Send the delta (+250 or -250)
+          }),
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Optional: You can parse the server response to ensure exact sync
+          // final data = json.decode(response.body);
+          // if (mounted) setState(() { _currentWaterMl = data['todayTotal']; });
+          print("Water logged successfully");
+        } else {
+          // Revert on server failure
+          debugPrint('Water update failed: ${response.statusCode}');
+          if (mounted) {
+            setState(() {
+              _currentWaterMl = oldAmount;
+              LocalDB.setWaterConsumed(_currentWaterMl);
+              _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
             });
-            
-            try {
-                final response = await http.post(
-                    Uri.parse('$baseURL/api/user-details/my-profile/updateWaterConsumption'),
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer $token',
-                    },
-                    body: body,
-                );
-
-                if (response.statusCode == 200) {
-                } else {
-                    debugPrint('Water update failed on server: ${response.statusCode}');
-                }
-            } catch (e) {
-                debugPrint('Network error during water update: $e');
-            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to save water log')),
+            );
+          }
         }
+      } catch (e) {
+        // Revert on network error
+        debugPrint('Network error: $e');
+        if (mounted) {
+          setState(() {
+            _currentWaterMl = oldAmount;
+            LocalDB.setWaterConsumed(_currentWaterMl);
+            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+          });
+        }
+      }
     }
   }
-
+  
   double get _progress => _goalWaterMl > 0 ? _currentWaterMl / _goalWaterMl : 0.0;
   bool get _isComplete => _progress >= 1.0;
   
@@ -3070,7 +3269,7 @@ class _DropletProgressIndicator extends StatelessWidget {
               return Column(children: [
                 Icon(Icons.water_drop_rounded,
                     color: color.withOpacity(0.2 + fillOpacity * 0.8),
-                    size: 32),
+                    size: 31),
                 
                 // FIX: Only show label for 4th and 8th segment (if 8 droplets)
                 if (showLabel)

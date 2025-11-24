@@ -1,57 +1,68 @@
-import 'package:fyp/Widgets/reward_card.dart'; // Or wherever your Reward model is
+import 'package:flutter/material.dart';
+import 'package:fyp/Widgets/reward_card.dart'; 
 
-/// This map is the single source of truth for all possible rewards in the app.
-/// The `achieved` status is handled dynamically by the RewardService and should not be set here.
 final Map<String, Reward> allRewardDefinitions = {
-  // --- Daily Rewards ---
-  'Morning Walk': const Reward(
-    title: 'Morning Walk',
-    description: 'Walk 2km',
-    icon: 'assets/images/achievement_icon.png',
+  // ==================================================
+  // 🟢 DAILY REWARDS
+  // ==================================================
+  
+  'daily_login': const Reward(
+    title: 'Early Bird',
+    description: 'Open the app to start your day',
+    icon: Icons.wb_sunny_rounded, 
     category: RewardCategory.daily,
   ),
-  'Hydration Hero': const Reward(
-    title: 'Hydration Hero',
-    description: 'Drink 8 glasses of water',
-    icon: 'assets/images/achievement_icon.png',
+  'daily_water_8': const Reward(
+    title: 'Hydro Homie',
+    description: 'Drink 2000ml (8 cups) of water',
+    icon: Icons.water_drop_rounded,
     category: RewardCategory.daily,
   ),
-  'Healthy Start': const Reward(
-    title: 'Healthy Start',
-    description: 'Log a healthy breakfast',
-    icon: 'assets/images/achievement_icon.png',
+  'daily_breakfast': const Reward(
+    title: 'Breakfast Club',
+    description: 'Log a breakfast meal',
+    icon: Icons.egg_alt_rounded,
     category: RewardCategory.daily,
   ),
-  'Mindful Minute': const Reward(
-    title: 'Mindful Minute',
-    description: 'Complete a meditation session',
-    icon: 'assets/images/achievement_icon.png',
+  'daily_3_meals': const Reward( // ⭐️ NEW
+    title: 'Fuel Up',
+    description: 'Log Breakfast, Lunch, & Dinner',
+    icon: Icons.restaurant_rounded,
+    category: RewardCategory.daily,
+  ),
+  'daily_steps_6k': const Reward(
+    title: 'Step Up',
+    description: 'Walk 6,000 steps today',
+    icon: Icons.directions_walk_rounded,
+    category: RewardCategory.daily,
+  ),
+  'daily_burn_300': const Reward( // ⭐️ NEW
+    title: 'Burn It!',
+    description: 'Burn 300 active calories',
+    icon: Icons.local_fire_department_rounded,
     category: RewardCategory.daily,
   ),
 
-  // --- Weekly Rewards ---
-  'Workout Warrior': const Reward(
-    title: 'Workout Warrior',
-    description: 'Complete 3 workouts',
-    icon: 'assets/images/achievement_icon.png',
+  // ==================================================
+  // 🟡 WEEKLY REWARDS
+  // ==================================================
+
+  'weekly_streak_7': const Reward(
+    title: 'On Fire!',
+    description: 'Log food for 7 days in a row',
+    icon: Icons.whatshot_rounded,
     category: RewardCategory.weekly,
   ),
-  'Meal Master': const Reward(
-    title: 'Meal Master',
-    description: 'Log meals for 5 consecutive days',
-    icon: 'assets/images/achievement_icon.png',
+  'weekly_steps_50k': const Reward(
+    title: 'Marathoner',
+    description: 'Walk 50k steps this week',
+    icon: Icons.map_rounded,
     category: RewardCategory.weekly,
   ),
-  'Sleep Champion': const Reward(
-    title: 'Sleep Champion',
-    description: 'Get 7-8 hours of sleep for 3 nights',
-    icon: 'assets/images/achievement_icon.png',
-    category: RewardCategory.weekly,
-  ),
-  'Step Superstar': const Reward(
-    title: 'Step Superstar',
-    description: 'Reach 50,000 steps in a week',
-    icon: 'assets/images/achievement_icon.png',
+  'weekly_workout_3': const Reward(
+    title: 'Gym Beast',
+    description: 'Log 3 workouts this week',
+    icon: Icons.fitness_center_rounded,
     category: RewardCategory.weekly,
   ),
 };
