@@ -9,10 +9,15 @@ import 'package:fyp/screens/settings_screen.dart';
 
 // ✅ --- IMPORTS ---
 import 'package:fyp/models/progress_data.dart';
+import 'package:fyp/services/config_service.dart';
 import 'package:fyp/services/progress_service.dart';
-import 'package:fyp/services/food_log_service.dart'; // Added for weekly report
-import 'package:fyp/screens/Features/nutritrack_page.dart'; // Added for navigation
-import 'package:fyp/Widgets/weekly_report_sheet.dart'; // ✅ Import the report widget
+import 'package:fyp/services/food_log_service.dart'; 
+import 'package:fyp/screens/Features/nutritrack_page.dart'; 
+import 'package:fyp/Widgets/weekly_report_sheet.dart'; 
+import 'package:fyp/screens/activity_history_screen.dart'; // ✅ Import the new History Screen
+import 'package:http/http.dart' as http; 
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart'; 
 // ---------------------
 
 // --- MAIN SCREEN WIDGET ---
@@ -32,7 +37,19 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
 
   late AnimationController _headerAnimController;
   late ConfettiController _confettiController;
-  bool _isGeneratingReport = false; // Loading state for report
+  bool _isGeneratingReport = false; 
+
+  // ✅ Activity List
+  final List<Map<String, dynamic>> _activities = [
+    {"name": "Running", "icon": Icons.directions_run, "color": Colors.orange},
+    {"name": "Cycling", "icon": Icons.directions_bike, "color": Colors.blue},
+    {"name": "Walking", "icon": Icons.directions_walk, "color": Colors.green},
+    {"name": "Swimming", "icon": Icons.pool, "color": Colors.cyan},
+    {"name": "Yoga", "icon": Icons.self_improvement, "color": Colors.purple},
+    {"name": "HIIT", "icon": Icons.flash_on, "color": Colors.red},
+    {"name": "Strength", "icon": Icons.fitness_center, "color": Colors.blueGrey},
+    {"name": "Jump Rope", "icon": Icons.compare_arrows, "color": Colors.deepOrange},
+  ];
 
   @override
   void initState() {
@@ -66,16 +83,12 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
     });
 
     try {
-      // 1. Fetch logs for last 7 days to check completeness
       final weeklyLogs = await _foodLogService.fetchLastSevenDaysLogs();
-
-      // 2. Check completeness
       final isComplete = _foodLogService.isWeeklyLogComplete(weeklyLogs);
 
       if (!mounted) return;
 
       if (!isComplete) {
-        // If incomplete, redirect user to log page with a message
         setState(() => _isGeneratingReport = false);
         Navigator.push(
           context,
@@ -86,16 +99,11 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           ),
         );
       } else {
-        // 3. Call AI Service (Returns structured JSON Map)
         try {
           final reportData = await _foodLogService.fetchWeeklyReport();
-          
           if (!mounted) return;
           setState(() => _isGeneratingReport = false);
-
-          // 4. Show the Fancy Report Sheet
           _showReportSheet(context, reportData);
-
         } catch (e) {
            if (mounted) {
              setState(() => _isGeneratingReport = false);
@@ -129,11 +137,111 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          // ✅ Use the separated widget
           child: WeeklyReportSheet(data: data, scrollController: controller),
         ),
       ),
     );
+  }
+
+  // ✅ --- LOG ACTIVITY LOGIC ---
+  
+  void _openActivityDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _ActivitySelectionDialog(
+        activities: _activities,
+        onActivitySelected: (activityName) {
+          Navigator.pop(ctx); 
+          _openDurationDialog(activityName);
+        },
+      ),
+    );
+  }
+
+  void _openDurationDialog(String activityName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DurationSelectionDialog(
+        activityName: activityName,
+        onDurationConfirmed: (minutes) {
+          Navigator.pop(ctx);
+          _submitActivityLog(activityName, minutes);
+        },
+      ),
+    );
+  }
+
+  Future<void> _submitActivityLog(String activityName, int minutes) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Logging $activityName for $minutes mins..."), duration: const Duration(seconds: 1)),
+    );
+
+    try {
+      const String apiUrl = "$baseURL/api/activities/log"; 
+      
+      final prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token'); 
+      token ??= prefs.getString('auth_token'); 
+      token ??= prefs.getString('userToken'); 
+
+      if (token == null) throw Exception("User not authenticated. Please Log In again.");
+
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "activityName": activityName,
+          "duration": minutes,
+          "date": DateTime.now().toIso8601String(),
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final calories = data['data']['caloriesBurned'];
+        
+        if (!mounted) return;
+        
+        _confettiController.play();
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Column(
+              children: [
+                Icon(Icons.local_fire_department, color: Colors.orange, size: 40),
+                SizedBox(height: 10),
+                Text("Great Job!", style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Text(
+              "You burned approximately $calories calories.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Awesome"),
+              )
+            ],
+          ),
+        );
+        
+        _refreshData();
+      } else {
+        throw Exception("Failed: ${response.body}");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
+    }
   }
 
   // --- LOG WEIGHT FUNCTION ---
@@ -180,7 +288,6 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
           }
 
           final data = snapshot.data!;
-          // Convert height from feet/inches stored as float (e.g. 5.10) to meters for BMI
           final double userHeightInMeters = data.height * 0.3048; 
           final double bmi = data.currentWeight / (userHeightInMeters * userHeightInMeters);
 
@@ -206,7 +313,6 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          // ✅ Report Button
                           _buildReportButton(context), 
                           const SizedBox(height: 16),
                           
@@ -225,22 +331,34 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
                           ),
                           
                           const SizedBox(height: 12),
-                          _CommunityCallToAction(
+                          
+                          _LogActivityCard(
                             animationIndex: 6,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Joining Community... (Action Placeholder)'))
-                              );
-                            },
+                            onTap: _openActivityDialog,
                           ),
                           
                           const SizedBox(height: 24),
                           _buildSectionHeader(context, "Weekly Snapshots"),
+                          
+                          // ✅ Updated: Only shows Steps Graph now
                           _CombinedTrendCard(
                             weightData: data.weeklyWeightData,
                             stepsData: data.weeklyStepsData,
                             stepGoal: data.stepGoal,
                           ),
+
+                          // ✅ NEW: Activity History Button
+                          const SizedBox(height: 24),
+                          _ActivityHistoryCallToAction(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const ActivityHistoryScreen()),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 40), 
+
                         ]),
                       ),
                     ),
@@ -277,7 +395,7 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
     );
   }
 
-  // ✅ New Button for Report Generation
+  // ... (Existing Helpers like _buildReportButton, _buildHeaderSliver, _buildSectionHeader, etc.) ...
   Widget _buildReportButton(BuildContext context) {
     return StaggeredAnimation(
       index: 0,
@@ -307,7 +425,6 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
     );
   }
 
-  // --- Existing Display Helpers ---
   SliverAppBar _buildHeaderSliver(ProgressData data) {
     return SliverAppBar(
       expandedHeight: 300, pinned: true, backgroundColor: Colors.transparent, elevation: 0, centerTitle: true,
@@ -364,24 +481,125 @@ class _MyProgressScreenState extends State<MyProgressScreen> with TickerProvider
   }
 }
 
-// --- HELPER WIDGETS ---
+// ... (Keep existing _LogActivityCard, _ActivitySelectionDialog, _DurationSelectionDialog, etc.) ...
 
-class _CombinedTrendCard extends StatelessWidget {
-  final List<double> weightData;
-  final List<int> stepsData;
-  final int stepGoal;
-  const _CombinedTrendCard({required this.weightData, required this.stepsData, required this.stepGoal});
+class _LogActivityCard extends StatelessWidget {
+  final VoidCallback onTap; 
+  final int animationIndex;
+  const _LogActivityCard({required this.onTap, required this.animationIndex});
+
   @override
   Widget build(BuildContext context) {
     return StaggeredAnimation(
-      index: 7,
+      index: animationIndex, 
       child: _InteractiveCard(
-        padding: const EdgeInsets.all(0),
+        onTap: onTap, 
+        padding: const EdgeInsets.all(0), 
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24.0), 
+            gradient: const LinearGradient(
+              colors: [Color(0xFF42A5F5), Color(0xFF1E88E5)], 
+              begin: Alignment.topLeft, 
+              end: Alignment.bottomRight
+            )
+          ), 
+          child: Padding(
+            padding: const EdgeInsets.all(20.0), 
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.fitness_center, size: 30, color: Colors.white),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: [
+                      const Text(
+                        "Log Activity", 
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+                      ), 
+                      const SizedBox(height: 4), 
+                      Text(
+                        "Track workouts & burn calories.", 
+                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)
+                      )
+                    ]
+                  )
+                ),
+                const SizedBox(width: 16), 
+                const Icon(Icons.add_circle_outline, color: Colors.white, size: 28),
+              ]
+            )
+          )
+        )
+      )
+    );
+  }
+}
+
+class _ActivitySelectionDialog extends StatelessWidget {
+  final List<Map<String, dynamic>> activities;
+  final Function(String) onActivitySelected;
+  const _ActivitySelectionDialog({required this.activities, required this.onActivitySelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))]),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 0), child: _WeightTrendVisualization(data: weightData)),
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 16.0), child: Divider(height: 32, thickness: 1, color: Color(0xFFE0E0E0))),
-            Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: _StepsTrendVisualization(data: stepsData, goal: stepGoal)),
+            Row(
+              children: [
+                const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 28),
+                const SizedBox(width: 12),
+                Expanded(child: Text("What did you do?", style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey[800]))),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close), color: Colors.grey)
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 350,
+              child: GridView.builder(
+                physics: const BouncingScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.1, crossAxisSpacing: 16, mainAxisSpacing: 16),
+                itemCount: activities.length,
+                itemBuilder: (context, index) {
+                  final activity = activities[index];
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => onActivitySelected(activity['name']),
+                      borderRadius: BorderRadius.circular(20),
+                      splashColor: activity['color'].withOpacity(0.1),
+                      child: Container(
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))]),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: activity['color'].withOpacity(0.1), shape: BoxShape.circle), child: Icon(activity['icon'], size: 32, color: activity['color'])),
+                            const SizedBox(height: 12),
+                            Text(activity['name'], style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[800], fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -389,28 +607,172 @@ class _CombinedTrendCard extends StatelessWidget {
   }
 }
 
-class _WeightTrendVisualization extends StatelessWidget {
-  final List<double> data;
-  const _WeightTrendVisualization({required this.data});
+class _DurationSelectionDialog extends StatefulWidget {
+  final String activityName;
+  final Function(int) onDurationConfirmed;
+  const _DurationSelectionDialog({required this.activityName, required this.onDurationConfirmed});
+  @override
+  State<_DurationSelectionDialog> createState() => _DurationSelectionDialogState();
+}
+
+class _DurationSelectionDialogState extends State<_DurationSelectionDialog> {
+  int _selectedMinutes = 30;
+  final List<int> _quickOptions = [10, 20, 30, 45, 60, 90, 120];
+
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Colors.orange;
-    if (data.isEmpty) return const SizedBox(height: 120, child: Center(child: Text("Not enough weight data.")));
-    final double change = data.isNotEmpty ? data.last - data.first : 0.0;
-    final bool isLoss = change < 0;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-            Icon(Icons.fitness_center_rounded, color: primaryColor, size: 20),
-            const SizedBox(width: 8), const Text("Weight Trend (7 Days)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const Spacer(),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: isLoss ? Colors.green.shade50 : Colors.red.shade50, borderRadius: BorderRadius.circular(12)), child: Text("${change.abs().toStringAsFixed(1)} kg ${isLoss ? 'Loss' : 'Gain'}", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isLoss ? Colors.green.shade700 : Colors.red.shade700))),
-        ]),
-        const SizedBox(height: 12),
-        SizedBox(height: 120, child: _WeightPathChart(data: data)),
-    ]);
+    final primaryColor = Theme.of(context).primaryColor;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("How long?", style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Text(widget.activityName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.grey[800])),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text("$_selectedMinutes", style: TextStyle(fontSize: 64, fontWeight: FontWeight.w900, color: primaryColor)),
+                const SizedBox(width: 8),
+                Text("min", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(activeTrackColor: primaryColor, inactiveTrackColor: primaryColor.withOpacity(0.2), thumbColor: primaryColor, overlayColor: primaryColor.withOpacity(0.1), trackHeight: 6, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12)),
+              child: Slider(value: _selectedMinutes.toDouble(), min: 5, max: 180, divisions: 35, onChanged: (val) => setState(() => _selectedMinutes = val.toInt())),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Wrap(
+                alignment: WrapAlignment.center, spacing: 10, runSpacing: 10,
+                children: _quickOptions.map((e) {
+                  final isSelected = _selectedMinutes == e;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedMinutes = e),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(color: isSelected ? primaryColor : Colors.grey[100], borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? primaryColor : Colors.transparent)),
+                      child: Text("$e m", style: TextStyle(color: isSelected ? Colors.white : Colors.grey[700], fontWeight: FontWeight.bold)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(child: TextButton(onPressed: () => Navigator.pop(context), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), foregroundColor: Colors.grey[600]), child: const Text("Cancel"))),
+              const SizedBox(width: 16),
+              Expanded(flex: 2, child: ElevatedButton(onPressed: () => widget.onDurationConfirmed(_selectedMinutes), style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text("Log Activity", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)))),
+            ]),
+          ],
+        ),
+      ),
+    );
   }
 }
 
+// ✅ UPDATED: Graph with ONLY steps (Removed top Weight section)
+class _CombinedTrendCard extends StatelessWidget {
+  final List<double> weightData; // Kept to avoid breaking existing calls
+  final List<int> stepsData;
+  final int stepGoal;
+  
+  const _CombinedTrendCard({
+    required this.weightData, 
+    required this.stepsData, 
+    required this.stepGoal
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StaggeredAnimation(
+      index: 7,
+      child: _InteractiveCard(
+        padding: const EdgeInsets.all(0),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: _StepsTrendVisualization(
+            data: stepsData, 
+            goal: stepGoal
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ✅ NEW: Activity History Call to Action
+class _ActivityHistoryCallToAction extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ActivityHistoryCallToAction({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return StaggeredAnimation(
+      index: 8,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.orange.withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.history_edu_rounded, color: Colors.orange, size: 28),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Check Activity History",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "See your past workouts & stats.",
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ... (Existing Helpers like _StepsTrendVisualization, _CircularGoalIndicator, _StepsBarChart, etc.) ...
 class _StepsTrendVisualization extends StatelessWidget {
   final List<int> data;
   final int goal;
@@ -453,49 +815,6 @@ class _CircularGoalIndicator extends StatelessWidget {
   }
 }
 
-class _WeightPathChart extends StatelessWidget {
-  final List<double> data;
-  const _WeightPathChart({required this.data});
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder(tween: Tween<double>(begin: 0, end: 1), duration: const Duration(milliseconds: 1000), curve: Curves.easeInOutCubic, builder: (context, value, child) => CustomPaint(size: Size.infinite, painter: _WeightPathPainter(data: data, animationProgress: value, primaryColor: Colors.orange)));
-  }
-}
-
-class _WeightPathPainter extends CustomPainter {
-  final List<double> data; final double animationProgress; final Color primaryColor;
-  _WeightPathPainter({required this.data, required this.animationProgress, required this.primaryColor});
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
-    final double minVal = data.reduce(math.min); final double maxVal = data.reduce(math.max); final double range = (maxVal - minVal) == 0 ? 1 : maxVal - minVal;
-    final points = List.generate(data.length, (i) {
-      final x = size.width * (i / (data.length - 1));
-      final y = size.height - ((data[i] - minVal) / range * size.height * 0.8 + size.height * 0.1);
-      return Offset(x, y);
-    });
-    final path = Path(); path.moveTo(points.first.dx, points.first.dy);
-    for (int i = 0; i < points.length - 1; i++) {
-      final p1 = points[i]; final p2 = points[i+1]; final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      path.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
-    }
-    path.lineTo(points.last.dx, points.last.dy);
-    final PathMetric pathMetric = path.computeMetrics().first;
-    final Path extractPath = pathMetric.extractPath(0.0, pathMetric.length * animationProgress);
-    if (animationProgress > 0) {
-      final fillPath = Path.from(extractPath);
-      final lastPoint = pathMetric.getTangentForOffset(pathMetric.length * animationProgress)!.position;
-      fillPath.lineTo(lastPoint.dx, size.height); fillPath.lineTo(points.first.dx, size.height); fillPath.close();
-      final fillPaint = Paint()..shader = LinearGradient(colors: [primaryColor.withOpacity(0.3), primaryColor.withOpacity(0.0)], begin: Alignment.topCenter, end: Alignment.bottomCenter).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-      canvas.drawPath(fillPath, fillPaint);
-    }
-    final linePaint = Paint()..shader = LinearGradient(colors: [primaryColor, primaryColor.withOpacity(0.6)]).createShader(Rect.fromLTWH(0,0,size.width, size.height))..strokeWidth = 4.0..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
-    canvas.drawPath(extractPath, linePaint);
-  }
-  @override
-  bool shouldRepaint(covariant _WeightPathPainter oldDelegate) => oldDelegate.animationProgress != animationProgress;
-}
-
 class _StepsBarChart extends StatelessWidget {
   final List<int> data; final int goal;
   const _StepsBarChart({required this.data, required this.goal});
@@ -528,19 +847,7 @@ class _StepsBarPainter extends CustomPainter {
   bool shouldRepaint(covariant _StepsBarPainter oldDelegate) => oldDelegate.animationProgress != animationProgress;
 }
 
-class _CommunityCallToAction extends StatelessWidget {
-  final VoidCallback onTap; final int animationIndex;
-  const _CommunityCallToAction({required this.onTap, required this.animationIndex});
-  @override
-  Widget build(BuildContext context) {
-    return StaggeredAnimation(index: animationIndex, child: _InteractiveCard(onTap: onTap, padding: const EdgeInsets.all(0), child: Container(decoration: BoxDecoration(borderRadius: BorderRadius.circular(24.0), gradient: LinearGradient(colors: [Colors.deepOrange.shade400, Colors.pink.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Padding(padding: const EdgeInsets.all(20.0), child: Row(children: [
-      Icon(Icons.people_alt_rounded, size: 50, color: Colors.white.withOpacity(0.3)),
-      const SizedBox(width: 16),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Join the Community!", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text("Share wins, get support, and connect.", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14))])),
-      const SizedBox(width: 16), const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
-    ])))));
-  }
-}
+// ... (Other animations and classes like _TimelineEventCard, _HealthSnapshotSection, etc. remain unchanged) ...
 
 class _TimelineEventCard extends StatelessWidget {
   final IconData icon; final Color color; final String title; final String subtitle; final String value; final bool isFirst; final bool isLast;
