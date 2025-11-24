@@ -14,6 +14,7 @@ import 'package:fyp/screens/userMealPlanScreen.dart';
 import 'package:fyp/screens/describe_meal_screen.dart';
 import 'package:fyp/screens/ai_scanner_result_page.dart';
 import 'package:fyp/screens/camera_screen.dart';
+import 'package:fyp/screens/user_meal_details_screen.dart';
 import 'package:fyp/services/config_service.dart';
 import 'package:fyp/services/meal_service.dart';
 import 'package:fyp/services/health_service.dart';
@@ -30,7 +31,7 @@ import 'package:provider/provider.dart';
 import 'camera_overlay_controller.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:fyp/services/food_log_service.dart';
-import 'package:fyp/models/food_log.dart'; 
+import 'package:fyp/models/food_log.dart';
 
 // --- Service to handle fetching the auth token ---
 class AuthService {
@@ -64,7 +65,7 @@ class ScanMealScreen extends StatelessWidget {
 }
 
 class ManualLogFoodSheet extends StatefulWidget {
-  final Function(dynamic) onLog; 
+  final Function(dynamic) onLog;
   const ManualLogFoodSheet({Key? key, required this.onLog}) : super(key: key);
 
   @override
@@ -127,13 +128,13 @@ class _ManualLogFoodSheetState extends State<ManualLogFoodSheet> {
         productName: _nameController.text.trim(),
         nutrients: nutrients,
         date: DateTime.now(),
-        imageUrl: null, 
+        imageUrl: null,
       );
 
       if (success) {
         if (mounted) {
           widget.onLog(true);
-          Navigator.of(context).pop(); 
+          Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Food logged successfully! 脂'),
@@ -303,7 +304,7 @@ class _MealTypeSelectorDialog extends StatefulWidget {
 class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
     with SingleTickerProviderStateMixin {
   String? _selectedType;
-  
+
   // Map options to specific icons for a better visual experience
   final List<Map<String, dynamic>> _mealOptions = [
     {'label': 'Breakfast', 'icon': Icons.breakfast_dining_rounded},
@@ -320,7 +321,8 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
     super.initState();
     _controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 400));
-    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _scaleAnimation =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _controller.forward();
   }
 
@@ -333,7 +335,7 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Dialog(
@@ -359,7 +361,7 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
               const SizedBox(height: 24),
-              
+
               // Grid of Options
               GridView.builder(
                 shrinkWrap: true,
@@ -374,7 +376,7 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
                 itemBuilder: (context, index) {
                   final option = _mealOptions[index];
                   final isSelected = _selectedType == option['label'];
-                  
+
                   return _buildMealOptionCard(
                     label: option['label'],
                     icon: option['icon'],
@@ -383,9 +385,9 @@ class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
                   );
                 },
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Action Buttons
               Row(
                 children: [
@@ -564,7 +566,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   late Future<Map<String, dynamic>> _userDataFuture;
   // FIX 1: Added the missing Future variable for TodayMealPlan
   late Future<TodayMealPlan> _todayMealsFuture;
-  
+
   late AnimationController _headerAnimController;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -580,7 +582,7 @@ class _MealTrackingPageState extends State<MealTrackingPage>
     super.initState();
     _initAnimations();
     _userDataFuture = _fetchUserData();
-    
+
     // FIX 2: Initialize the missing Future
     _todayMealsFuture = _fetchTodayMealPlan();
 
@@ -605,78 +607,87 @@ class _MealTrackingPageState extends State<MealTrackingPage>
   }
 
   // FIX 3: Added the missing fetch method for TodayMealPlan
-Future<TodayMealPlan> _fetchTodayMealPlan() async {
+  Future<TodayMealPlan> _fetchTodayMealPlan() async {
     try {
-      // 1. Fetch data from your existing service
-      final Map<String, dynamic> data = await MealService.fetchUserMealPlanToday();
-      
-      // 2. Extract the list of meals safely
+      final Map<String, dynamic> data =
+          await MealService.fetchUserMealPlanToday();
+
       final List<dynamic> mealsData = data['meals'] as List<dynamic>? ?? [];
 
-      // 3. Helper function to map raw JSON to your MealPlanItem model
-      MealPlanItem mapToItem(Map<String, dynamic> json) {
-        // Safely extract calories (handling potential double/int differences)
+      // Helper function with index to determine Meal Type
+      MealPlanItem mapToItem(Map<String, dynamic> json, int index) {
         int calories = 0;
-        if (json['nutrients'] != null && json['nutrients']['calories'] != null) {
+        if (json['nutrients'] != null &&
+            json['nutrients']['calories'] != null) {
           calories = (json['nutrients']['calories'] as num).toInt();
         } else if (json['calories'] != null) {
-           calories = (json['calories'] as num).toInt();
+          calories = (json['calories'] as num).toInt();
         }
 
-        // Construct image URL (using fallback logic similar to your other screens if image is missing)
-        String imageUrl = json['image'] ?? 
+        String imageUrl = json['image'] ??
             "https://spoonacular.com/recipeImages/${json['id']}-556x370.${json['imageType'] ?? 'jpg'}";
+
+        // Determine Meal Type based on Spoonacular's standard ordering
+        String type = 'Snack';
+        if (index == 0)
+          type = 'Breakfast';
+        else if (index == 1)
+          type = 'Lunch';
+        else if (index == 2) type = 'Dinner';
 
         return MealPlanItem(
           id: json['id'].toString(),
           title: json['title'] ?? 'Unknown Meal',
           calories: calories,
           imageUrl: imageUrl,
-          // 'readyInMinutes' is a standard Spoonacular field for prep time
-          prepTimeMinutes: json['readyInMinutes'] ?? 15, 
+          prepTimeMinutes: json['readyInMinutes'] ?? 15,
+          mealType: type, // ✅ Set the type
+          rawData: json, // ✅ Save the full JSON object
         );
       }
 
-      // 4. Distribute meals into categories based on their index
-      // Index 0 = Breakfast, Index 1 = Lunch, Index 2 = Dinner
       List<MealPlanItem> breakfast = [];
       List<MealPlanItem> lunch = [];
       List<MealPlanItem> dinner = [];
 
-      if (mealsData.isNotEmpty) breakfast.add(mapToItem(mealsData[0]));
-      if (mealsData.length > 1) lunch.add(mapToItem(mealsData[1]));
-      if (mealsData.length > 2) dinner.add(mapToItem(mealsData[2]));
+      // Map items with their specific index
+      if (mealsData.isNotEmpty) breakfast.add(mapToItem(mealsData[0], 0));
+      if (mealsData.length > 1) lunch.add(mapToItem(mealsData[1], 1));
+      if (mealsData.length > 2) dinner.add(mapToItem(mealsData[2], 2));
 
-      // 5. Return the populated TodayMealPlan
       return TodayMealPlan(
         breakfast: breakfast,
         lunch: lunch,
         dinner: dinner,
       );
-
     } catch (e) {
       print("Error fetching today's meal plan: $e");
-      // Return empty plan or handle error appropriately
       return TodayMealPlan(breakfast: [], lunch: [], dinner: []);
     }
   }
-  
-  // FIX 4: Added the missing navigation method
-  void _navigateToMealDetails(MealPlanItem item) {
-    // Replace with your actual detail screen or a dialog
-    showDialog(
-      context: context, 
-      builder: (ctx) => AlertDialog(
-        title: Text(item.title),
-        content: Text("Calories: ${item.calories}\nPrep time: ${item.prepTimeMinutes} mins"),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK"))],
-      )
+
+  void _navigateToMealDetails(MealPlanItem item) async {
+    // Navigate to the full details screen
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MealDetailsScreen(
+          meal: item.rawData, // Pass the full raw data
+          date: DateTime.now(), // It is today's meal
+          mealType: item.mealType, // Pass the calculated meal type
+        ),
+      ),
     );
+
+    // If result is true (user logged the meal), refresh Home Page data
+    if (result == true) {
+      _refreshData(); // Updates calories ring, timeline, etc.
+    }
   }
 
   Future<Map<String, dynamic>> _fetchUserData() async {
     final token = await _authService.getToken();
-    
+
     if (token == null || token.isEmpty) {
       debugPrint('No token found. Using local data.');
       return _getLocalFallbackData();
@@ -700,7 +711,6 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
       if (profileResponse.statusCode == 200) {
         final profileData = json.decode(profileResponse.body);
         if (profileData['success'] == true) {
-          
           LocalDB.setCarbs(profileData['carbs']);
           LocalDB.setProtein(profileData['protein']);
           LocalDB.setFats(profileData['fat']);
@@ -710,10 +720,26 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
           LocalDB.setWaterConsumed(profileData['waterConsumed']);
 
           List<Meal> processedMeals = [
-            Meal(name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600, loggedFoods: []),
-            Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800, loggedFoods: []),
-            Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800, loggedFoods: []),
-            Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300, loggedFoods: []), 
+            Meal(
+                name: 'Breakfast',
+                icon: Icons.breakfast_dining_rounded,
+                goal: 600,
+                loggedFoods: []),
+            Meal(
+                name: 'Lunch',
+                icon: Icons.lunch_dining_rounded,
+                goal: 800,
+                loggedFoods: []),
+            Meal(
+                name: 'Dinner',
+                icon: Icons.dinner_dining_rounded,
+                goal: 800,
+                loggedFoods: []),
+            Meal(
+                name: 'Snack',
+                icon: Icons.cookie_outlined,
+                goal: 300,
+                loggedFoods: []),
           ];
 
           int totalCaloriesConsumed = 0;
@@ -728,28 +754,28 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
             totalFat += log.nutrients.fat;
 
             final loggedFood = LoggedFood(
-              name: log.productName, 
-              icon: '･｣', 
-              calories: log.nutrients.calories.toInt()
-            );
+                name: log.productName,
+                icon: '･｣',
+                calories: log.nutrients.calories.toInt());
 
             String targetMeal = log.mealType;
-            if (targetMeal == 'Snack') targetMeal = 'Snack'; 
-            
-            final mealIndex = processedMeals.indexWhere((m) => m.name == targetMeal);
+            if (targetMeal == 'Snack') targetMeal = 'Snack';
+
+            final mealIndex =
+                processedMeals.indexWhere((m) => m.name == targetMeal);
             if (mealIndex != -1) {
-               List<LoggedFood> newFoods = List.from(processedMeals[mealIndex].loggedFoods);
-               newFoods.add(loggedFood);
-               
-               processedMeals[mealIndex] = Meal(
-                 name: processedMeals[mealIndex].name, 
-                 icon: processedMeals[mealIndex].icon, 
-                 goal: processedMeals[mealIndex].goal, 
-                 loggedFoods: newFoods
-               );
+              List<LoggedFood> newFoods =
+                  List.from(processedMeals[mealIndex].loggedFoods);
+              newFoods.add(loggedFood);
+
+              processedMeals[mealIndex] = Meal(
+                  name: processedMeals[mealIndex].name,
+                  icon: processedMeals[mealIndex].icon,
+                  goal: processedMeals[mealIndex].goal,
+                  loggedFoods: newFoods);
             }
           }
-          
+
           LocalDB.setConsumedCalories(totalCaloriesConsumed);
 
           return {
@@ -769,7 +795,6 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
         }
       }
       return _getLocalFallbackData();
-      
     } catch (e) {
       debugPrint("Error fetching user data: $e");
       return _getLocalFallbackData();
@@ -788,10 +813,11 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
       'proteinGoal': LocalDB.getProtein(),
       'fatGoal': LocalDB.getFats(),
       'processedMeals': [
-          Meal(name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600),
-          Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800),
-          Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800),
-          Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300),
+        Meal(
+            name: 'Breakfast', icon: Icons.breakfast_dining_rounded, goal: 600),
+        Meal(name: 'Lunch', icon: Icons.lunch_dining_rounded, goal: 800),
+        Meal(name: 'Dinner', icon: Icons.dinner_dining_rounded, goal: 800),
+        Meal(name: 'Snack', icon: Icons.cookie_outlined, goal: 300),
       ]
     };
   }
@@ -859,7 +885,7 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
   }
 
   void _handleLogFood(dynamic result) {
-     _refreshData();
+    _refreshData();
   }
 
   void _showManualLogSheet(BuildContext context, Meal meal) {
@@ -886,7 +912,7 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                 leading: const Icon(Icons.edit_note_rounded),
                 title: const Text('Log Manually'),
                 onTap: () {
-                  Navigator.pop(ctx); 
+                  Navigator.pop(ctx);
                   _showManualLogSheet(context, meal);
                 },
               ),
@@ -894,7 +920,7 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                 leading: const Icon(Icons.qr_code_scanner_rounded),
                 title: const Text('Scan Meal'),
                 onTap: () {
-                  Navigator.pop(ctx); 
+                  Navigator.pop(ctx);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -907,7 +933,7 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                 leading: const Icon(Icons.chat_bubble_outline_rounded),
                 title: const Text('Describe Meal'),
                 onTap: () {
-                  Navigator.pop(ctx); 
+                  Navigator.pop(ctx);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -925,12 +951,11 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
   @override
   Widget build(BuildContext context) {
     final overlayController = Provider.of<CameraOverlayController>(context);
-    
+
     return Scaffold(
       body: Stack(
         children: [
           const _LivingAnimatedBackground(),
-          
           FutureBuilder<Map<String, dynamic>>(
             future: _userDataFuture,
             builder: (context, snapshot) {
@@ -955,9 +980,12 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          snapshot.error.toString().replaceFirst("Exception: ", ""),
+                          snapshot.error
+                              .toString()
+                              .replaceFirst("Exception: ", ""),
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey[700], fontSize: 16),
+                          style:
+                              TextStyle(color: Colors.grey[700], fontSize: 16),
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
@@ -981,8 +1009,10 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                 final summary = DailySummary(
                   caloriesGoal: caloriesGoal,
                   caloriesConsumed: (fetchedData['caloriesConsumed'] as int),
-                  carbsConsumed: (fetchedData['carbsConsumed'] as num).toDouble(),
-                  proteinConsumed: (fetchedData['proteinConsumed'] as num).toDouble(),
+                  carbsConsumed:
+                      (fetchedData['carbsConsumed'] as num).toDouble(),
+                  proteinConsumed:
+                      (fetchedData['proteinConsumed'] as num).toDouble(),
                   fatConsumed: (fetchedData['fatConsumed'] as num).toDouble(),
                   carbsGoal: (fetchedData['carbsGoal'] as num).toDouble(),
                   proteinGoal: (fetchedData['proteinGoal'] as num).toDouble(),
@@ -1003,26 +1033,28 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                           delegate: SliverChildListDelegate([
                             _buildSectionHeader(context, "Today's Timeline"),
                             _buildMealTimeline(fetchedData),
-                            
                             const SizedBox(height: 30),
-                            
                             const DailyStepsChartCard(),
-                            
                             const SizedBox(height: 24),
                             _buildSectionHeader(context, 'Today\'s Meals'),
                             FutureBuilder<TodayMealPlan>(
                               future: _todayMealsFuture,
                               builder: (context, mealSnapshot) {
-                                if (mealSnapshot.connectionState == ConnectionState.waiting) {
+                                if (mealSnapshot.connectionState ==
+                                    ConnectionState.waiting) {
                                   return const SizedBox(
                                     height: 260,
-                                    child: Center(child: CircularProgressIndicator()),
+                                    child: Center(
+                                        child: CircularProgressIndicator()),
                                   );
                                 }
-                                if (mealSnapshot.hasError || !mealSnapshot.hasData) {
+                                if (mealSnapshot.hasError ||
+                                    !mealSnapshot.hasData) {
                                   return const SizedBox(
                                     height: 260,
-                                    child: Center(child: Text('Failed to load meal plan')),
+                                    child: Center(
+                                        child:
+                                            Text('Failed to load meal plan')),
                                   );
                                 }
                                 final todayMealPlan = mealSnapshot.data!;
@@ -1057,10 +1089,10 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                 );
               }
 
-              return const Center(child: Text("No data found for your profile."));
+              return const Center(
+                  child: Text("No data found for your profile."));
             },
           ),
-          
           if (overlayController.showOverlay) _buildCameraPageOverlay(),
         ],
       ),
@@ -1342,7 +1374,7 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
   }
 
   // ... (Keeping _buildHeader, _buildSectionHeader, _buildMealTimeline, _buildQuickActions, and other widgets as they were)
-  
+
   SliverAppBar _buildHeader(
       BuildContext context, DailySummary summary, String userName) {
     final String currentDate =
@@ -1462,10 +1494,12 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
       StaggeredAnimation(
           index: waterIndex,
           child: _CreativeTimelineHydrationItem(
-          isLast: true,
-          initialWaterGoal: fetchedData['waterGoal'] as int? ?? LocalDB.getWaterGoal(),
-          initialWaterConsumed: fetchedData['waterConsumed'] as int? ?? LocalDB.getWaterConsumed(),
-      )),
+            isLast: true,
+            initialWaterGoal:
+                fetchedData['waterGoal'] as int? ?? LocalDB.getWaterGoal(),
+            initialWaterConsumed: fetchedData['waterConsumed'] as int? ??
+                LocalDB.getWaterConsumed(),
+          )),
     );
 
     return Column(children: timelineItems);
@@ -1530,7 +1564,6 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
       },
     );
   }
-
 } // End of _MealTrackingPageState
 
 // --- ALL HELPER WIDGETS ---
@@ -1547,7 +1580,7 @@ class StepAnalysis {
     // Ensure steps are parsed as int
     final List<dynamic> stepsData = json['steps'] ?? [];
     final List<int> parsedSteps = stepsData.map((s) => s as int? ?? 0).toList();
-    
+
     return StepAnalysis(
       okData: json['OkData'] as bool? ?? false,
       steps: parsedSteps,
@@ -1569,8 +1602,7 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
   // Color palette for the new dark card
   final Color darkYellow =
       const Color(0xFFFFA000); // Amber 700 (Used for achievement)
-  final Color cardBackgroundColor =
-      const Color(0xFF1A2E35); // Dark Teal/Blue
+  final Color cardBackgroundColor = const Color(0xFF1A2E35); // Dark Teal/Blue
   final Color cardBackgroundGradientEnd =
       const Color(0xFF1A2E35); // Darker shade
   final Color progressTrackColor = Colors.white.withOpacity(0.1);
@@ -1589,47 +1621,52 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
     try {
       // Fetch steps with callbacks for user confirmation
       final List<int> realSteps = await _healthService.fetchWeeklySteps(
-        
         // 1. Ask before Installing Health Connect (Android)
         onAppInstallConfirmation: () async {
           return await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text("Install Google Health Connect?"),
-              content: const Text("To sync your steps, we need to install the Health Connect app. Would you like to proceed?"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false), // User said No
-                  child: const Text("No"),
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Install Google Health Connect?"),
+                  content: const Text(
+                      "To sync your steps, we need to install the Health Connect app. Would you like to proceed?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx, false), // User said No
+                      child: const Text("No"),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx, true), // User said Yes
+                      child: const Text("Install"),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true), // User said Yes
-                  child: const Text("Install"),
-                ),
-              ],
-            ),
-          ) ?? false; // Default to false if dismissed
+              ) ??
+              false; // Default to false if dismissed
         },
 
         // 2. Ask before Requesting Permissions
         onUserPermissionConfirmation: () async {
           return await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text("Sync Step Data?"),
-              content: const Text("We can sync your steps from your phone to make your report more accurate. Allow access?"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text("Cancel"),
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Sync Step Data?"),
+                  content: const Text(
+                      "We can sync your steps from your phone to make your report more accurate. Allow access?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text("Allow"),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text("Allow"),
-                ),
-              ],
-            ),
-          ) ?? false;
+              ) ??
+              false;
         },
       );
 
@@ -1637,16 +1674,15 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
       if (realSteps.isNotEmpty && realSteps.any((s) => s > 0)) {
         return StepAnalysis.fromJson({
           'OkData': true,
-          'steps': realSteps, 
+          'steps': realSteps,
         });
       } else {
         // If we got [0,0,0...] (either permission denied or new install), show dummy data
-        throw Exception("No real data returned"); 
+        throw Exception("No real data returned");
       }
-
     } catch (e) {
       print('Step fetch skipped or failed: $e. Using mock data.');
-      
+
       // Fallback Mock Data
       final mockData = {
         'OkData': true,
@@ -1699,9 +1735,9 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
     const double maxBarHeight = 80.0;
     final bool achieved = steps >= goal;
     // Ensure maxSteps is not zero to avoid division by zero
-    final double barHeight = maxSteps > 0 ? (steps / maxSteps) * maxBarHeight : 0.0;
-    final barColor =
-        achieved ? color : Colors.white.withOpacity(0.6);
+    final double barHeight =
+        maxSteps > 0 ? (steps / maxSteps) * maxBarHeight : 0.0;
+    final barColor = achieved ? color : Colors.white.withOpacity(0.6);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -1717,7 +1753,8 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
               height: height,
               decoration: BoxDecoration(
                 color: barColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(6)),
               ),
             );
           },
@@ -1793,10 +1830,13 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
   // 5. NEW: Rebuilt Chart UI with "Speedometer" and Vertical Bars
   Widget _buildChartUI(BuildContext context, List<int> dailySteps) {
     // 1. Calculate Averages and Status
-    final int recentSteps = dailySteps.isNotEmpty ? dailySteps.last : 0; // Get the most recent day
+    final int recentSteps =
+        dailySteps.isNotEmpty ? dailySteps.last : 0; // Get the most recent day
     final double progress = (recentSteps / stepGoal).clamp(0.0, 1.0);
     // Find max steps for scaling the bar chart
-    final double maxWeeklySteps = (dailySteps.isNotEmpty ? (dailySteps.reduce(math.max) * 1.1) : stepGoal);
+    final double maxWeeklySteps = (dailySteps.isNotEmpty
+        ? (dailySteps.reduce(math.max) * 1.1)
+        : stepGoal);
 
     // Logic for dynamic day labels (Mon, Tue, etc.)
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -1964,10 +2004,10 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
 
         // STATE 3: SUCCESS
         if (snapshot.hasData && snapshot.data!.okData) {
-           final dailySteps = snapshot.data!.steps;
-           return _buildDarkContainer(
-             child: _buildChartUI(context, dailySteps),
-           );
+          final dailySteps = snapshot.data!.steps;
+          return _buildDarkContainer(
+            child: _buildChartUI(context, dailySteps),
+          );
         }
 
         // Fallback state
@@ -1985,9 +2025,7 @@ class _StepRadialPainter extends CustomPainter {
   final Color trackColor;
 
   _StepRadialPainter(
-      {required this.progress,
-      required this.color,
-      required this.trackColor});
+      {required this.progress, required this.color, required this.trackColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2034,10 +2072,10 @@ class _StepRadialPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _StepRadialPainter oldDelegate) => 
-    oldDelegate.progress != progress ||
-    oldDelegate.color != color ||
-    oldDelegate.trackColor != trackColor;
+  bool shouldRepaint(covariant _StepRadialPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.color != color ||
+      oldDelegate.trackColor != trackColor;
 }
 
 class AnimatedScannerButton extends StatefulWidget {
@@ -2695,9 +2733,9 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
                     const Divider(height: 24, indent: 58),
                     ...widget.meal.loggedFoods.map((food) => ListTile(
                         dense: true,
-                        leading: Text('•',
-                            style: TextStyle(
-                                color: Colors.grey[800], fontSize: 20)),
+                        leading: Icon(Icons.local_dining_rounded,
+                            color: Colors.grey[800],
+                            size: 20), // ✅ Changed to Fork & Spoon Icon
                         title: Text(food.name),
                         trailing: Text('${food.calories} kcal',
                             style: TextStyle(color: Colors.grey[800])))),
@@ -2764,12 +2802,12 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
 
 class _CreativeTimelineHydrationItem extends StatefulWidget {
   final bool isLast;
-  final int initialWaterGoal; 
+  final int initialWaterGoal;
   final int initialWaterConsumed;
   // NEW: Callback to signal parent page to refresh data
 
   const _CreativeTimelineHydrationItem({
-    super.key, 
+    super.key,
     this.isLast = false,
     required this.initialWaterGoal,
     required this.initialWaterConsumed,
@@ -2783,31 +2821,31 @@ class _CreativeTimelineHydrationItemState
     extends State<_CreativeTimelineHydrationItem>
     with TickerProviderStateMixin {
   bool _isExpanded = false;
-  
+
   // State variables for dynamic data
   late int _currentWaterMl;
   late int _goalWaterMl;
-  
+
   // Dynamically calculated properties
   late int _servingSizeMl; // Calculated as 1/8th of the goal
   static const int _dropletCount = 8; // Constant number of visual icons
 
   late AnimationController _progressController;
   late ConfettiController _confettiController;
-  
+
   @override
   void initState() {
     super.initState();
-    
-    _goalWaterMl = widget.initialWaterGoal; 
+
+    _goalWaterMl = widget.initialWaterGoal;
     LocalDB.setWaterGoal(_goalWaterMl);
     _currentWaterMl = widget.initialWaterConsumed;
     LocalDB.setWaterConsumed(_currentWaterMl);
 
-    
     // FIX: Calculate serving size dynamically (1/8th of the goal)
-    _servingSizeMl = (_goalWaterMl > 0 ? (_goalWaterMl / _dropletCount) : 250).round();
-    
+    _servingSizeMl =
+        (_goalWaterMl > 0 ? (_goalWaterMl / _dropletCount) : 250).round();
+
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 1));
     _progressController = AnimationController(
@@ -2818,24 +2856,22 @@ class _CreativeTimelineHydrationItemState
   @override
   void didUpdateWidget(covariant _CreativeTimelineHydrationItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Update goal and consumed if the parent widget passes new values
     if (widget.initialWaterGoal != oldWidget.initialWaterGoal ||
         widget.initialWaterConsumed != oldWidget.initialWaterConsumed) {
-        
-        if (widget.initialWaterConsumed != _currentWaterMl || 
-            widget.initialWaterGoal != _goalWaterMl) {
-            
-            setState(() {
-                _goalWaterMl = widget.initialWaterGoal;
-                _currentWaterMl = widget.initialWaterConsumed;
-                _servingSizeMl = (_goalWaterMl > 0 ? (_goalWaterMl / _dropletCount) : 250).round();
-                LocalDB.setWaterConsumed(_currentWaterMl);
-                LocalDB.setWaterGoal(_goalWaterMl);
-
-            });
-            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
-        }
+      if (widget.initialWaterConsumed != _currentWaterMl ||
+          widget.initialWaterGoal != _goalWaterMl) {
+        setState(() {
+          _goalWaterMl = widget.initialWaterGoal;
+          _currentWaterMl = widget.initialWaterConsumed;
+          _servingSizeMl =
+              (_goalWaterMl > 0 ? (_goalWaterMl / _dropletCount) : 250).round();
+          LocalDB.setWaterConsumed(_currentWaterMl);
+          LocalDB.setWaterGoal(_goalWaterMl);
+        });
+        _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+      }
     }
   }
 
@@ -2846,17 +2882,19 @@ class _CreativeTimelineHydrationItemState
     super.dispose();
   }
 
-void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Remove
+  void _updateWater(int changeType) async {
+    // changeType is 1 for Add, -1 for Remove
     HapticFeedback.lightImpact();
-    
+
     // 1. Calculate the amount to add/remove (Delta)
     // _servingSizeMl is dynamically calculated in initState (usually around 250ml)
     final int logAmount = changeType > 0 ? _servingSizeMl : -_servingSizeMl;
-    
+
     // 2. Calculate the new visual total immediately for the user (Optimistic UI)
     final int oldAmount = _currentWaterMl;
     // Allow going slightly over goal visually or clamp, usually clamping to 0 at bottom is key
-    final int newAmount = (_currentWaterMl + logAmount).clamp(0, 10000); // Cap at reasonable max
+    final int newAmount =
+        (_currentWaterMl + logAmount).clamp(0, 10000); // Cap at reasonable max
 
     // 3. Update UI immediately
     setState(() {
@@ -2897,7 +2935,8 @@ void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Rem
             setState(() {
               _currentWaterMl = oldAmount;
               LocalDB.setWaterConsumed(_currentWaterMl);
-              _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+              _progressController.animateTo(_progress,
+                  curve: Curves.easeOutCubic);
             });
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Failed to save water log')),
@@ -2911,16 +2950,18 @@ void _updateWater(int changeType) async { // changeType is 1 for Add, -1 for Rem
           setState(() {
             _currentWaterMl = oldAmount;
             LocalDB.setWaterConsumed(_currentWaterMl);
-            _progressController.animateTo(_progress, curve: Curves.easeOutCubic);
+            _progressController.animateTo(_progress,
+                curve: Curves.easeOutCubic);
           });
         }
       }
     }
   }
-  
-  double get _progress => _goalWaterMl > 0 ? _currentWaterMl / _goalWaterMl : 0.0;
+
+  double get _progress =>
+      _goalWaterMl > 0 ? _currentWaterMl / _goalWaterMl : 0.0;
   bool get _isComplete => _progress >= 1.0;
-  
+
   @override
   Widget build(BuildContext context) {
     final blueColor = Colors.lightBlue;
@@ -3246,7 +3287,7 @@ class _DropletProgressIndicator extends StatelessWidget {
       required this.progressController,
       required this.color,
       required this.servingSizeMl});
-    
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
       animation: progressController,
@@ -3257,27 +3298,27 @@ class _DropletProgressIndicator extends StatelessWidget {
             children: List.generate(dropletCount, (index) {
               final fillOpacity =
                   (currentDropletsFilled - index).clamp(0.0, 1.0);
-              
+
               // We want to show labels at the 4th (halfway) and 8th (full) segment marks
-              final bool isMidpoint = (index + 1) == dropletCount ~/ 2; 
+              final bool isMidpoint = (index + 1) == dropletCount ~/ 2;
               final bool isFinalPoint = (index + 1) == dropletCount;
               final bool showLabel = isMidpoint || isFinalPoint;
-              
+
               // The cumulative volume achieved up to this segment's end.
               final cumulativeVolume = (index + 1) * servingSizeMl;
-              
+
               return Column(children: [
                 Icon(Icons.water_drop_rounded,
                     color: color.withOpacity(0.2 + fillOpacity * 0.8),
                     size: 31),
-                
+
                 // FIX: Only show label for 4th and 8th segment (if 8 droplets)
                 if (showLabel)
-                  Text('${cumulativeVolume}ml', 
+                  Text('${cumulativeVolume}ml',
                       style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-                
+
                 // Keep space if no label is shown
-                if (!showLabel) const SizedBox(height: 14) 
+                if (!showLabel) const SizedBox(height: 14)
               ]);
             }));
       });
@@ -3543,25 +3584,25 @@ class _MacroBreakdownCardState extends State<_MacroBreakdownCard>
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _MacroLegend(
-              color: Colors.orange,
-              label: 'Carbs',
-              grams: widget.summary.carbsConsumed,
-              // Removed: percent: widget.summary.carbsPercent
-              ),
+            color: Colors.orange,
+            label: 'Carbs',
+            grams: widget.summary.carbsConsumed,
+            // Removed: percent: widget.summary.carbsPercent
+          ),
           const SizedBox(height: 12),
           _MacroLegend(
-              color: Colors.lightBlue,
-              label: 'Protein',
-              grams: widget.summary.proteinConsumed,
-              // Removed: percent: widget.summary.proteinPercent
-              ),
+            color: Colors.lightBlue,
+            label: 'Protein',
+            grams: widget.summary.proteinConsumed,
+            // Removed: percent: widget.summary.proteinPercent
+          ),
           const SizedBox(height: 12),
           _MacroLegend(
-              color: Colors.purple,
-              label: 'Fat',
-              grams: widget.summary.fatConsumed,
-              // Removed: percent: widget.summary.fatPercent
-              )
+            color: Colors.purple,
+            label: 'Fat',
+            grams: widget.summary.fatConsumed,
+            // Removed: percent: widget.summary.fatPercent
+          )
         ]))
       ]));
 }
@@ -3614,12 +3655,12 @@ class _MacroLegend extends StatelessWidget {
   final double grams;
   // Removed: final double percent; // Removed the percentage field
 
-  const _MacroLegend(
-      {required this.color,
-      required this.label,
-      required this.grams,
-      // Removed: required this.percent // Removed from constructor
-      });
+  const _MacroLegend({
+    required this.color,
+    required this.label,
+    required this.grams,
+    // Removed: required this.percent // Removed from constructor
+  });
 
   @override
   Widget build(BuildContext context) => Row(children: [
@@ -3632,10 +3673,10 @@ class _MacroLegend extends StatelessWidget {
             style: const TextStyle(
                 fontWeight: FontWeight.bold, color: Color(0xFF333333))),
         const Spacer(),
-        
+
         // Only display the grams value
         Text('${grams.toInt()}g', style: TextStyle(color: Colors.grey[800])),
-        
+
         // Removed the percentage display SizedBox completely
       ]);
 }
@@ -3727,7 +3768,7 @@ class _TiltableRecipeCardState extends State<_TiltableRecipeCard> {
               alignment: FractionalOffset.center,
               // Wrap the child in _InteractiveCard and pass the onTap
               child: _InteractiveCard(
-                onTap: widget.onTap, 
+                onTap: widget.onTap,
                 child: widget.child,
               ))));
 }
@@ -3858,13 +3899,18 @@ class MealPlanItem {
   final String imageUrl;
   final int calories;
   final int prepTimeMinutes;
-  
+  final String mealType; // Added to identify Breakfast/Lunch/Dinner
+  final Map<String, dynamic>
+      rawData; // Added to pass full data to details screen
+
   MealPlanItem({
-    required this.id, 
-    required this.title, 
-    required this.imageUrl, 
-    required this.calories, 
-    required this.prepTimeMinutes
+    required this.id,
+    required this.title,
+    required this.imageUrl,
+    required this.calories,
+    required this.prepTimeMinutes,
+    required this.mealType,
+    required this.rawData,
   });
 }
 
@@ -3873,13 +3919,10 @@ class TodayMealPlan {
   final List<MealPlanItem> lunch;
   final List<MealPlanItem> dinner;
   final List<MealPlanItem> snacks;
-  
-  TodayMealPlan({
-    this.breakfast = const [], 
-    this.lunch = const [], 
-    this.dinner = const [], 
-    this.snacks = const []
-  });
+
+  TodayMealPlan(
+      {this.breakfast = const [],
+      this.lunch = const [],
+      this.dinner = const [],
+      this.snacks = const []});
 }
-
-

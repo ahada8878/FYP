@@ -6,6 +6,14 @@ from PIL import Image
 import os
 import warnings
 import logging
+import cv2
+import torch
+from ultralytics import YOLO
+import google.generativeai as genai
+
+# --- LINKING TO NEW DATA FILE ---
+# We only import DISH_RECIPES for now. We will use INGREDIENT_DB later.
+from ingredients_data import DISH_RECIPES 
 
 # Configure silent operation
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -13,7 +21,7 @@ tf.get_logger().setLevel('ERROR')
 warnings.filterwarnings('ignore')
 logging.getLogger('PIL').setLevel(logging.WARNING)
 
-# Load class labels (replace with your actual class labels)
+# --- EXISTING CLASS LABELS ---
 CLASS_LABELS = [
     "Apple Pie: calories: 1325, protein: 10g, fat: 65g, carbohydrates: 185g",
     "Baby Back Ribs: calories: 1460, protein: 102.5g, fat: 111.5g, carbohydrates: 0g",
@@ -118,8 +126,8 @@ CLASS_LABELS = [
     "Waffles: calories: 1250, protein: 30g, fat: 60g, carbohydrates: 150g"
 ]
 
-def load_model():
-    """Load and configure the trained model"""
+def load_classification_model():
+    """Load and configure the trained classification model"""
     try:
         model = tf.keras.models.load_model('mobilenetv2_food101.h5')
         model.compile(optimizer='adam', 
@@ -128,10 +136,26 @@ def load_model():
                      run_eagerly=True)
         return model
     except Exception as e:
-        raise RuntimeError(f"Model loading failed: {str(e)}")
+        sys.stderr.write(f"Model loading failed: {str(e)}\n")
+        return None
 
-# Load model once at startup
-model = load_model()
+def load_depth_models():
+    """Load YOLO and MiDaS models for depth estimation"""
+    try:
+        yolo_model = YOLO('yolov8n-seg.pt')
+        midas = torch.hub.load("intel-isl/MiDaS", "DPT_Hybrid")
+        device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        midas.to(device)
+        midas.eval()
+        midas_transforms = torch.hub.load("intel-isl/MiDaS", "transforms").dpt_transform
+        return yolo_model, midas, midas_transforms, device
+    except Exception as e:
+        sys.stderr.write(f"Depth models loading failed: {str(e)}\n")
+        return None, None, None, None
+
+# Load models globally
+model = load_classification_model()
+yolo_model, midas, midas_transforms, device = load_depth_models()
 
 def preprocess_image(image_path):
     """Preprocess image for model prediction"""
@@ -142,45 +166,185 @@ def preprocess_image(image_path):
     except Exception as e:
         raise ValueError(f"Image processing failed: {str(e)}")
 
-def predict(image_path):
-    """Make prediction on the input image"""
+def generate_depth_map(image_path):
+    """Generate and store depth map image in backend folder"""
+    if yolo_model is None or midas is None:
+        return
+
     try:
-        # Preprocess image
+        pil_image = Image.open(image_path).convert("RGB")
+        w, h = pil_image.size
+        img_np = np.array(pil_image)
+
+        results = yolo_model(pil_image, verbose=False)
+        target_mask = np.zeros((h, w), dtype=np.uint8)
+        
+        if results[0].masks is not None:
+            boxes = results[0].boxes.data.cpu().numpy()
+            masks = results[0].masks.data.cpu().numpy()
+            
+            for i, box in enumerate(boxes):
+                class_id = int(box[5])
+                mask_resized = cv2.resize(masks[i], (w, h))
+                if class_id not in [0, 60, 61]:
+                    target_mask = np.maximum(target_mask, mask_resized)
+
+        if np.sum(target_mask) == 0:
+            center_x, center_y = w // 2, h // 2
+            radius = min(w, h) // 3
+            Y, X = np.ogrid[:h, :w]
+            dist_from_center = np.sqrt((X - center_x)**2 + (Y - center_y)**2)
+            target_mask[dist_from_center <= radius] = 1
+
+        input_batch = midas_transforms(img_np).to(device)
+        with torch.no_grad():
+            prediction = midas(input_batch)
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1), size=(h, w), mode="bicubic", align_corners=False
+            ).squeeze()
+        
+        depth_map = prediction.cpu().numpy()
+        d_min, d_max = depth_map.min(), depth_map.max()
+        depth_norm = (depth_map - d_min) / (d_max - d_min) if (d_max - d_min) > 0 else depth_map
+        
+        masked_depth = depth_norm * target_mask
+        dilated = cv2.dilate(target_mask, np.ones((10,10), np.uint8), iterations=1)
+        ring = dilated - target_mask
+        floor = np.median(depth_norm[ring == 1]) if np.sum(ring) > 0 else 0
+        
+        height_map = masked_depth - floor
+        height_map[height_map < 0] = 0
+        peak = np.max(height_map) if np.max(height_map) > 0 else 1
+
+        res_image = (height_map / peak * 255).astype(np.uint8)
+        res_image_colored = cv2.applyColorMap(res_image, cv2.COLORMAP_JET)
+        
+        output_dir = "depth_maps"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        filename = os.path.basename(image_path)
+        save_path = os.path.join(output_dir, f"depth_{filename}")
+        cv2.imwrite(save_path, res_image_colored)
+        
+    except Exception as e:
+        sys.stderr.write(f"Error generating depth map: {str(e)}\n")
+
+def estimate_weight_with_gemini(image_path):
+    """Estimate food weight using Gemini API and return the value"""
+    try:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            sys.stderr.write("Skipping Gemini: GEMINI_API_KEY environment variable not set.\n")
+            return None
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        image = Image.open(image_path)
+        
+        # Modified prompt to get just the number for easier parsing
+        prompt = (
+            "Analyze this image of food. "
+            "Estimate the approximate weight of the food visible in grams. "
+            "Return ONLY the numeric value (e.g. 150). Do not include units or text."
+        )
+        
+        response = model.generate_content([prompt, image])
+        weight_text = response.text.strip()
+        
+        # Print to stderr for debugging
+        sys.stderr.write(f"\n--- Gemini Weight Estimation ---\n{weight_text}\n-------------------------------\n")
+        
+        # Clean up the response to ensure it's a number
+        return ''.join(filter(str.isdigit, weight_text))
+        
+    except Exception as e:
+        sys.stderr.write(f"Gemini API Error: {str(e)}\n")
+        return None
+
+def predict_and_stream(image_path):
+    try:
+        # --- STEP 1: CLASSIFICATION (FAST) ---
+        if model is None:
+             raise RuntimeError("Classification model not loaded")
+
         img_array = preprocess_image(image_path)
         
-        # Make silent prediction
-        with tf.device('/CPU:0'):  # Ensures no GPU progress messages
+        with tf.device('/CPU:0'):
             pred = model.predict(img_array, verbose=0)
         
-        # Get top prediction
         class_idx = int(np.argmax(pred))
         confidence = float(np.max(pred))
         
-        # If confidence < 40%, return "Unclear Picture"
+        # Prepare Classification Result
+        classification_result = {}
+        
         if confidence < 0.4:
-            return {
+            classification_result = {
+                'type': 'classification',
+                'success': False,
+                'message': "Couldn't predict food"
+            }
+        else:
+            label_str = CLASS_LABELS[class_idx]
+            # Simple parse just for the name to send immediately
+            food_name = label_str.split(':')[0].strip()
+            
+            # --- NEW: Retrieve Ingredients FROM LINKED FILE ---
+            # Replaces the hardcoded lookup: FOOD_INGREDIENTS.get(...)
+            # Logic stays the same: Get data, format as list of strings ["Name: Xg"]
+            
+            raw_recipe = DISH_RECIPES.get(food_name, {})
+            if raw_recipe:
+                # Convert the dictionary format {"Item": 250} back into 
+                # the list string format ["Item: 250g"] your app expects
+                ingredients_list = [f"{ing}: {qty}g" for ing, qty in raw_recipe.items()]
+            else:
+                ingredients_list = ["Ingredients info unavailable"]
+            
+            classification_result = {
+                'type': 'classification',
                 'success': True,
-                'predicted_class': "Couldn't predict food",
-                'confidence': confidence,
-                'confidence_percentage': f"{confidence * 100:.2f}%"
+                'name': food_name,
+                'ingredients': ingredients_list, # <--- POPULATED FROM NEW FILE
+                'full_label': label_str,
+                'confidence': f"{confidence * 100:.2f}%"
             }
 
-        return {
+        # PRINT CLASSIFICATION IMMEDIATELY & FLUSH
+        print(json.dumps(classification_result))
+        sys.stdout.flush() # <--- Critical: Sends data to Node.js immediately
+
+        if not classification_result.get('success', False):
+            return # Stop if classification failed
+
+        # --- STEP 2: DEPTH & WEIGHT (SLOW) ---
+        generate_depth_map(image_path)
+        estimated_weight = estimate_weight_with_gemini(image_path)
+        
+        weight_value = estimated_weight if estimated_weight else 500.0
+
+        # Prepare Weight Result
+        weight_result = {
+            'type': 'weight',
             'success': True,
-            'predicted_class': CLASS_LABELS[class_idx],
-            'class_index': class_idx,
-            'confidence': confidence,
-            'confidence_percentage': f"{confidence * 100:.2f}%",
-            'all_predictions': {
-                CLASS_LABELS[i]: float(pred[0][i]) for i in range(len(CLASS_LABELS))
-            }
+            'weight': weight_value,
+            'source': 'Gemini' if estimated_weight else 'Default'
         }
+
+        # PRINT WEIGHT RESULT
+        print(json.dumps(weight_result))
+        sys.stdout.flush()
+
     except Exception as e:
-        return {
+        error_msg = {
+            'type': 'error',
             'success': False,
-            'error': str(e),
-            'type': type(e).__name__
+            'error': str(e)
         }
+        print(json.dumps(error_msg))
+        sys.stdout.flush()
 
 if __name__ == '__main__':
     try:
@@ -188,14 +352,11 @@ if __name__ == '__main__':
             raise ValueError("Usage: python predict.py <image_path>")
             
         image_path = sys.argv[1]
-        result = predict(image_path)
-        # print(result)
-        trimmed_result = result['predicted_class']
-        print(json.dumps(trimmed_result, indent=2))
+        predict_and_stream(image_path)
         
     except Exception as e:
         print(json.dumps({
+            'type': 'error',
             'success': False,
-            'error': f"System error: {str(e)}",
-            'type': type(e).__name__
-        }, indent=2))
+            'error': f"System error: {str(e)}"
+        }))

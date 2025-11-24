@@ -14,7 +14,22 @@ const { extractRecipeDetails } = require("../utils/extractRecipeDetails.js");
 // ======================================================================
 
 const generateWeeklyMealPlan = async (userDetails, user) => {
-    const linkedUser = await User.findById(user._id || user.id).lean();
+    const userId = user._id || user.id; // Normalize user ID
+
+    // 1. Check & Delete Existing Meal Plan
+    try {
+        const deletedPlan = await MealPlan.deleteMany({ userId: userId });
+        if (deletedPlan.deletedCount > 0) {
+            console.log(`🗑️ Deleted ${deletedPlan.deletedCount} existing meal plan(s) for user ${userId}.`);
+        } else {
+            console.log(`ℹ️ No existing meal plan found for user ${userId}. Starting fresh.`);
+        }
+    } catch (err) {
+        console.error("❌ Error deleting previous meal plan:", err);
+        // We continue even if delete fails, though ideally, this shouldn't happen.
+    }
+
+    const linkedUser = await User.findById(userId).lean();
     if (!linkedUser?.spoonacular) {
         throw new Error("User not connected to Spoonacular");
     }
@@ -27,7 +42,7 @@ const generateWeeklyMealPlan = async (userDetails, user) => {
     const diet = mapEatingStylesToDiet(userDetails.eatingStyles);
     if (diet) console.log(`🥗 Diet: ${diet}`);
 
-    console.log(`📊 Generating meal plan for user ${user._id || user.id} with target calories: ${targetCalories}`);
+    console.log(`📊 Generating meal plan for user ${userId} with target calories: ${targetCalories}`);
 
     const weekPlan = {};
     const allRecipeIds = new Set();
@@ -36,100 +51,100 @@ const generateWeeklyMealPlan = async (userDetails, user) => {
     const maxCalories = targetCalories + 100;
     console.log(`🔥 Generating meal plan (calories: ${minCalories}-${maxCalories})`);
 
-for (let i = 0; i < 7; i++) {
-  const dayName = `day${i + 1}`;
-  const date = new Date();
-  date.setDate(date.getDate() + i);
+    for (let i = 0; i < 7; i++) {
+        const dayName = `day${i + 1}`;
+        const date = new Date();
+        date.setDate(date.getDate() + i);
 
-  const dailyMeals = [];
-  let finalNutrients = {};
-  let attempts = 0;
-  const MAX_ATTEMPTS = 10;
-  const MEALS_PER_DAY = 3;
+        const dailyMeals = [];
+        let finalNutrients = {};
+        let attempts = 0;
+        const MAX_ATTEMPTS = 10;
+        const MEALS_PER_DAY = 3;
 
-  while (dailyMeals.length < MEALS_PER_DAY && attempts < MAX_ATTEMPTS) {
-    attempts++;
-    const randomCalories = Math.floor(Math.random() * (maxCalories - minCalories + 1)) + minCalories;
+        while (dailyMeals.length < MEALS_PER_DAY && attempts < MAX_ATTEMPTS) {
+            attempts++;
+            const randomCalories = Math.floor(Math.random() * (maxCalories - minCalories + 1)) + minCalories;
 
-    try {
-      const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
-        params: {
-          apiKey: process.env.SPOONACULAR_API_KEY,
-          timeFrame: "day",
-          targetCalories: randomCalories,
-          diet,
-          exclude: ingredientExclusions,
-          seed: Date.now() + i + attempts,
-        },
-      });
+            try {
+                const { data } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
+                    params: {
+                        apiKey: process.env.SPOONACULAR_API_KEY,
+                        timeFrame: "day",
+                        targetCalories: randomCalories,
+                        diet,
+                        exclude: ingredientExclusions,
+                        seed: Date.now() + i + attempts,
+                    },
+                });
 
-      const meals = data.meals || [];
-      finalNutrients = data.nutrients;
+                const meals = data.meals || [];
+                finalNutrients = data.nutrients;
 
-      for (const meal of meals) {
-        if (!allRecipeIds.has(meal.id)) {
-          allRecipeIds.add(meal.id);
+                for (const meal of meals) {
+                    if (!allRecipeIds.has(meal.id)) {
+                        allRecipeIds.add(meal.id);
 
-          // ✅ Add `loggedAt` to each individual meal object
-          dailyMeals.push({
-            ...meal,
-            loggedAt: null,
-          });
+                        // ✅ Add `loggedAt` to each individual meal object
+                        dailyMeals.push({
+                            ...meal,
+                            loggedAt: null,
+                        });
 
-          if (dailyMeals.length >= MEALS_PER_DAY) break;
+                        if (dailyMeals.length >= MEALS_PER_DAY) break;
+                    }
+                }
+            } catch (err) {
+                console.error(`❌ API error for ${dayName}:`, err.response?.data || err.message);
+            }
         }
-      }
-    } catch (err) {
-      console.error(`❌ API error for ${dayName}:`, err.response?.data || err.message);
+
+        if (dailyMeals.length < MEALS_PER_DAY) {
+            console.warn(`⚠️ Could not generate ${MEALS_PER_DAY} unique meals for ${dayName} after ${MAX_ATTEMPTS} attempts.`);
+
+            // ✅ Allow similar (non-unique) meals instead of throwing error
+            try {
+                const fallbackCalories = Math.floor((minCalories + maxCalories) / 2);
+                const { data: fallbackData } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
+                    params: {
+                        apiKey: process.env.SPOONACULAR_API_KEY,
+                        timeFrame: "day",
+                        targetCalories: fallbackCalories,
+                        diet,
+                        exclude: ingredientExclusions,
+                    },
+                });
+
+                const fallbackMeals = fallbackData.meals || [];
+                for (const meal of fallbackMeals) {
+                    if (dailyMeals.length >= MEALS_PER_DAY) break;
+
+                    // Push similar (possibly duplicate) meals to complete the day
+                    dailyMeals.push({
+                        ...meal,
+                        loggedAt: null,
+                    });
+                }
+
+                finalNutrients = fallbackData.nutrients || finalNutrients;
+                console.log(`✅ Used similar meals to complete ${dayName}.`);
+            } catch (fallbackErr) {
+                console.error(`❌ Fallback failed for ${dayName}:`, fallbackErr.response?.data || fallbackErr.message);
+            }
+        }
+
+
+        // ✅ store per-day meals with their own loggedAt fields
+        weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
     }
-  }
-
-  if (dailyMeals.length < MEALS_PER_DAY) {
-  console.warn(`⚠️ Could not generate ${MEALS_PER_DAY} unique meals for ${dayName} after ${MAX_ATTEMPTS} attempts.`);
-
-  // ✅ Allow similar (non-unique) meals instead of throwing error
-  try {
-    const fallbackCalories = Math.floor((minCalories + maxCalories) / 2);
-    const { data: fallbackData } = await axios.get(`https://api.spoonacular.com/mealplanner/generate`, {
-      params: {
-        apiKey: process.env.SPOONACULAR_API_KEY,
-        timeFrame: "day",
-        targetCalories: fallbackCalories,
-        diet,
-        exclude: ingredientExclusions,
-      },
-    });
-
-    const fallbackMeals = fallbackData.meals || [];
-    for (const meal of fallbackMeals) {
-      if (dailyMeals.length >= MEALS_PER_DAY) break;
-
-      // Push similar (possibly duplicate) meals to complete the day
-      dailyMeals.push({
-        ...meal,
-        loggedAt: null,
-      });
-    }
-
-    finalNutrients = fallbackData.nutrients || finalNutrients;
-    console.log(`✅ Used similar meals to complete ${dayName}.`);
-  } catch (fallbackErr) {
-    console.error(`❌ Fallback failed for ${dayName}:`, fallbackErr.response?.data || fallbackErr.message);
-  }
-}
-
-
-  // ✅ store per-day meals with their own loggedAt fields
-  weekPlan[dayName] = { date, meals: dailyMeals, nutrients: finalNutrients };
-}
 
 
     // ✅ Fetch full recipe info
     if (allRecipeIds.size === 0) {
-      return res.status(200).json({
-        message: "User details saved, but no recipes generated.",
-        details: newUserDetails,
-      });
+        return {
+            message: "User details saved, but no recipes generated.",
+            details: userDetails,
+        };
     }
     
     const idsParam = Array.from(allRecipeIds).join(",");
@@ -137,8 +152,8 @@ for (let i = 0; i < 7; i++) {
         params: { apiKey: API_KEY, ids: idsParam, includeNutrition: true },
     });
 
-    const filteredRecipes = recipeDetails.map(extractRecipeDetails);
-    const newMealPlan = new MealPlan({ userId: user._id || user.id, meals: weekPlan, detailedRecipes: filteredRecipes });
+    const filteredRecipes = recipeDetails.map(extractRecipeDetails); // Assuming extractRecipeDetails is defined elsewhere
+    const newMealPlan = new MealPlan({ userId: userId, meals: weekPlan, detailedRecipes: filteredRecipes });
     const savedPlan = await newMealPlan.save();
     console.log(`✅ Meal plan ${savedPlan._id} saved successfully in MongoDB.`);
 
@@ -313,7 +328,8 @@ const updateHeight = async (req, res) => {
     }
 
     // Save the updated user
-    await userDetails.save();
+    const savedUserDetails = await userDetails.save();
+    await generateWeeklyMealPlan(savedUserDetails, req.user);
 
     res.json({ message: "Username updated successfully.", user: userDetails });
   } catch (error) {
@@ -419,7 +435,8 @@ const updateHealthConditions = async (req, res) => {
         }
 
         // 3. Save the updated document
-        await userDetails.save();
+            const savedUserDetails = await userDetails.save();
+           await generateWeeklyMealPlan(savedUserDetails, req.user);
 
         console.log('⚙️ Health conditions updated. Re-generating meal plan...');
 
@@ -455,9 +472,10 @@ const updateStartWeight = async (req, res) => {
     }
 
     // Save the updated user
-    await userDetails.save();
 
     console.log('🚀 CWeigt updated successfully.');
+        const savedUserDetails = await userDetails.save();
+    await generateWeeklyMealPlan(savedUserDetails, req.user);
 
 
     res.json({ message: "Username updated successfully.", user: userDetails });
@@ -481,7 +499,8 @@ const updateGoalWeight = async (req, res) => {
     }
 
     // Save the updated user
-    await userDetails.save();
+    const savedUserDetails = await userDetails.save();
+    await generateWeeklyMealPlan(savedUserDetails, req.user);
 
     res.json({ message: "Username updated successfully.", user: userDetails });
   } catch (error) {

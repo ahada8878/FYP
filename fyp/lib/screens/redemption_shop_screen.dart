@@ -16,7 +16,6 @@ class _RedemptionShopScreenState extends State<RedemptionShopScreen> {
   late ConfettiController _confettiController;
   late int _userCoins;
   
-  // ⭐️ 1. UPDATED CHEAT FOOD LIST
   // Must match keys in backend/controllers/rewardController.js
   final List<Map<String, dynamic>> _shopItems = [
     {
@@ -84,12 +83,13 @@ class _RedemptionShopScreenState extends State<RedemptionShopScreen> {
     super.dispose();
   }
 
-  // ⭐️ 2. CONFIRMATION DIALOG
   Future<void> _confirmPurchase(Map<String, dynamic> item) async {
+    final primaryColor = Theme.of(context).primaryColor;
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Redeem ${item['name']}?"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Redeem ${item['name']}?", style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
           "This will cost ${item['cost']} coins.\n\n"
           "We will automatically log this item to your Food Diary as a Snack.",
@@ -98,11 +98,14 @@ class _RedemptionShopScreenState extends State<RedemptionShopScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            child: Text("Cancel", style: TextStyle(color: Colors.grey[600])),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             child: const Text("Confirm & Log", style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -125,7 +128,6 @@ class _RedemptionShopScreenState extends State<RedemptionShopScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Call API
       final result = await _rewardService.redeemItem(itemId);
       
       setState(() {
@@ -157,23 +159,41 @@ class _RedemptionShopScreenState extends State<RedemptionShopScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('Cheat Meal Shop', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Cheat Meal Shop', 
+          style: TextStyle(
+            color: primaryColor, 
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5
+          )
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        centerTitle: true,
+        iconTheme: IconThemeData(color: primaryColor),
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         actions: [
           Container(
-            margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(20)),
+            margin: const EdgeInsets.only(right: 16, top: 12, bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: primaryColor.withOpacity(0.2))
+            ),
             child: Row(
               children: [
-                const Icon(Icons.monetization_on_rounded, color: Colors.orange, size: 18),
-                const SizedBox(width: 4),
-                Text("$_userCoins", style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                Icon(Icons.monetization_on_rounded, color: primaryColor, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  "$_userCoins", 
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 14)
+                ),
               ],
             ),
           )
@@ -182,101 +202,171 @@ class _RedemptionShopScreenState extends State<RedemptionShopScreen> {
       body: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
+            physics: const BouncingScrollPhysics(),
             children: [
-              const Text(
-                "Earned your treat?", 
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
+              // Header Section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primaryColor.withOpacity(0.8), primaryColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(color: primaryColor.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Earned your treat?", 
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Redeem your hard-earned coins for guilt-free cheat meals. We'll handle the logging automatically.", 
+                      style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.9), height: 1.4)
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                "Redeem coins for cheat meals. We'll handle the logging.", 
-                style: TextStyle(fontSize: 14, color: Colors.grey[600])
-              ),
-              const SizedBox(height: 20),
               
-              // Grid Layout for better shop feel
+              const SizedBox(height: 24),
+              
+              // Grid Layout
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.75,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.72, // Slightly taller for button space
                 ),
                 itemCount: _shopItems.length,
                 itemBuilder: (context, index) {
-                  return _buildShopCard(_shopItems[index]);
+                  return _buildShopCard(_shopItems[index], primaryColor);
                 },
               ),
             ],
           ),
+          
           Align(
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
               confettiController: _confettiController,
               blastDirectionality: BlastDirectionality.explosive,
-              numberOfParticles: 20,
+              numberOfParticles: 25,
+              gravity: 0.2,
             ),
           ),
+          
           if (_isLoading)
-            Container(color: Colors.black12, child: const Center(child: CircularProgressIndicator()))
+            Container(
+              color: Colors.black12, 
+              child: const Center(
+                child: CircularProgressIndicator()
+              )
+            )
         ],
       ),
     );
   }
 
-  Widget _buildShopCard(Map<String, dynamic> item) {
+  Widget _buildShopCard(Map<String, dynamic> item, Color primaryColor) {
     final bool canAfford = _userCoins >= (item['cost'] as int);
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const SizedBox(height: 16),
+          // Icon Circle
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: (item['color'] as Color).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(item['icon'], color: item['color'], size: 40),
+            child: Icon(item['icon'], color: item['color'], size: 36),
           ),
-          const SizedBox(height: 12),
-          Text(
-            item['name'], 
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            textAlign: TextAlign.center,
+          
+          const SizedBox(height: 16),
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              item['name'], 
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          
           const SizedBox(height: 4),
-          Text(
-            item['desc'], 
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-             textAlign: TextAlign.center,
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Text(
+              item['desc'], 
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          
           const Spacer(),
+          
+          // Buy Button
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: SizedBox(
               width: double.infinity,
+              height: 40,
               child: ElevatedButton(
                 onPressed: canAfford ? () => _confirmPurchase(item) : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: canAfford ? Colors.orange : Colors.grey.shade300,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  backgroundColor: canAfford ? primaryColor : Colors.grey.shade200,
+                  foregroundColor: canAfford ? Colors.white : Colors.grey.shade400,
                   elevation: canAfford ? 2 : 0,
+                  shadowColor: primaryColor.withOpacity(0.3),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: EdgeInsets.zero,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.monetization_on_rounded, size: 16, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text("${item['cost']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    if (canAfford) ...[
+                      const Icon(Icons.shopping_cart_rounded, size: 16),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      "${item['cost']}", 
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: canAfford ? Colors.white : Colors.grey.shade500
+                      )
+                    ),
+                    if (!canAfford) ...[
+                      const SizedBox(width: 4),
+                       Icon(Icons.lock_outline_rounded, size: 14, color: Colors.grey.shade500),
+                    ]
                   ],
                 ),
               ),
