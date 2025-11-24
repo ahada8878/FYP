@@ -37,6 +37,7 @@ const foodLogRoutes = require('./routes/foodLogRoutes');
 
 const progressRoutes = require('./routes/progressRoutes.js');
 
+
 const fs = require('fs');
 
 const jwt = require('jsonwebtoken');
@@ -132,6 +133,8 @@ app.use("/api/mealplan", mealPlanRoutes);
 app.use("/api/foodlog", foodLogRoutes);
 app.use("/api/rewards", rewardRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/activities", activityRoutes);
+
 const nutritionSchema = {
 
   type: "object",

@@ -135,6 +135,7 @@ class _EmailSupportScreenState extends State<EmailSupportScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
+        
         child: Form(
           key: _formKey,
           child: Column(

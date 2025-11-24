@@ -300,61 +300,196 @@ class _MealTypeSelectorDialog extends StatefulWidget {
       _MealTypeSelectorDialogState();
 }
 
-class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog> {
+class _MealTypeSelectorDialogState extends State<_MealTypeSelectorDialog>
+    with SingleTickerProviderStateMixin {
   String? _selectedType;
-  final List<String> _options = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+  
+  // Map options to specific icons for a better visual experience
+  final List<Map<String, dynamic>> _mealOptions = [
+    {'label': 'Breakfast', 'icon': Icons.breakfast_dining_rounded},
+    {'label': 'Lunch', 'icon': Icons.lunch_dining_rounded},
+    {'label': 'Dinner', 'icon': Icons.dinner_dining_rounded},
+    {'label': 'Snack', 'icon': Icons.cookie_outlined},
+  ];
+
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        'Log as...',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Wrap(
-            spacing: 8,
-            children: _options.map((type) {
-              final isSelected = _selectedType == type;
-              return ChoiceChip(
-                label: Text(type),
-                selected: isSelected,
-                selectedColor: Theme.of(context).colorScheme.primary,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black,
+    final theme = Theme.of(context);
+    
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Text(
+                'Select Meal Time',
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
                 ),
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedType = selected ? type : null;
-                  });
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'When are you eating this?',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              
+              // Grid of Options
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: _mealOptions.length,
+                itemBuilder: (context, index) {
+                  final option = _mealOptions[index];
+                  final isSelected = _selectedType == option['label'];
+                  
+                  return _buildMealOptionCard(
+                    label: option['label'],
+                    icon: option['icon'],
+                    isSelected: isSelected,
+                    theme: theme,
+                  );
                 },
-              );
-            }).toList(),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _selectedType == null
+                          ? null
+                          : () {
+                              widget.onMealSelected(_selectedType!);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: _selectedType == null ? 0 : 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Log It',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: _selectedType == null
-              ? null
-              : () => widget.onMealSelected(_selectedType!),
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+    );
+  }
+
+  Widget _buildMealOptionCard({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required ThemeData theme,
+  }) {
+    final color = isSelected ? theme.colorScheme.primary : Colors.grey[200]!;
+    final iconColor = isSelected ? Colors.white : Colors.grey[600];
+    final textColor = isSelected ? Colors.white : Colors.grey[800];
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedType = label;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : Colors.grey[300]!,
+            width: 2,
           ),
-          child: const Text('Log'),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : [],
         ),
-      ],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: iconColor, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -764,6 +899,19 @@ Future<TodayMealPlan> _fetchTodayMealPlan() async {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const ScanMealScreen()),
+                  );
+                },
+              ),
+              // --- New Option Added Below ---
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline_rounded),
+                title: const Text('Describe Meal'),
+                onTap: () {
+                  Navigator.pop(ctx); 
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const DescribeMealScreen()),
                   );
                 },
               ),
