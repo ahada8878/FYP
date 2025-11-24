@@ -6,6 +6,7 @@ import 'dart:math' as math; // For math functions like clamp
 import 'package:confetti/confetti.dart';
 import 'package:flutter/services.dart';
 import 'package:fyp/screens/settings_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // ✅ --- IMPORTS ---
 import 'package:fyp/models/progress_data.dart';
@@ -760,8 +761,23 @@ class _PremiumProgressHeader extends StatelessWidget {
 class _BlurredImageBackground extends StatelessWidget {
   final String imageUrl;
   const _BlurredImageBackground({required this.imageUrl});
+
   @override
-  Widget build(BuildContext context) { return Image.network(imageUrl, fit: BoxFit.cover, color: Colors.grey.shade900.withOpacity(0.3), colorBlendMode: BlendMode.darken, errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey)); }
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.cover,
+      // This keeps your existing dark dimming effect
+      color: Colors.grey.shade900.withOpacity(0.3),
+      colorBlendMode: BlendMode.darken,
+      // Shows this dark grey box instantly while the image downloads
+      placeholder: (context, url) => Container(color: const Color(0xFF263238)),
+      // Shows this if the download fails
+      errorWidget: (context, url, error) => Container(color: Colors.blueGrey),
+      // Makes the image fade in smoothly once loaded
+      fadeInDuration: const Duration(milliseconds: 500),
+    );
+  }
 }
 
 class _SleekProgressBar extends StatelessWidget {

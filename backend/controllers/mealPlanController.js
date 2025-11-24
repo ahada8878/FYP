@@ -18,6 +18,8 @@ const getMealPlanByUserId = async (req, res) => {
     // Find the latest meal plan for this user
     const mealPlan = await MealPlan.findOne({ userId }).sort({ weekStart: -1 });
 
+    console.log(mealPlan);
+
     if (!mealPlan) {
       return res
         .status(404)
