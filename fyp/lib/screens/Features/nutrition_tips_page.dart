@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp/screens/Features/label_scanner_page.dart';
 import 'package:fyp/screens/userMealPlanScreen.dart';
 import 'package:fyp/services/config_service.dart';
+import 'package:fyp/services/health_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -248,11 +249,17 @@ class HealthAnalysis {
 class StepAnalysis {
   final bool okData;
   final List<int> steps;
+
   StepAnalysis({required this.okData, required this.steps});
+
   factory StepAnalysis.fromJson(Map<String, dynamic> json) {
+    // Ensure steps are parsed as int
+    final List<dynamic> stepsData = json['steps'] ?? [];
+    final List<int> parsedSteps = stepsData.map((s) => s as int? ?? 0).toList();
+
     return StepAnalysis(
-      okData: json['OkData'] as bool,
-      steps: (json['steps'] as List<dynamic>?)?.map((e) => (e as num).toInt()).toList() ?? [],
+      okData: json['OkData'] as bool? ?? false,
+      steps: parsedSteps,
     );
   }
 }
@@ -295,6 +302,7 @@ class DailyStepsChartCard extends StatefulWidget {
 class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
   late Future<StepAnalysis> _stepAnalysisFuture;
   final AuthService _authService = AuthService();
+  final HealthService _healthService = HealthService();
 
   final Color darkYellow = const Color(0xFFFFA000); 
   final Color cardBackgroundColor = const Color(0xFF1A2E35); 
@@ -309,31 +317,83 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
     super.initState();
     _stepAnalysisFuture = _fetchStepAnalysis();
   }
-
+ 
   Future<StepAnalysis> _fetchStepAnalysis() async {
-    final String apiUrl = '$baseURL/api/get_last_7days_steps';
-    final token = await _authService.getToken();
-
-    if (token == null || token.isEmpty) {
-      throw Exception('Authentication required for step data.');
-    }
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      // Fetch steps with callbacks for user confirmation
+      final List<int> realSteps = await _healthService.fetchWeeklySteps(
+        // 1. Ask before Installing Health Connect (Android)
+        onAppInstallConfirmation: () async {
+          return await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Install Google Health Connect?"),
+                  content: const Text(
+                      "To sync your steps, we need to install the Health Connect app. Would you like to proceed?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx, false), // User said No
+                      child: const Text("No"),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx, true), // User said Yes
+                      child: const Text("Install"),
+                    ),
+                  ],
+                ),
+              ) ??
+              false; // Default to false if dismissed
+        },
+
+        // 2. Ask before Requesting Permissions
+        onUserPermissionConfirmation: () async {
+          return await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Sync Step Data?"),
+                  content: const Text(
+                      "We can sync your steps from your phone to make your report more accurate. Allow access?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text("Allow"),
+                    ),
+                  ],
+                ),
+              ) ??
+              false;
+        },
       );
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonBody = json.decode(response.body);
-        return StepAnalysis.fromJson(jsonBody);
+
+      // Process the data
+      if (realSteps.isNotEmpty && realSteps.any((s) => s > 0)) {
+        return StepAnalysis.fromJson({
+          'OkData': true,
+          'steps': realSteps,
+        });
       } else {
-        final mockData = {'OkData': true, 'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]};
-        return StepAnalysis.fromJson(mockData);
+        // If we got [0,0,0...] (either permission denied or new install), show dummy data
+        throw Exception("No real data returned");
       }
     } catch (e) {
-      final mockData = {'OkData': true, 'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]};
+      print('Step fetch skipped or failed: $e. Using mock data.');
+
+      // Fallback Mock Data
+      final mockData = {
+        'OkData': true,
+        'steps': [8000, 12000, 9500, 10500, 7000, 11000, 10000]
+      };
       return StepAnalysis.fromJson(mockData);
     }
   }
+  
+
 
   Widget _buildDarkContainer({required Widget child}) {
     return StaggeredAnimation(

@@ -1691,6 +1691,8 @@ class _DailyStepsChartCardState extends State<DailyStepsChartCard> {
       return StepAnalysis.fromJson(mockData);
     }
   }
+  
+  
   // --- NEW WIDGETS FOR CREATIVE UI ---
 
   // 1. The main dark container for all states (loading, error, success)
