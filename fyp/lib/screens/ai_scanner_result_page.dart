@@ -7,6 +7,7 @@ import 'dart:convert';
 import '../services/config_service.dart';
 import 'dart:async';
 import 'package:fyp/services/food_log_service.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ✅ Add this
 
 class AiScannerResultPage extends StatefulWidget {
   final File imageFile;
@@ -28,6 +29,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   bool _isEstimatingWeight = false;
   bool _isLoading = false;
   bool _hasError = false;
+  String? _smartPortionRecommendation;
 
   // --- INGREDIENT VARIABLES ---
   List<String> _baseIngredientsRaw = [];
@@ -200,10 +202,26 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
     });
 
     try {
+      // --- 1. GET THE TOKEN ---
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token'); // Ensure this key matches your Login logic
+
+      if (token == null) {
+        setState(() {
+          _hasError = true;
+          _message = "Authentication failed. Please log in.";
+          _isProcessing = false;
+        });
+        return;
+      }
+
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseURL/api/predict'),
       );
+
+      // --- 2. ADD THE HEADER ---
+      request.headers['Authorization'] = 'Bearer $token';
 
       request.files.add(await http.MultipartFile.fromPath(
         'image',
@@ -233,13 +251,20 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           });
         });
       } else {
+        // Handle 401 specifically if needed
+        if (streamedResponse.statusCode == 401) {
+           throw Exception('Unauthorized. Please log in again.');
+        }
         throw Exception(
             'Prediction failed with status ${streamedResponse.statusCode}');
       }
     } catch (e) {
       print("Error during prediction: $e");
       setState(() {
-        _message = "Couldn't Detect Food, Let's Scan again";
+        // Make the error message user-friendly
+        _message = e.toString().contains("Unauthorized") 
+            ? "Session expired. Please login." 
+            : "Couldn't Detect Food, Let's Scan again";
         _hasError = true;
         _isProcessing = false;
       });
@@ -277,6 +302,11 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           String weightStr = data['weight']?.toString() ?? "500";
           _portionController.text = weightStr;
           _previousPortionValue = weightStr;
+
+          // ✅ CAPTURE SMART PORTION
+          if (data.containsKey('smart_portion')) {
+            _smartPortionRecommendation = data['smart_portion'];
+          }
 
           double finalWeight = double.tryParse(weightStr) ?? 500.0;
           _updateDisplayedValues(finalWeight);
@@ -814,6 +844,9 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
           _buildNutritionCard(),
           const SizedBox(height: 24),
           _buildPortionCard(),
+          // ✅ ADDED HERE
+          const SizedBox(height: 24),
+          _buildSmartPortionCard(),
           const SizedBox(height: 40),
           _buildActionButtons(),
           const SizedBox(height: 30),
@@ -1043,6 +1076,70 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             ],
           ),
         )
+      ],
+    );
+  }
+
+  Widget _buildSmartPortionCard() {
+    if (_isEstimatingWeight) return const SizedBox.shrink(); // Don't show while loading
+    if (_smartPortionRecommendation == null || _smartPortionRecommendation!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        _buildSectionTitle(Icons.lightbulb_outline, "Smart Recommendation"),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.green.shade50,
+                Colors.green.shade100.withOpacity(0.5)
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.green.withOpacity(0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.green.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.health_and_safety, color: Colors.green[700], size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    "AI Nutritionist",
+                    style: TextStyle(
+                      color: Colors.green[800],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _smartPortionRecommendation!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

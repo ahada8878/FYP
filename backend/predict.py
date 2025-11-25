@@ -230,8 +230,9 @@ def generate_depth_map(image_path):
     except Exception as e:
         sys.stderr.write(f"Error generating depth map: {str(e)}\n")
 
-def estimate_weight_with_gemini(image_path):
-    """Estimate food weight using Gemini API and return the value"""
+# --- UPDATED GEMINI FUNCTION ---
+def estimate_weight_with_gemini(image_path, health_conds, remaining_cals):
+    """Estimate food weight AND suggest portion using Gemini API"""
     try:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
@@ -243,27 +244,44 @@ def estimate_weight_with_gemini(image_path):
         
         image = Image.open(image_path)
         
-        # Modified prompt to get just the number for easier parsing
-        prompt = (
-            "Analyze this image of food. "
-            "Estimate the approximate weight of the food visible in grams. "
-            "Return ONLY the numeric value (e.g. 150). Do not include units or text."
-        )
+        prompt = f"""
+        Analyze this image of food.
+        
+        Context:
+        - User Health Conditions: {health_conds}
+        - Remaining Calories for Today: {remaining_cals}
+        
+        Tasks:
+        1. Estimate the approximate weight of the food visible in grams (numeric).
+        2. Suggest a "smart portion" size (in grams or serving description) that fits the user's remaining calories and health conditions. Briefly explain why.
+        
+        Return a JSON object ONLY, like this:
+        {{
+            "weight": 150,
+            "smart_portion": "Consume only 100g because..."
+        }}
+        """
         
         response = model.generate_content([prompt, image])
-        weight_text = response.text.strip()
+        text = response.text.strip()
         
-        # Print to stderr for debugging
-        sys.stderr.write(f"\n--- Gemini Weight Estimation ---\n{weight_text}\n-------------------------------\n")
+        # Clean markdown if present
+        if "```json" in text:
+            text = text.replace("```json", "").replace("```", "")
+        text = text.strip()
         
-        # Clean up the response to ensure it's a number
-        return ''.join(filter(str.isdigit, weight_text))
+        # Parse JSON
+        data = json.loads(text)
+        
+        # Return the WHOLE data object, not just the string
+        return data 
         
     except Exception as e:
         sys.stderr.write(f"Gemini API Error: {str(e)}\n")
         return None
 
-def predict_and_stream(image_path):
+# --- UPDATED PREDICT FUNCTION ---
+def predict_and_stream(image_path, health_conds, remaining_cals):
     try:
         # --- STEP 1: CLASSIFICATION (FAST) ---
         if model is None:
@@ -288,17 +306,10 @@ def predict_and_stream(image_path):
             }
         else:
             label_str = CLASS_LABELS[class_idx]
-            # Simple parse just for the name to send immediately
             food_name = label_str.split(':')[0].strip()
-            
-            # --- NEW: Retrieve Ingredients FROM LINKED FILE ---
-            # Replaces the hardcoded lookup: FOOD_INGREDIENTS.get(...)
-            # Logic stays the same: Get data, format as list of strings ["Name: Xg"]
             
             raw_recipe = DISH_RECIPES.get(food_name, {})
             if raw_recipe:
-                # Convert the dictionary format {"Item": 250} back into 
-                # the list string format ["Item: 250g"] your app expects
                 ingredients_list = [f"{ing}: {qty}g" for ing, qty in raw_recipe.items()]
             else:
                 ingredients_list = ["Ingredients info unavailable"]
@@ -307,33 +318,42 @@ def predict_and_stream(image_path):
                 'type': 'classification',
                 'success': True,
                 'name': food_name,
-                'ingredients': ingredients_list, # <--- POPULATED FROM NEW FILE
+                'ingredients': ingredients_list,
                 'full_label': label_str,
                 'confidence': f"{confidence * 100:.2f}%"
             }
 
         # PRINT CLASSIFICATION IMMEDIATELY & FLUSH
         print(json.dumps(classification_result))
-        sys.stdout.flush() # <--- Critical: Sends data to Node.js immediately
+        sys.stdout.flush()
 
         if not classification_result.get('success', False):
-            return # Stop if classification failed
+            return 
 
         # --- STEP 2: DEPTH & WEIGHT (SLOW) ---
         generate_depth_map(image_path)
-        estimated_weight = estimate_weight_with_gemini(image_path)
         
-        weight_value = estimated_weight if estimated_weight else 500.0
+        # Get Gemini Data
+        gemini_data = estimate_weight_with_gemini(image_path, health_conds, remaining_cals)
+        
+        weight_value = 500.0
+        smart_portion_text = "No specific recommendation available."
 
-        # Prepare Weight Result
+        if gemini_data:
+            # Extract values safely
+            weight_value = float(gemini_data.get("weight", 500))
+            smart_portion_text = gemini_data.get("smart_portion", "No specific recommendation available.")
+
+        # Prepare Weight Result with Smart Portion
         weight_result = {
             'type': 'weight',
             'success': True,
             'weight': weight_value,
-            'source': 'Gemini' if estimated_weight else 'Default'
+            'smart_portion': smart_portion_text, # <--- ADDED THIS FIELD
+            'source': 'Gemini' if gemini_data else 'Default'
         }
 
-        # PRINT WEIGHT RESULT
+        # PRINT WEIGHT RESULT TO STDOUT
         print(json.dumps(weight_result))
         sys.stdout.flush()
 
@@ -348,11 +368,15 @@ def predict_and_stream(image_path):
 
 if __name__ == '__main__':
     try:
-        if len(sys.argv) != 2:
-            raise ValueError("Usage: python predict.py <image_path>")
+        if len(sys.argv) < 2:
+            raise ValueError("Usage: python predict.py <image_path> [health_conds] [remaining_cals]")
             
         image_path = sys.argv[1]
-        predict_and_stream(image_path)
+        # ✅ Read new arguments
+        health_conds = sys.argv[2] if len(sys.argv) > 2 else "{}"
+        remaining_cals = sys.argv[3] if len(sys.argv) > 3 else "2000"
+        
+        predict_and_stream(image_path, health_conds, remaining_cals)
         
     except Exception as e:
         print(json.dumps({
