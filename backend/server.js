@@ -1,26 +1,11 @@
 const express = require("express");
-
-
-
-
-
-
-
-
-
 require("dotenv").config();
-
-
 const bodyParser = require('body-parser');
-
 const cors = require('cors');
-
 const multer = require('multer');
-
 const path = require('path');
-
 const connectDB = require('./config/db');
-
+const FoodLog = require("./models/foodLog");
 const userRoutes = require('./routes/userRoutes');
 
 const authRoutes = require('./routes/authRoutes');
@@ -443,31 +428,65 @@ app.get("/api/user/profile-summary", protect, async (req, res) => {
 });
 
 
-// --- MODIFIED PREDICT ROUTE ---
-app.post("/api/predict", upload.single("image"), (req, res) => {
+// ✅ Added 'protect' middleware to get req.userId
+app.post("/api/predict", protect, upload.single("image"), async (req, res) => {
   if (!req.file) {
-    return res
-      .status(400)
-      .json({ success: false, message: "No image uploaded" });
     return res
       .status(400)
       .json({ success: false, message: "No image uploaded" });
   }
 
+  // --- 1. Fetch User Context for AI ---
+  let healthConditions = "{}";
+  let remainingCalories = "2000"; // Default
+
+  try {
+    const userId = req.userId;
+    
+    // Fetch User Details (Health & Goals)
+    const userDetails = await UserDetails.findOne({ user: userId }).lean();
+    
+    if (userDetails) {
+      // Format health concerns
+      healthConditions = JSON.stringify(userDetails.healthConcerns || {});
+
+      // Calculate Remaining Calories
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const todayLogs = await FoodLog.find({
+        user: userId,
+        date: { $gte: todayStart }
+      });
+
+      const consumed = todayLogs.reduce((sum, item) => sum + (item.nutrients?.calories || 0), 0);
+      const goal = userDetails.caloriesGoal || 2000;
+      remainingCalories = String(Math.max(0, goal - consumed));
+      
+      console.log(`ℹ️ User Context - Remaining Cal: ${remainingCalories}, Health: ${healthConditions}`);
+    }
+  } catch (err) {
+    console.error("⚠️ Error fetching user context for prediction:", err);
+    // Continue with defaults if DB fails
+  }
+
   const imagePath = path.resolve(req.file.path);
   const scriptPath = path.join(__dirname, "predict.py");
 
+  // ✅ Pass context as arguments to Python script
   console.log(`🚀 Spawning python: ${scriptPath} ${imagePath}`);
-
-  // Use spawn instead of exec for streaming
-  const pythonProcess = spawn('python', [scriptPath, imagePath]);
+  const pythonProcess = spawn('python', [
+    scriptPath, 
+    imagePath,
+    healthConditions, // Arg 2
+    remainingCalories // Arg 3
+  ]);
 
   // Set headers for chunked transfer
-  res.setHeader('Content-Type', 'application/x-ndjson'); // Newline Delimited JSON
+  res.setHeader('Content-Type', 'application/x-ndjson');
   res.setHeader('Transfer-Encoding', 'chunked');
 
   pythonProcess.stdout.on('data', (data) => {
-    // Pass data directly to the client as it arrives
     console.log(`📤 Stream chunk: ${data}`);
     res.write(data);
   });
@@ -478,7 +497,6 @@ app.post("/api/predict", upload.single("image"), (req, res) => {
 
   pythonProcess.on('close', (code) => {
     console.log(`🏁 Python process exited with code ${code}`);
-    // Cleanup file
     fs.unlink(imagePath, (err) => {
       if (err) console.error("Error deleting temp file:", err);
     });
