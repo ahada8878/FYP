@@ -589,14 +589,14 @@ class _CreativeLoginPageState extends State<CreativeLoginPage>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        Center(
-                          child: Text(
-                            'Or log in with...',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                          ),
-                        ),
+                        // Center(
+                        //   child: Text(
+                        //     'Or log in with...',
+                        //     style: textTheme.bodySmall?.copyWith(
+                        //       color: colorScheme.onSurface.withOpacity(0.6),
+                        //     ),
+                        //   ),
+                        // ),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,

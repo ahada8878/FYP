@@ -117,7 +117,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  static const String _spoonacularApiKey = '3d0b214d5d484899b0b8863fcddde467';
+  static const String _spoonacularApiKey = '5b037f88b6e34ea8b8b88179916ed15a';
   static const String _spoonacularBaseUrl = 'https://api.spoonacular.com';
   static const String _serverBaseUrl = '$baseURL';
 

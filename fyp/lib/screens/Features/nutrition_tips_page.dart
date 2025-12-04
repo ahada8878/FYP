@@ -12,9 +12,12 @@ import 'dart:math' as math;
 import 'package:lottie/lottie.dart';
 
 // Mocking Dependencies
+// Auth Service
 class AuthService {
+  static const String _tokenKey = 'auth_token';
   Future<String?> getToken() async {
-    return 'mock_auth_token_12345';
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
   }
 }
 
@@ -702,6 +705,7 @@ class _NutritionTipsPageState extends State<NutritionTipsPage> {
 
   Future<HealthAnalysis> _fetchHealthAnalysis() async {
     final String apiUrl = '$baseURL/api/generate-ai-content';
+
     final token = await _authService.getToken();
     if (token == null || token.isEmpty) throw Exception('Authentication required.');
 

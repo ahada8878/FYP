@@ -31,6 +31,9 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   bool _hasError = false;
   String? _smartPortionRecommendation;
 
+  // ✅ ADD THIS VARIABLE
+  String? _uploadedImageUrl;
+
   // --- INGREDIENT VARIABLES ---
   List<String> _baseIngredientsRaw = [];
   
@@ -274,6 +277,15 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
   void _handleStreamChunk(String line) {
     try {
       final Map<String, dynamic> data = jsonDecode(line);
+
+      // ✅ ADD THIS BLOCK
+      if (data['type'] == 'uploaded_image') {
+        setState(() {
+          _uploadedImageUrl = data['url'];
+          print("✅ Image URL received: $_uploadedImageUrl");
+        });
+        return; // Exit here as this chunk doesn't have prediction data
+      }
 
       if (data['type'] == 'classification') {
         if (data['success'] == true) {
@@ -562,6 +574,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
       'carbs': _carbsController.text,
       'portion': double.tryParse(_portionController.text) ?? 500.0,
       'ingredients': finalIngredients,
+      'imageUrl': _uploadedImageUrl,
     };
     _showMealTypeDialog(finalData);
   }
@@ -649,6 +662,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
 
     final String mealType = foodData['mealType'];
     final String productName = foodData['name'];
+    final String? imageUrl = foodData['imageUrl'];
 
     final Map<String, dynamic> nutrients = {
       'calories': double.tryParse(foodData['calories']) ?? 0.0,
@@ -662,7 +676,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
       productName: productName,
       nutrients: nutrients,
       date: DateTime.now(),
-      imageUrl: null,
+      imageUrl: imageUrl,
     );
 
     setState(() {
@@ -677,7 +691,7 @@ class _AiScannerResultPageState extends State<AiScannerResultPage> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

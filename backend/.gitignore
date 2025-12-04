@@ -1,6 +1,9 @@
 node_modules/
 uploads/
+depth_maps/
 .env
 *.onnx
 *.pt
 *.h5
+__pycache__/
+.env

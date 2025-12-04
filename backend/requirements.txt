@@ -5,3 +5,5 @@ pytesseract
 aiohttp
 requests
 numpy
+timm
+google.generativeai

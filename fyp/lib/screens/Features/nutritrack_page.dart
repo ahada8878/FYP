@@ -2,7 +2,8 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lottie/lottie.dart'; 
+import 'package:lottie/lottie.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Added this import
 // 🚨 Ensure these point to your actual files
 import 'package:fyp/models/food_log.dart'; 
 import 'package:fyp/services/food_log_service.dart'; 
@@ -15,7 +16,6 @@ const Color greyText = Color(0xFF636E72);
 const Color lightBg = Color(0xFFFAFAFA);
 
 class NutriTrackPage extends StatefulWidget {
-  // ✅ Added this back so your other screen doesn't crash
   final String? initialMessage;
 
   const NutriTrackPage({super.key, this.initialMessage});
@@ -31,10 +31,8 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
   @override
   void initState() {
     super.initState();
-    // ✅ Start with loader enabled
     _logsFuture = _fetchLastSevenDaysLogs(isInitialLoad: true);
 
-    // ✅ Handle the initial message (SnackBar)
     if (widget.initialMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -49,9 +47,8 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
   }
 
   Future<Map<DateTime, List<FoodLog>>> _fetchLastSevenDaysLogs({bool isInitialLoad = false}) async {
-    // --- ⏳ 5-SECOND LOADER (Only on first load) ---
     if (isInitialLoad) {
-      await Future.delayed(const Duration(seconds: 5));
+      await Future.delayed(const Duration(seconds: 2)); // Reduced slightly for better UX
     }
 
     Map<DateTime, List<FoodLog>> logData = {};
@@ -80,7 +77,6 @@ class _NutriTrackPageState extends State<NutriTrackPage> {
 
   Future<void> _handleRefresh() async {
     setState(() {
-      // ✅ Instant refresh (no delay)
       _logsFuture = _fetchLastSevenDaysLogs(isInitialLoad: false);
     });
   }
@@ -423,18 +419,39 @@ class _GlassDayCard extends StatelessWidget {
 
   Widget _buildLoggedItem(FoodLog log) {
     bool isSkipped = log.nutrients.calories == 0 && log.productName.startsWith("Skipped");
+    // ✅ Check for image presence
+    bool hasImage = log.imageUrl != null && log.imageUrl!.isNotEmpty;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Row(
         children: [
-          Container(
-            width: 4, height: 30,
-            decoration: BoxDecoration(
-              color: isSkipped ? Colors.grey.shade300 : safeGreen,
-              borderRadius: BorderRadius.circular(2)
-            ),
-          ),
+          // ✅ 1. Logic to show Image OR Vertical Bar
+          if (hasImage) 
+             ClipRRect(
+               borderRadius: BorderRadius.circular(10),
+               child: CachedNetworkImage(
+                 imageUrl: log.imageUrl!,
+                 width: 45,
+                 height: 45,
+                 fit: BoxFit.cover,
+                 placeholder: (c, u) => Container(color: Colors.grey[200]),
+                 errorWidget: (c, u, e) => Container(color: Colors.grey[200], child: const Icon(Icons.error, size: 15)),
+               ),
+             )
+          else 
+             // Fallback to original vertical bar design if no image
+             Container(
+               width: 4, height: 30,
+               decoration: BoxDecoration(
+                 color: isSkipped ? Colors.grey.shade300 : safeGreen,
+                 borderRadius: BorderRadius.circular(2)
+               ),
+             ),
+          
           const SizedBox(width: 12),
+          
+          // 2. Text Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,6 +461,8 @@ class _GlassDayCard extends StatelessWidget {
               ],
             ),
           ),
+          
+          // 3. Calories
           if (!isSkipped)
             Text("${log.nutrients.calories.round()} kcal", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: darkText)),
         ],

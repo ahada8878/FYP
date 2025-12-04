@@ -551,7 +551,8 @@ class LoggedFood {
   final String name;
   final String icon;
   final int calories;
-  LoggedFood({required this.name, required this.icon, required this.calories});
+  final String? imageUrl;
+  LoggedFood({required this.name, required this.icon, required this.calories, this.imageUrl,});
 }
 
 // --- Main Page Widget ---
@@ -756,7 +757,8 @@ class _MealTrackingPageState extends State<MealTrackingPage>
             final loggedFood = LoggedFood(
                 name: log.productName,
                 icon: '･｣',
-                calories: log.nutrients.calories.toInt());
+                calories: log.nutrients.calories.toInt(),
+                imageUrl: log.imageUrl,);
 
             String targetMeal = log.mealType;
             if (targetMeal == 'Snack') targetMeal = 'Snack';
@@ -2600,6 +2602,7 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
   bool _isExpanded = false;
   late AnimationController _shimmerController;
   late AnimationController _progressController;
+
   @override
   void initState() {
     super.initState();
@@ -2733,14 +2736,47 @@ class _CreativeTimelineMealItemState extends State<_CreativeTimelineMealItem>
                 child: Column(
                   children: [
                     const Divider(height: 24, indent: 58),
+                    // ✅ UPDATED MAPPING LOGIC START
                     ...widget.meal.loggedFoods.map((food) => ListTile(
-                        dense: true,
-                        leading: Icon(Icons.local_dining_rounded,
-                            color: Colors.grey[800],
-                            size: 20), // ✅ Changed to Fork & Spoon Icon
-                        title: Text(food.name),
-                        trailing: Text('${food.calories} kcal',
-                            style: TextStyle(color: Colors.grey[800])))),
+                          dense: true,
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: (food.imageUrl != null &&
+                                    food.imageUrl!.isNotEmpty)
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: CachedNetworkImage(
+                                      imageUrl: food.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      width: 40,
+                                      height: 40,
+                                      placeholder: (context, url) =>
+                                          const Padding(
+                                        padding: EdgeInsets.all(12.0),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Icon(
+                                        Icons.local_dining_rounded,
+                                        color: Colors.grey[800],
+                                        size: 20,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(Icons.local_dining_rounded,
+                                    color: Colors.grey[800], size: 20),
+                          ),
+                          title: Text(food.name),
+                          trailing: Text('${food.calories} kcal',
+                              style: TextStyle(color: Colors.grey[800])),
+                        )),
+                    // ✅ UPDATED MAPPING LOGIC END
                     ListTile(
                       dense: true,
                       leading: Icon(Icons.add_circle_outline,

@@ -55,10 +55,9 @@ class NotificationService {
     }
   }
 
-  /// Schedules notifications every 5 minutes with a 1-minute gap:
-  /// Cycle 1 (Starts +5 min): Food @ T+5, Weight @ T+6, Water @ T+7
-  /// Cycle 2 (Starts +10 min): Food @ T+10, Weight @ T+11, Water @ T+12
-  /// ...Repeats for a set number of cycles (e.g., 1 hour)
+  /// Schedules 3 notifications (Food, Weight, Water) to repeat every 12 hours.
+  /// Example: 10:00 AM and 10:00 PM
+  /// Gap: 1 minute between each category.
   Future<void> scheduleDailyReminders() async {
     // Cancel old ones to avoid duplicates
     await flutterLocalNotificationsPlugin.cancelAll();
@@ -75,57 +74,69 @@ class NotificationService {
 
     final now = tz.TZDateTime.now(tz.local);
 
-    // Schedule for the next 60 minutes (12 cycles of 5 minutes)
-    // You can increase the loop count for longer duration
-    for (int i = 0; i < 12; i++) {
-      // Every 5 minutes: 5, 10, 15...
-      int baseDelayMinutes = (i + 1) * 5;
+    // Schedule for 10:00 AM and 10:00 PM (22:00)
+    // This creates a 12-hour cycle.
+    for (int i = 0; i < 2; i++) {
+      int hour = 10 + (i * 12); // i=0 -> 10, i=1 -> 22
       
-      // Unique IDs for each instance
-      // Cycle 0: 100, 101, 102
-      // Cycle 1: 200, 201, 202
-      int baseId = (i * 100) + 100;
+      // Calculate the next occurrence of this hour
+      tz.TZDateTime scheduledDate = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        0, // Start at :00 minutes
+      );
 
-      // 1. Food Reminder (Base time)
-      // e.g., i=0 -> T+5 min
+      // If the time has already passed for today, schedule for tomorrow
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
+
+      // Unique IDs: Morning (100s), Evening (200s)
+      int baseId = (i + 1) * 100;
+
+      // 1. Food Reminder (Hour:00)
       await flutterLocalNotificationsPlugin.zonedSchedule(
         baseId + 1,
         '🍎 NutriWise Daily',
-        'Don\'t forget to log your meals for today!',
-        now.add(Duration(minutes: baseDelayMinutes)),
+        'Don\'t forget to log your meals!',
+        scheduledDate,
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time, // Repeats daily at this time
         payload: 'food_log',
       );
 
-      // 2. Weight Reminder (Base + 1 minute gap)
-      // e.g., i=0 -> T+6 min
+      // 2. Weight Reminder (Hour:01) - 1 min gap
       await flutterLocalNotificationsPlugin.zonedSchedule(
         baseId + 2,
         '⚖️ Track Your Progress',
         'Please log your weight to keep your stats updated.',
-        now.add(Duration(minutes: baseDelayMinutes + 1)),
+        scheduledDate.add(const Duration(minutes: 1)),
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
         payload: 'weight_log',
       );
 
-      // 3. Water Reminder (Base + 2 minute gap)
-      // e.g., i=0 -> T+7 min
+      // 3. Water Reminder (Hour:02) - 1 min gap
       await flutterLocalNotificationsPlugin.zonedSchedule(
         baseId + 3,
         '💧 Stay Hydrated',
         'Final check: Have you logged your water intake?',
-        now.add(Duration(minutes: baseDelayMinutes + 2)),
+        scheduledDate.add(const Duration(minutes: 2)),
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
         payload: 'water_log',
       );
     }
 
-    debugPrint("📅 NutriWise: Reminders scheduled every 5 minutes for the next hour.");
+    debugPrint("📅 NutriWise: Reminders scheduled for 10:00 AM & 10:00 PM.");
   }
 }
